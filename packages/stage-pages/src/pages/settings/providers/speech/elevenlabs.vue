@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { SpeechProviderWithExtraOptions } from '@xsai-ext/providers/utils'
-import type { UnElevenLabsOptions } from 'unspeech'
 
 import {
   SpeechPlayground,
@@ -52,7 +51,7 @@ const availableVoices = computed(() => {
 
 // Generate speech with ElevenLabs-specific parameters
 async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: boolean) {
-  const provider = await providersStore.getProviderInstance(providerId) as SpeechProviderWithExtraOptions<string, UnElevenLabsOptions>
+  const provider = await providersStore.getProviderInstance<SpeechProviderWithExtraOptions<string, Record<string, unknown>>>(providerId)
   if (!provider) {
     throw new Error('Failed to initialize speech provider')
   }

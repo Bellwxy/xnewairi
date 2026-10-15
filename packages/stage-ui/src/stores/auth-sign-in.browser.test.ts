@@ -1,6 +1,6 @@
 import type { Session, User } from 'better-auth'
 
-import { createPinia, setActivePinia } from 'pinia'
+import { createPinia, disposePinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 
@@ -23,34 +23,6 @@ vi.mock('../libs/auth-oidc', () => ({
   refreshAccessToken: vi.fn(),
 }))
 
-class MemoryStorage implements Storage {
-  readonly values = new Map<string, string>()
-
-  get length() {
-    return this.values.size
-  }
-
-  clear() {
-    this.values.clear()
-  }
-
-  getItem(key: string) {
-    return this.values.get(key) ?? null
-  }
-
-  key(index: number) {
-    return [...this.values.keys()][index] ?? null
-  }
-
-  removeItem(key: string) {
-    this.values.delete(key)
-  }
-
-  setItem(key: string, value: string) {
-    this.values.set(key, value)
-  }
-}
-
 const user: User = {
   id: 'user-1',
   name: 'AIRI User',
@@ -69,15 +41,14 @@ const session: Session = {
   updatedAt: new Date('2026-01-01T00:00:00.000Z'),
 }
 
-describe('auth store sign-in requests', () => {
-  let storage: MemoryStorage
+describe('account sign-in without billing', () => {
+  let pinia: ReturnType<typeof createPinia>
+  const storage = localStorage
 
   beforeEach(() => {
-    storage = new MemoryStorage()
-    vi.stubGlobal('localStorage', storage)
-    // Authentication also requests credits. Keep that HTTP boundary inside the test.
-    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ flux: 0 })))
-    setActivePinia(createPinia())
+    storage.clear()
+    pinia = createPinia()
+    setActivePinia(pinia)
     vi.mocked(triggerSignIn).mockReset()
     vi.mocked(triggerSignIn).mockResolvedValue()
     vi.mocked(requestAuthSession).mockReset()
@@ -85,6 +56,7 @@ describe('auth store sign-in requests', () => {
   })
 
   afterEach(() => {
+    disposePinia(pinia)
     vi.unstubAllGlobals()
   })
 
@@ -142,11 +114,11 @@ describe('auth store sign-in requests', () => {
   })
 
   it('loads persisted credentials only when the store initializes', async () => {
-    storage.values.set('auth/v1/token', 'persisted-access-token')
-    storage.values.set('auth/v1/refresh-token', 'persisted-refresh-token')
-    storage.values.set('auth/v1/oidc-id-token', 'persisted-id-token')
-    storage.values.set('auth/v1/oidc-client-id', 'airi-stage-web')
-    storage.values.set('auth/v1/oidc-token-expiry', String(Date.now() + 60_000))
+    storage.setItem('auth/v1/token', 'persisted-access-token')
+    storage.setItem('auth/v1/refresh-token', 'persisted-refresh-token')
+    storage.setItem('auth/v1/oidc-id-token', 'persisted-id-token')
+    storage.setItem('auth/v1/oidc-client-id', 'airi-stage-web')
+    storage.setItem('auth/v1/oidc-token-expiry', String(Date.now() + 60_000))
     const authStore = useAuthStore()
 
     expect(authStore.token).toBeNull()
@@ -157,17 +129,16 @@ describe('auth store sign-in requests', () => {
     expect(authStore.token).toBe('persisted-access-token')
   })
 
-  it('reads the capacitor percent and fallback choice with the Flux balance', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ flux: 5, capacitorPercent: 40, capacitorRechargesAt: '2026-10-11T06:00:00.000Z', fallbackToFlux: true })))
+  it('does not request a billing balance after sign-in', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>()
+    vi.stubGlobal('fetch', fetch)
     const authStore = useAuthStore()
     authStore.$patch({ user, session })
+    await nextTick()
 
-    await authStore.updateCredits()
-
-    expect(authStore.credits).toBe(5)
-    expect(authStore.capacitorPercent).toBe(40)
-    expect(authStore.capacitorRechargesAt).toBe('2026-10-11T06:00:00.000Z')
-    expect(authStore.fallbackToFlux).toBe(true)
+    expect(fetch).not.toHaveBeenCalled()
+    expect(authStore.$state).not.toHaveProperty('credits')
+    expect(authStore.$state).not.toHaveProperty('capacitorPercent')
   })
 
   it('does not persist state patches received from another window', async () => {
@@ -182,6 +153,6 @@ describe('auth store sign-in requests', () => {
     authStore.$patch({ token: 'synced-access-token' })
     await nextTick()
 
-    expect(storage.values.size).toBe(0)
+    expect(storage.length).toBe(0)
   })
 })

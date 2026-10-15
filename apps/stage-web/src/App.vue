@@ -58,27 +58,6 @@ useSpeechStore()
 useSettingsStageModel()
 useVisionStore()
 
-let stopAuthenticatedSetup: (() => void) | undefined
-let stopLoggedOutSetup: (() => void) | undefined
-
-async function removeAuthenticationProviderConfiguration() {
-  if (!syncedPinia.isLeader())
-    return
-
-  await cardStore.configureForAuthentication(false)
-}
-
-function registerAuthenticatedSetup() {
-  stopAuthenticatedSetup ??= authStore.onAuthenticated(async () => {
-    if (!syncedPinia.isLeader())
-      return
-
-    await cardStore.configureForAuthentication(true)
-    await onboardingStore.closeAfterAuthentication()
-  })
-  stopLoggedOutSetup ??= authStore.onLogout(removeAuthenticationProviderConfiguration)
-}
-
 const inferencePreload = useInferencePreload()
 const startup = useStartupResourcesStore()
 startup.reset()
@@ -153,9 +132,6 @@ async function loadStartup() {
     await startup.run('modelIndex', () => displayModelsStore.initialize())
     await startup.run('card', async () => {
       await cardStore.initialize()
-      registerAuthenticatedSetup()
-      if (!authStore.isAuthenticated)
-        await removeAuthenticationProviderConfiguration()
     })
     await startup.run('chat', () => chatStore.initialize(syncedPinia))
     await startup.run('services', () => {
@@ -188,8 +164,6 @@ watch(() => [startup.resources.find(resource => resource.id === 'modelSelection'
 })
 
 onUnmounted(() => {
-  stopAuthenticatedSetup?.()
-  stopLoggedOutSetup?.()
   chatStore.dispose()
   contextBridgeStore.dispose()
 })

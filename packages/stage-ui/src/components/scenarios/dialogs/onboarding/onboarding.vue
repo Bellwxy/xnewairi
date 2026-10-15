@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { ProviderMode } from '../../../../composables/use-analytics'
-import type { ProviderMetadata } from '../../../../libs/providers/metadata'
 import type {
   OnboardingStep,
   OnboardingStepGuard,
@@ -9,13 +7,11 @@ import type {
   ProviderConfigData,
 } from './types'
 
-import { isCustomProvidersDisabled } from '@proj-airi/stage-shared'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref } from 'vue'
 
 import StepModelSelection from './step-model-selection.vue'
 import StepProviderConfiguration from './step-provider-configuration.vue'
-import StepProviderSelection from './step-provider-selection.vue'
 import StepWelcome from './step-welcome.vue'
 
 import { useAnalytics } from '../../../../composables/use-analytics'
@@ -48,32 +44,10 @@ const {
   activeProvider,
 } = storeToRefs(consciousnessStore)
 
-// Popular providers for first-time setup
-const popularProviders = computed(() => {
-  const popular = ['openai', 'azure-openai', 'anthropic', 'amazon-bedrock', 'google-generative-ai', 'groq', 'nvidia', 'openrouter-ai', 'ollama', 'deepseek', 'player2', 'openai-compatible']
-  return allChatProvidersMetadata.value
-    .filter(provider => popular.includes(provider.id))
-    .sort((a, b) => popular.indexOf(a.id) - popular.indexOf(b.id))
-})
-
-// Selected provider and form data
-const selectedProviderId = ref('')
-
-// Computed selected provider
+const selectedProviderId = 'openai-compatible'
 const selectedProvider = computed(() => {
-  return allChatProvidersMetadata.value.find(p => p.id === selectedProviderId.value) || null
+  return allChatProvidersMetadata.value.find(p => p.id === selectedProviderId) ?? null
 })
-
-const selectedProviderType = computed<ProviderMode>(() => {
-  if (!selectedProviderId.value)
-    return 'unknown'
-  return selectedProviderId.value.startsWith('official-provider') ? 'official' : 'custom'
-})
-
-// Reset validation state when provider changes
-function selectProvider(provider: ProviderMetadata) {
-  selectedProviderId.value = provider.id
-}
 
 const requestPreviousStep: OnboardingStepPrevHandler = () => {
   return navigatePrevious()
@@ -125,24 +99,12 @@ const allSteps = computed<OnboardingStep[]>(() => {
     {
       id: 'welcome',
       component: StepWelcome,
-      props: () => ({
-        customProviderSetupEnabled: !isCustomProvidersDisabled(),
-      }),
-    },
-    {
-      id: 'provider-selection',
-      component: StepProviderSelection,
-      props: () => ({
-        selectedProviderId: selectedProviderId.value,
-        popularProviders: popularProviders.value,
-        onSelectProvider: selectProvider,
-      }),
     },
     {
       id: 'provider-configuration',
       component: StepProviderConfiguration,
       props: () => ({
-        selectedProviderId: selectedProviderId.value,
+        selectedProviderId,
         selectedProvider: selectedProvider.value,
       }),
       beforeNext: async () => {
@@ -176,8 +138,8 @@ const currentStepProps = computed(() => currentStep.value?.props?.() ?? {})
 async function handleSave() {
   trackOnboardingStepCompleted(currentStep.value?.id ?? 'unknown')
   trackOnboardingCompleted({
-    selected_provider_type: selectedProviderType.value,
-    selected_provider_id: selectedProviderId.value || undefined,
+    selected_provider_type: 'custom',
+    selected_provider_id: selectedProviderId,
     selected_use_case: 'unknown',
   })
   emit('configured')
@@ -224,7 +186,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="onboarding-step-container" min-h-0 flex flex-1 flex-col>
+  <div :class="['onboarding-step-container', 'min-h-0 flex flex-1 flex-col']">
     <Transition :name="direction === 'next' ? 'slide-next' : 'slide-prev'" mode="out-in">
       <component
         :is="currentStep.component"

@@ -17,14 +17,6 @@ describe('promo banner visuals', () => {
         action: { type: 'route', to: '/settings/modules/consciousness' },
       },
       {
-        key: 'spring',
-        action: { type: 'route', to: '/settings/flux' },
-      },
-      {
-        key: 'coupon',
-        action: { type: 'route', to: '/settings/flux' },
-      },
-      {
         key: 'home',
         action: { type: 'route', to: '/settings/scene' },
       },
@@ -34,8 +26,6 @@ describe('promo banner visuals', () => {
   it('resolves fallback labels through locale keys instead of hard-coded English strings', () => {
     expect(getPromoBannerFallbackLabelKey('signin')).toBe('stage.promo-banner.items.signin.fallbackLabel')
     expect(getPromoBannerFallbackLabelKey('build')).toBe('stage.promo-banner.items.build.fallbackLabel')
-    expect(getPromoBannerFallbackLabelKey('spring')).toBe('stage.promo-banner.items.spring.fallbackLabel')
-    expect(getPromoBannerFallbackLabelKey('coupon')).toBe('stage.promo-banner.items.coupon.fallbackLabel')
     expect(getPromoBannerFallbackLabelKey('home')).toBe('stage.promo-banner.items.home.fallbackLabel')
   })
 })

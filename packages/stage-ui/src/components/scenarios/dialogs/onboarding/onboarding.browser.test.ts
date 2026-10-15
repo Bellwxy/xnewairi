@@ -92,7 +92,7 @@ afterEach(() => {
   localStorage.clear()
 })
 
-it('publishes the onboarding login click on the leader', async () => {
+it('opens custom-provider setup without a login request in either renderer', async () => {
   vi.stubEnv('RUNTIME_ENVIRONMENT', 'electron')
   const namespace = `onboarding-login:${crypto.randomUUID()}`
   const leader = createSyncedContext(namespace, 'leader-only')
@@ -103,10 +103,19 @@ it('publishes the onboarding login click on the leader', async () => {
     global: { plugins: [follower.pinia, PiniaColada, createTestI18n()] },
   })
 
-  await screen.getByRole('button', { name: 'Sign in' }).click()
+  await screen.getByRole('button', { name: 'Setup with your provider' }).click()
 
-  await expect.poll(() => useAuthStore(leader.pinia).needsLogin).toBe(true)
-  await expect.poll(() => useAuthStore(follower.pinia).needsLogin).toBe(true)
+  await expect.element(screen.getByRole('heading', { name: 'Configure Custom Provider' })).toBeInTheDocument()
+  await expect.element(screen.getByText('Choose an AI Provider')).not.toBeInTheDocument()
+  for (const name of ['OpenAI', 'Azure OpenAI', 'Anthropic | Claude', 'Amazon Bedrock', 'Google Gemini', 'Groq', 'OpenRouter', 'Ollama', 'DeepSeek', 'OpenAI Compatible']) {
+    await expect.element(screen.getByText(name, { exact: true })).not.toBeInTheDocument()
+  }
+  await expect.element(page.getByPlaceholder('https://api.example.com/v1/')).toHaveValue('')
+  await expect.element(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+  await page.getByPlaceholder('API Key').fill('custom-key')
+  await expect.element(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+  expect(useAuthStore(leader.pinia).needsLogin).toBe(false)
+  expect(useAuthStore(follower.pinia).needsLogin).toBe(false)
 })
 
 // ROOT CAUSE:
@@ -132,22 +141,14 @@ it('persists configured credentials through the leader and loads the model list'
 
   await screen.getByRole('button', { name: 'Setup with your provider' }).click()
 
-  // The provider card is a label with a visually hidden radio input; click the
-  // card title text instead of the input, which decorative elements overlap.
-  const providerCard = screen.getByText('OpenAI Compatible').first()
-  await expect.element(providerCard).toBeInTheDocument()
-  await providerCard.click()
-  await screen.getByRole('button', { name: 'Next' }).click()
-
-  // The API key field is a password input whose placeholder is 'API Key' for
-  // openai-compatible; the base URL field keeps the schema default placeholder.
   const apiKeyInput = page.getByPlaceholder('API Key')
   await expect.element(apiKeyInput).toBeInTheDocument()
   await apiKeyInput.fill('sk-test-onboarding')
+  await page.getByPlaceholder('https://api.example.com/v1/').fill('https://gateway.example.test/v1/')
   await screen.getByRole('button', { name: 'Next' }).click()
 
   const providerId = 'openai-compatible'
-  const expectedConfig = { apiKey: 'sk-test-onboarding', baseUrl: 'https://api.openai.com/v1' }
+  const expectedConfig = { apiKey: 'sk-test-onboarding', baseUrl: 'https://gateway.example.test/v1/' }
 
   // The leader owns persistence and must hold the saved credentials.
   await expect.poll(() => leader.providerConfigStore.getProviderConfig(providerId)).toMatchObject(expectedConfig)
@@ -201,5 +202,5 @@ it('rehydrates the configuration form from the saved provider configuration', as
   })
 
   await expect.element(page.getByPlaceholder('API Key')).toHaveValue('sk-saved-key')
-  await expect.element(page.getByPlaceholder('https://api.openai.com/v1')).toHaveValue('https://saved.example.com/v1')
+  await expect.element(page.getByPlaceholder('https://api.example.com/v1/')).toHaveValue('https://saved.example.com/v1')
 })

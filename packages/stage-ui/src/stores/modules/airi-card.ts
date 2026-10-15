@@ -34,7 +34,6 @@ import { useProviderStore } from '../providers/provider'
 import { useSettingsStageModel } from '../settings/stage-model'
 import { useArtistryStore } from './artistry'
 import { useConsciousnessStore } from './consciousness'
-import { configureAsDefaultsIfEmpty, unconfigureAuthenticationProviders } from './default'
 import { useSpeechStore } from './speech'
 import { useVisionStore } from './vision'
 
@@ -106,7 +105,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     serializer: StorageSerializers.object,
   })
   let appliedModules: AiriExtension['modules'] | undefined
-  let pendingAuthenticationSetup: Promise<void> | undefined
 
   const activeCard = computed(() => cards.value.get(activeCardId.value))
   function useRuntimeModuleStores() {
@@ -174,68 +172,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   }
 
   /**
-   * Updates authenticated defaults without changing any card's stored overrides.
-   * The synchronization leader owns provider setup, persistence, and reapplication.
-   */
-  async function configureForAuthentication(authenticated: boolean) {
-    const previous = pendingAuthenticationSetup
-    const operation = (async () => {
-      // A failed setup is reported to its caller. The next auth event must
-      // still run, for example to remove providers after a failed login.
-      if (previous)
-        await previous.catch(() => {})
-      await applyAuthenticationDefaults(authenticated)
-      if (authenticated) {
-        // Voice discovery is owned by the speech action. It must not hold the
-        // authentication queue, card edits, or logout cleanup open on network IO.
-        void loadAuthenticatedSpeechVoices().catch((error) => {
-          console.error('Failed to refresh authenticated speech voices:', errorMessageFrom(error))
-        })
-      }
-    })()
-    pendingAuthenticationSetup = operation
-    try {
-      await operation
-    }
-    finally {
-      if (pendingAuthenticationSetup === operation)
-        pendingAuthenticationSetup = undefined
-    }
-  }
-
-  async function applyAuthenticationDefaults(authenticated: boolean) {
-    rememberInheritedSettings()
-    if (!moduleDefaults.value)
-      return
-    await writeRuntimeModules(moduleDefaults.value)
-    try {
-      if (authenticated)
-        await configureAsDefaultsIfEmpty()
-      else
-        await unconfigureAuthenticationProviders()
-      moduleDefaults.value = readRuntimeModules()
-    }
-    finally {
-      appliedModules = undefined
-      await applyActiveCardSettings()
-    }
-  }
-
-  /** Loads the effective auth-owned voice catalog after card setup finishes. */
-  async function loadAuthenticatedSpeechVoices(): Promise<void> {
-    const { speech } = useRuntimeModuleStores()
-    const provider = useProviderConfigStore().providers[speech.activeSpeechProvider]
-    if (provider?.configuredBy !== 'authentication')
-      return
-
-    speech.ensureActiveSpeechModel()
-    await speech.loadVoicesForProvider(
-      speech.activeSpeechProvider,
-      speech.activeSpeechModel || undefined,
-    )
-  }
-
-  /**
    * `source` feeds the `card_created` analytics event: `scratch` = built in
    * the creation dialog, `import` = ccv3 JSON upload, `duplicate` = cloned
    * from an existing card (profile switcher). Required so a new call site
@@ -249,7 +185,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   }
 
   const removeCard = async (id: string) => {
-    await pendingAuthenticationSetup
     // The built-in card is the guaranteed fallback for every runtime profile.
     if (id === 'default')
       return false
@@ -270,7 +205,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   }
 
   const updateCard = async (id: string, updates: AiriCard | Card | ccv3.CharacterCardV3) => {
-    await pendingAuthenticationSetup
     const existingCard = cards.value.get(id)
     if (!existingCard)
       return false
@@ -317,7 +251,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   }
 
   async function updateActiveCardDisplayModel(displayModelId: string | undefined) {
-    await pendingAuthenticationSetup
     const updated = updateActiveCardModules(() => ({ displayModelId }))
     if (updated)
       await applyActiveCardSettings()
@@ -325,7 +258,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   }
 
   async function updateActiveCardConsciousness(consciousness: AiriExtension['modules']['consciousness']) {
-    await pendingAuthenticationSetup
     const updated = updateActiveCardModules(() => ({ consciousness }))
     if (updated)
       await applyActiveCardSettings()
@@ -333,7 +265,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   }
 
   async function updateActiveCardVision(vision: AiriExtension['modules']['vision']) {
-    await pendingAuthenticationSetup
     const updated = updateActiveCardModules(() => ({ vision }))
     if (updated)
       await applyActiveCardSettings()
@@ -348,7 +279,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
    * default keeps an empty model until the user selects one.
    */
   async function selectActiveCardVisionProvider(provider: string) {
-    await pendingAuthenticationSetup
     const vision = useVisionStore()
     vision.activeProvider = provider
     vision.resetModelSelection()
@@ -358,7 +288,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   }
 
   async function updateActiveCardSpeech(speech: Pick<AiriExtension['modules']['speech'], 'provider' | 'model' | 'voice_id'>) {
-    await pendingAuthenticationSetup
     const updated = updateActiveCardModules(({ modules }) => ({
       speech: {
         ...modules.speech,
@@ -372,7 +301,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
 
   /** Clears a removed provider from defaults and the active card, not other cards. */
   async function clearProviderSelections(providerId: string) {
-    await pendingAuthenticationSetup
     rememberInheritedSettings()
     const defaults = moduleDefaults.value
     if (!defaults)
@@ -756,7 +684,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     if (!snapshot)
       return false
 
-    await pendingAuthenticationSetup
     if (!cards.value.has(id))
       return false
 
@@ -876,10 +803,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
 
   /** Applies the initial card while preserving setup context when no auth work is pending. */
   async function initialize() {
-    // Awaiting undefined would leave component setup before the first runtime
-    // stores bind i18n. An existing auth operation already owns those stores.
-    if (pendingAuthenticationSetup)
-      await pendingAuthenticationSetup
     // This synchronized action executes in the leader. Each window calls it,
     // but only the first call can apply persisted card settings to the runtime.
     if (initialized)
@@ -904,7 +827,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
    * leader. Replicated state snapshots never invoke this command.
    */
   async function activateCard(id: string) {
-    await pendingAuthenticationSetup
     if (!cards.value.has(id))
       return false
 
@@ -1034,7 +956,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     resetState,
     initialize,
     activateCard,
-    configureForAuthentication,
     clearProviderSelections,
 
     currentModels: computed(() => {
@@ -1071,7 +992,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       'activateCard',
       'addCard',
       'initialize',
-      'configureForAuthentication',
       'clearProviderSelections',
       'removeCard',
       'updateActiveCardConsciousness',

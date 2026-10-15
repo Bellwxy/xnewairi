@@ -23,7 +23,6 @@ import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consci
 import { useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
-import { useOnboardingStore } from '@proj-airi/stage-ui/stores/onboarding'
 import { usePerfTracerBridgeStore } from '@proj-airi/stage-ui/stores/perf-tracer-bridge'
 import { listProvidersForPluginHost, shouldPublishPluginHostCapabilities } from '@proj-airi/stage-ui/stores/plugin-host-capabilities'
 import { useSettings, useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
@@ -151,7 +150,6 @@ const stopLeadershipListener = syncedPinia.onLeadershipChange((isLeader) => {
 
 function createFullStageRuntime() {
   const authStore = useAuthStore()
-  const onboardingStore = useOnboardingStore()
   const contextBridgeStore = useContextBridgeStore()
   const displayModelsStore = useDisplayModelsStore()
   const serverChannelSettingsStore = useServerChannelSettingsStore()
@@ -168,27 +166,6 @@ function createFullStageRuntime() {
   useSpeechStore()
   useSettingsStageModel()
   useVisionStore()
-
-  let stopAuthenticatedSetup: (() => void) | undefined
-  let stopLoggedOutSetup: (() => void) | undefined
-
-  async function removeAuthenticationProviderConfiguration() {
-    if (!syncedPinia.isLeader())
-      return
-
-    await cardStore.configureForAuthentication(false)
-  }
-
-  function registerAuthenticatedSetup() {
-    stopAuthenticatedSetup ??= authStore.onAuthenticated(async () => {
-      if (!syncedPinia.isLeader())
-        return
-
-      await cardStore.configureForAuthentication(true)
-      await onboardingStore.closeAfterAuthentication()
-    })
-    stopLoggedOutSetup ??= authStore.onLogout(removeAuthenticationProviderConfiguration)
-  }
 
   const { activeProvider, artistryGlobals, activeModel, defaultPromptPrefix, providerOptions } = storeToRefs(artistryStore)
   const getServerChannelConfig = useElectronEventaInvoke(electronGetServerChannelConfig)
@@ -297,9 +274,6 @@ function createFullStageRuntime() {
       await authStore.initialize()
       await displayModelsStore.initialize()
       await cardStore.initialize()
-      registerAuthenticatedSetup()
-      if (!authStore.isAuthenticated)
-        await removeAuthenticationProviderConfiguration()
 
       await displayModelsStore.loadDisplayModelsFromIndexedDB()
       await settingsStore.initializeStageModel()
@@ -343,8 +317,6 @@ function createFullStageRuntime() {
       inferencePreload.triggerPreload()
     },
     dispose() {
-      stopAuthenticatedSetup?.()
-      stopLoggedOutSetup?.()
       contextBridgeStore.dispose()
     },
   }

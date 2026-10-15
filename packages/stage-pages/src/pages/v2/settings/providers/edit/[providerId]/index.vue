@@ -20,6 +20,7 @@ import {
 } from '@proj-airi/stage-ui/components'
 import { getDefinedProvider, getSchemaDefault, getValidatorsOfProvider, validateProvider } from '@proj-airi/stage-ui/libs'
 import { useProviderConfigStore } from '@proj-airi/stage-ui/stores/providers/config'
+import { useProviderStore } from '@proj-airi/stage-ui/stores/providers/provider'
 import { Button, Callout, FieldCheckbox, FieldCombobox, FieldInput, FieldKeyValues, GhostButton } from '@proj-airi/ui'
 import { computedAsync, useCloned, useDebounceFn } from '@vueuse/core'
 import { DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger } from 'reka-ui'
@@ -32,12 +33,14 @@ const router = useRouter()
 const route = useRoute('/v2/settings/providers/edit/[providerId]/')
 
 const providerStore = useProviderConfigStore()
+const inferenceStore = useProviderStore()
 const emptyProviderConfig = Object.freeze({})
 const emptyProviderConfigValues = Object.freeze({})
 
 const providerId = computed(() => route.params.providerId as string)
 const providerConfig = computed(() => providerStore.getProvider(providerId.value) ?? emptyProviderConfig)
 const providerDefinition = computed(() => getDefinedProvider(providerConfig.value.definitionId))
+const providerMetadata = computed(() => inferenceStore.availableProvidersMetadata.find(provider => provider.id === providerId.value))
 
 // NOTICE: useCloned handles deep cloning and state isolation for the draft.
 // It provides a 'cloned' ref that we use for editing without affecting the original store state.
@@ -405,24 +408,23 @@ function handleDeleteProvider() {
   </div>
   <ProviderSettingsLayout
     v-else
-    :provider-name="providerDefinition?.nameLocalize({ t }) || providerDefinition?.name || ''"
-    :provider-icon="providerDefinition?.icon"
-    :provider-icon-color="providerDefinition?.iconColor"
+    :provider-name="providerMetadata?.localizedName"
+    :provider-icon="providerMetadata?.icon"
     :on-back="() => router.back()"
   >
     <div :class="['flex', 'flex-col', 'gap-4']">
       <div :class="['flex', 'flex-wrap', 'items-center', 'justify-between', 'gap-3']">
         <div :class="['flex', 'flex-col', 'gap-1']">
           <div :class="['flex', 'items-center', 'gap-2']">
-            <div v-if="providerDefinition?.icon || providerDefinition?.iconColor" :class="['relative', 'h-8', 'w-8']">
-              <div :class="[providerDefinition?.iconColor || providerDefinition?.icon, 'absolute', 'left-50%', 'top-50%', '-translate-x-1/2', '-translate-y-1/2', 'text-2xl']" />
+            <div v-if="providerMetadata?.icon" :class="['relative', 'h-8', 'w-8']">
+              <div :class="[providerMetadata.icon, 'absolute', 'left-50%', 'top-50%', '-translate-x-1/2', '-translate-y-1/2', 'text-2xl']" />
             </div>
             <h2 :class="['text-lg', 'text-neutral-900', 'font-semibold', 'dark:text-neutral-100']">
-              {{ providerDefinition?.nameLocalize({ t }) || providerDefinition?.name || providerId }}
+              {{ providerMetadata?.localizedName }}
             </h2>
           </div>
           <div :class="['text-sm', 'text-neutral-500', 'dark:text-neutral-400']">
-            {{ providerDefinition?.descriptionLocalize({ t }) || providerDefinition?.description }}
+            {{ providerMetadata?.localizedDescription }}
           </div>
         </div>
         <div :class="['flex', 'items-center', 'gap-2']">
@@ -502,7 +504,7 @@ function handleDeleteProvider() {
                 <ProviderApiKeyInput
                   v-if="field.key === 'apiKey'"
                   :model-value="getStringField(field.key)"
-                  :provider-name="providerDefinition?.nameLocalize({ t }) || providerDefinition?.name || ''"
+                  :provider-name="providerMetadata?.localizedName"
                   :label="field.label"
                   :description="field.description"
                   :placeholder="field.placeholder"

@@ -24,6 +24,10 @@ Put primitive UI components in `@proj-airi/ui`. Put shared layouts in `@proj-air
 
 ## Provider settings
 
+Provider catalogs expose only custom API endpoints for chat, vision, speech, and transcription.
+The directory has no preset image providers, price filters, or deployment filters.
+The shared routes do not include official hosted providers, Flux purchases, or Capacitor subscriptions.
+
 The active chat and vision provider routes live under `/settings/providers`. They use `ProviderGenerationSettings` from stage-ui to render protocol and native search options from the provider catalog. The V2 editor is a separate consumer and does not replace these routes.
 
 ## Hearing settings

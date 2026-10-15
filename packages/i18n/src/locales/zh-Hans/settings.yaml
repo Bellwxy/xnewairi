@@ -15,6 +15,7 @@ dialogs:
     description: 让我们设置您的第一个服务来源来开始使用。
     selectProvider: 选择服务来源
     configureProvider: 配置 {provider}
+    back: 返回
     apiKey: API 密钥
     apiKeyHelp: 从 {provider} 获取您的 API 密钥并粘贴到这里
     baseUrl: 基础 URL
@@ -1422,6 +1423,16 @@ pages:
       canceled: 购买被取消
       error: 哎呀，出错了，请稍后再试
   providers:
+    custom:
+      title: 自定义服务来源
+      description: 自定义 API 接口
+      api-key-description: 自定义接口的 API 密钥
+      base-url-description: 自定义接口的基础地址
+      catalog-title: 自定义服务来源
+      search-configured: 搜索已配置的服务来源
+      search-available: 搜索自定义服务来源
+      add: 添加自定义服务来源
+      empty: 暂无自定义服务来源
     catalog:
       edit:
         config-id-not-found: 未找到服务来源配置。

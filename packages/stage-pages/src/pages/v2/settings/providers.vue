@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { PaneArea } from '@proj-airi/stage-ui/components'
-import { getDefinedProvider, listProviders } from '@proj-airi/stage-ui/libs'
+import { getDefinedProvider } from '@proj-airi/stage-ui/libs'
 import { useProviderConfigStore } from '@proj-airi/stage-ui/stores/providers/config'
 import { useProviderStore } from '@proj-airi/stage-ui/stores/providers/provider'
 import { Button, Input } from '@proj-airi/ui'
@@ -15,23 +15,22 @@ import { RouterView, useRouter } from 'vue-router'
 const { t } = useI18n()
 const router = useRouter()
 const providerStore = useProviderConfigStore()
-const { availableProvidersMetadata } = storeToRefs(useProviderStore())
+const inferenceStore = useProviderStore()
+const { availableProvidersMetadata } = storeToRefs(inferenceStore)
 
 const availableProviderSearchQuery = ref('')
 const availableProviderSearchQueryDebounced = refDebounced(availableProviderSearchQuery, 250)
 
 const availableProviders = computed(() => {
-  // The add menu offers only providers available on this surface. The store
-  // awaits each definition's isAvailableBy, so the available set starts empty
-  // and fills in; filtering here keeps the raw registry order for the rest.
-  const availableIds = new Set(availableProvidersMetadata.value.map(metadata => metadata.id))
-  return listProviders()
-    .filter(provider => availableIds.has(provider.id))
+  return availableProvidersMetadata.value
+    .filter(provider => provider.category !== 'vision' && getDefinedProvider(provider.id))
     .map(provider => ({
       ...provider,
-      nameLocalized: provider.nameLocalize({ t }),
+      nameLocalized: `${provider.localizedName} (${t(`settings.pages.providers.categories.${provider.category}.title`)})`,
     }))
 })
+
+const listedProviders = computed(() => availableProvidersMetadata.value.filter(provider => providerStore.listedProviders[provider.id]))
 
 const availableProvidersFiltered = computed(() => {
   if (!availableProviderSearchQueryDebounced.value) {
@@ -39,7 +38,7 @@ const availableProvidersFiltered = computed(() => {
   }
 
   return availableProviders.value.filter(provider =>
-    provider.name.toLowerCase().includes(availableProviderSearchQueryDebounced.value.toLowerCase()),
+    provider.nameLocalized.toLowerCase().includes(availableProviderSearchQueryDebounced.value.toLowerCase()),
   )
 })
 
@@ -49,8 +48,8 @@ const isSmallerThan2XL = breakpoints.smaller('2xl')
 const paneDatasourceListSize = computed(() => isSmallerThan2XL.value ? 30 : 20)
 const paneDatasourceEditSize = computed(() => isSmallerThan2XL.value ? 80 : 70)
 
-function handleAdd(providerId: string) {
-  void providerStore.addProvider(providerId)
+async function handleAdd(providerId: string) {
+  await providerStore.addProvider(providerId, inferenceStore.getDefaultProviderConfig(providerId))
 }
 
 function handleClick(providerId: string) {
@@ -59,11 +58,11 @@ function handleClick(providerId: string) {
 </script>
 
 <template>
-  <div h-full w-full flex flex-col gap-2>
-    <h2 text="neutral-900 dark:neutral-100" mb-1 flex justify-between>
-      Provider Catalog
+  <div :class="['h-full w-full flex flex-col gap-2']">
+    <h2 :class="['mb-1 flex justify-between', 'text-neutral-900 dark:text-neutral-100']">
+      {{ t('settings.pages.providers.custom.catalog-title') }}
     </h2>
-    <Splitpanes class="flex gap-0.8 bg-transparent">
+    <Splitpanes :class="['flex gap-0.8 bg-transparent']">
       <Pane :min-size="10" :size="paneDatasourceListSize">
         <PaneArea
           :class="[
@@ -71,15 +70,15 @@ function handleClick(providerId: string) {
             'bg-neutral-50/90 dark:bg-neutral-900/90',
           ]"
         >
-          <div relative h-full w-full flex flex-col gap-2>
-            <div relative flex flex-1 flex-col gap-2>
+          <div :class="['relative h-full w-full flex flex-col gap-2']">
+            <div :class="['relative flex flex-1 flex-col gap-2']">
               <div :class="['flex flex-row items-center gap-2']">
-                <Input placeholder="Search configured..." variant="primary-dimmed" />
+                <Input :placeholder="t('settings.pages.providers.custom.search-configured')" variant="primary-dimmed" />
 
                 <DropdownMenuRoot>
-                  <DropdownMenuTrigger as-child aria-label="Customize options">
+                  <DropdownMenuTrigger as-child :aria-label="t('settings.pages.providers.custom.add')">
                     <Button size="sm">
-                      <div i-ph:plus-light />
+                      <div :class="['i-ph:plus-light']" />
                     </Button>
                   </DropdownMenuTrigger>
 
@@ -95,18 +94,20 @@ function handleClick(providerId: string) {
                       :side-offset="8"
                       align="start"
                     >
-                      <Input v-model="availableProviderSearchQuery" placeholder="Search supported providers..." class="mb-2" variant="primary-dimmed" />
-                      <div class="max-h-50dvh flex flex-col gap-1 overflow-y-auto">
+                      <Input v-model="availableProviderSearchQuery" :placeholder="t('settings.pages.providers.custom.search-available')" class="mb-2" variant="primary-dimmed" />
+                      <div :class="['max-h-50dvh flex flex-col gap-1 overflow-y-auto']">
                         <div v-for="(provider) in availableProvidersFiltered" :key="provider.id" @click="() => handleAdd(provider.id)">
                           <div
-                            bg="hover:neutral-200/80 dark:hover:neutral-700/80"
-                            transition="all duration-100 ease-out"
-                            flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1 text-sm
+                            :class="[
+                              'hover:bg-neutral-200/80 dark:hover:bg-neutral-700/80',
+                              'transition-all duration-100 ease-out',
+                              'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1 text-sm',
+                            ]"
                           >
                             <div class="relative w-4">
                               <div :class="[provider.iconColor || provider.icon, 'absolute left-50% top-50% -translate-x-1/2 -translate-y-1/2']" />
                             </div>
-                            <div>{{ provider?.nameLocalized || provider.name }}</div>
+                            <div>{{ provider.nameLocalized }}</div>
                           </div>
                         </div>
                       </div>
@@ -115,28 +116,30 @@ function handleClick(providerId: string) {
                 </DropdownMenuRoot>
               </div>
 
-              <div v-if="Object.keys(providerStore.listedProviders).length === 0" class="text-neutral-500 <lg:px-4" flex flex-1 flex-col items-center justify-center gap-2>
-                <div i-ph:rectangle-dashed-light text-4xl />
-                <div flex items-center justify-center gap-2>
-                  <span>No providers</span>
+              <div v-if="listedProviders.length === 0" :class="['text-neutral-500 <lg:px-4', 'flex flex-1 flex-col items-center justify-center gap-2']">
+                <div :class="['i-ph:rectangle-dashed-light text-4xl']" />
+                <div :class="['flex items-center justify-center gap-2']">
+                  <span>{{ t('settings.pages.providers.custom.empty') }}</span>
                 </div>
               </div>
 
-              <div v-auto-animate gap="0.5" h-fit max-h="[calc(100dvh-12.5rem)]" flex flex-col overflow-y-scroll>
+              <div v-auto-animate :class="['h-fit max-h-[calc(100dvh-12.5rem)]', 'flex flex-col gap-0.5 overflow-y-scroll']">
                 <div
-                  v-for="(providerEntry, index) in Object.entries(providerStore.listedProviders)"
-                  :key="index"
-                  @click="() => handleClick(providerEntry[0])"
+                  v-for="provider in listedProviders"
+                  :key="provider.id"
+                  @click="() => handleClick(provider.id)"
                 >
                   <div
-                    bg="hover:neutral-200/80 dark:hover:neutral-700/80"
-                    transition="all duration-100 ease-out"
-                    flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1 text-sm
+                    :class="[
+                      'hover:bg-neutral-200/80 dark:hover:bg-neutral-700/80',
+                      'transition-all duration-100 ease-out',
+                      'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1 text-sm',
+                    ]"
                   >
                     <div class="relative w-4">
-                      <div :class="[getDefinedProvider(providerEntry[1].definitionId)?.iconColor || getDefinedProvider(providerEntry[1].definitionId)?.icon, 'absolute left-50% top-50% -translate-x-1/2 -translate-y-1/2']" />
+                      <div :class="[provider.icon, 'absolute left-50% top-50% -translate-x-1/2 -translate-y-1/2']" />
                     </div>
-                    <div>{{ getDefinedProvider(providerEntry[1].definitionId)?.name || providerEntry[1].definitionId }}</div>
+                    <div>{{ provider.localizedName }} ({{ t(`settings.pages.providers.categories.${provider.category}.title`) }})</div>
                   </div>
                 </div>
               </div>
@@ -145,7 +148,7 @@ function handleClick(providerId: string) {
         </PaneArea>
       </Pane>
       <Pane :min-size="20" :size="paneDatasourceEditSize">
-        <PaneArea flex flex-col gap-2>
+        <PaneArea :class="['flex flex-col gap-2']">
           <RouterView />
         </PaneArea>
       </Pane>

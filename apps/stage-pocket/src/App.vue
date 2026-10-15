@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { OnboardingDialog, OnboardingStepAnalyticsNotice, StartupOverlay, ToasterRoot } from '@proj-airi/stage-ui/components'
 import { useStartupResourceTimeout } from '@proj-airi/stage-ui/composables/use-startup-resource-timeout'
-import { usePiniaSynced } from '@proj-airi/stage-ui/libs/pinia'
 import { initializeAnalytics, isAnalyticsAvailableInBuild } from '@proj-airi/stage-ui/libs/product-signals'
 import { useAuthStore } from '@proj-airi/stage-ui/stores/auth'
 import { useCharacterOrchestratorStore } from '@proj-airi/stage-ui/stores/character'
@@ -38,7 +37,6 @@ const displayModelsStore = useDisplayModelsStore()
 const settingsStore = useSettings()
 const settings = storeToRefs(settingsStore)
 const onboardingStore = useOnboardingStore()
-const syncedPinia = usePiniaSynced()
 const serverChannelStore = useModsServerChannelStore()
 const characterOrchestratorStore = useCharacterOrchestratorStore()
 const settingsAudioDeviceStore = useSettingsAudioDevice()
@@ -60,27 +58,6 @@ useHearingStore()
 useSpeechStore()
 useSettingsStageModel()
 useVisionStore()
-
-let stopAuthenticatedSetup: (() => void) | undefined
-let stopLoggedOutSetup: (() => void) | undefined
-
-async function removeAuthenticationProviderConfiguration() {
-  if (!syncedPinia.isLeader())
-    return
-
-  await cardStore.configureForAuthentication(false)
-}
-
-function registerAuthenticatedSetup() {
-  stopAuthenticatedSetup ??= authStore.onAuthenticated(async () => {
-    if (!syncedPinia.isLeader())
-      return
-
-    await cardStore.configureForAuthentication(true)
-    await onboardingStore.closeAfterAuthentication()
-  })
-  stopLoggedOutSetup ??= authStore.onLogout(removeAuthenticationProviderConfiguration)
-}
 
 const primaryColor = computed(() => {
   return isDark.value
@@ -123,9 +100,6 @@ async function loadStartup() {
     await startup.run('modelIndex', () => displayModelsStore.initialize())
     await startup.run('card', async () => {
       await cardStore.initialize()
-      registerAuthenticatedSetup()
-      if (!authStore.isAuthenticated)
-        await removeAuthenticationProviderConfiguration()
     })
     await startup.run('services', () => {
       void serverChannelStore.initialize({ possibleEvents: ['ui:configure'], connector: getHostWebSocketConnector }).catch(error => console.error('Mods server initialization failed:', error))
@@ -156,8 +130,6 @@ watch(() => [startup.resources.find(resource => resource.id === 'modelSelection'
 })
 
 onUnmounted(() => {
-  stopAuthenticatedSetup?.()
-  stopLoggedOutSetup?.()
   contextBridgeStore.dispose()
 })
 

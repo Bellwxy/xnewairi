@@ -114,29 +114,29 @@ it('reports the committed provider and model after a settings-page click', async
   vi.mocked(captureAnalyticsEvent).mockReset().mockReturnValue(true)
   vi.mocked(enableAnalyticsCapture).mockReturnValue(true)
   vi.mocked(isAnalyticsAvailableInBuild).mockReturnValue(true)
-  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => Response.json({ voices: [], models: [], flux: 0 })))
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => Response.json({ object: 'list', data: [{ id: 'custom-tts' }] })))
   const namespace = `speech-settings:${crypto.randomUUID()}`
   const leader = mountRenderer(namespace)
   await vi.waitFor(() => expect(leader.runtime.isLeader()).toBe(true))
-  await useProviderConfigStore(leader.pinia).ensureProvider('microsoft-speech', 'microsoft-speech', {
+  const providerId = 'openai-compatible-audio-speech'
+  await useProviderConfigStore(leader.pinia).ensureProvider(providerId, providerId, {
     apiKey: 'key',
     baseUrl: 'https://voices.invalid/v1/',
-    region: 'eastasia',
   })
-  await useProviderStore(leader.pinia).forceProviderConfigured('microsoft-speech')
+  await useProviderStore(leader.pinia).forceProviderConfigured(providerId)
   await leader.speech.selectProviderModel('speech-noop', 'previous-model')
   const follower = mountRenderer(namespace, SpeechSettings)
   await vi.waitFor(() => expect(follower.speech.activeSpeechModel).toBe('previous-model'))
-  await vi.waitFor(() => expect(follower.container.querySelector('input[value="microsoft-speech"]')).not.toBeNull())
-  const input = follower.container.querySelector<HTMLInputElement>('input[value="microsoft-speech"]')!
+  await vi.waitFor(() => expect(follower.container.querySelector(`input[value="${providerId}"]`)).not.toBeNull())
+  const input = follower.container.querySelector<HTMLInputElement>(`input[value="${providerId}"]`)!
   input.click()
   await vi.waitFor(() => expect(vi.mocked(captureAnalyticsEvent).mock.calls.filter(([name]) => name === 'tts_provider_selected')).toHaveLength(1))
   expect(captureAnalyticsEvent).toHaveBeenCalledWith('tts_provider_selected', expect.objectContaining({
-    tts_provider_id: 'microsoft-speech',
-    tts_model_id: 'v1',
+    tts_provider_id: providerId,
+    tts_model_id: 'custom-tts',
     source: 'settings',
   }))
-  expect(follower.speech.activeSpeechProvider).toBe('microsoft-speech')
+  expect(follower.speech.activeSpeechProvider).toBe(providerId)
 })
 
 // https://github.com/moeru-ai/airi/pull/2490#discussion_r3967708960

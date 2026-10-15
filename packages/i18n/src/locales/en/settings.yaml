@@ -33,6 +33,7 @@ dialogs:
     skipForNow: Skip for now
     saveAndContinue: Save and Continue
     next: Next
+    back: Back
     retry: Retry
     credentialsSafeLabel: Keep your API keys and credentials safe!
     credentialsSafeLocal: >-
@@ -1478,6 +1479,16 @@ pages:
       canceled: Purchase was canceled.
       error: Something went wrong. Please try again later.
   providers:
+    custom:
+      title: Custom Provider
+      description: Custom API endpoint
+      api-key-description: API key for your custom endpoint
+      base-url-description: Base URL for your custom endpoint
+      catalog-title: Custom Providers
+      search-configured: Search configured providers
+      search-available: Search custom providers
+      add: Add Custom Provider
+      empty: No custom providers
     catalog:
       edit:
         config-id-not-found: Provider configuration not found.

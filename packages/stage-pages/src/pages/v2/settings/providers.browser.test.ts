@@ -2,6 +2,7 @@ import en from '@proj-airi/i18n/locales/en'
 
 import { PiniaColada } from '@pinia/colada'
 import { registerAuthorizationHandler } from '@proj-airi/stage-ui/libs/auth'
+import { useProviderConfigStore } from '@proj-airi/stage-ui/stores/providers/config'
 import { createPinia, disposePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-vue'
@@ -57,22 +58,27 @@ describe('v2 providers catalog availability (Issue #2559)', () => {
   it('hides surface-gated providers from the add menu (Issue #2559)', async () => {
     const screen = await renderCatalog()
 
-    await screen.getByLabelText('Customize options').click()
+    await screen.getByLabelText('Add Custom Provider').click()
     const menu = page.getByRole('menu')
     await expect.element(menu).toBeVisible()
-    // The availability set resolves asynchronously; OpenAI has no gate, so its
-    // appearance proves the menu is populated before asserting the absence.
-    await expect.poll(async () => (await menu.getByText('OpenAI', { exact: true }).all()).length, { timeout: 8000 }).toBeGreaterThan(0)
+    await expect.element(menu.getByText('Custom Provider (Chat)', { exact: true })).toBeVisible()
     expect((await menu.getByText('NVIDIA NIM', { exact: true }).all())).toHaveLength(0)
   })
 
   // https://github.com/moeru-ai/airi/issues/2559
-  it('keeps ungated providers visible in the add menu (Issue #2559)', async () => {
+  it('offers only custom endpoints in the add menu', async () => {
     const screen = await renderCatalog()
 
-    await screen.getByLabelText('Customize options').click()
+    await screen.getByLabelText('Add Custom Provider').click()
     const menu = page.getByRole('menu')
     await expect.element(menu).toBeVisible()
-    await expect.poll(async () => (await menu.getByText('OpenAI', { exact: true }).all()).length, { timeout: 8000 }).toBeGreaterThan(0)
+    await expect.element(menu.getByText('Custom Provider (Chat)', { exact: true })).toBeVisible()
+    await expect.element(menu.getByText('Custom Provider (Speech)', { exact: true })).toBeVisible()
+    await expect.element(menu.getByText('Custom Provider (Transcription)', { exact: true })).toBeVisible()
+    for (const name of ['OpenAI', 'OpenAI Compatible', 'Ollama', 'DeepSeek', 'Groq']) {
+      await expect.element(menu.getByText(name, { exact: true })).not.toBeInTheDocument()
+    }
+    await menu.getByText('Custom Provider (Chat)', { exact: true }).click()
+    await expect.poll(() => Object.values(useProviderConfigStore(pinia).providers).map(provider => provider.config.baseUrl)).toEqual([''])
   })
 })

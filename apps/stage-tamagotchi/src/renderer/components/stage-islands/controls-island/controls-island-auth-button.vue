@@ -21,7 +21,7 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const authStore = useAuthStore()
-const { isAuthenticated, user, needsLogin, credits } = storeToRefs(authStore)
+const { isAuthenticated, user, needsLogin } = storeToRefs(authStore)
 const context = useElectronEventaContext()
 
 const startSigningIn = useElectronEventaInvoke(electronAuthStartLogin)
@@ -73,11 +73,9 @@ watch(isAuthenticated, (val) => {
 
 <template>
   <!-- Signing in state -->
-  <div v-if="signingIn && !isAuthenticated" flex="~ col gap-1.5" mb-1.5>
+  <div v-if="signingIn && !isAuthenticated" :class="['mb-1.5 flex flex-col gap-1.5']">
     <div
-      flex="~ items-center gap-3"
-      rounded-xl px-3 py-2.5
-      bg="black/5 dark:white/5"
+      :class="['flex items-center gap-3', 'rounded-xl px-3 py-2.5', 'bg-black/5 dark:bg-white/5']"
     >
       <div
         :class="[
@@ -86,14 +84,14 @@ watch(isAuthenticated, (val) => {
           'text-primary-500 dark:text-primary-400',
         ]"
       />
-      <span text="sm neutral-500 dark:neutral-400" truncate>
+      <span :class="['truncate text-sm text-neutral-500 dark:text-neutral-400']">
         {{ t('tamagotchi.stage.controls-island.logging-in') }}
       </span>
     </div>
   </div>
 
   <!-- Authenticated state -->
-  <div v-else-if="isAuthenticated" flex="~ col gap-1.5" mb-1.5>
+  <div v-else-if="isAuthenticated" :class="['mb-1.5 flex flex-col gap-1.5']">
     <button
       type="button"
       :class="[
@@ -115,7 +113,7 @@ watch(isAuthenticated, (val) => {
           'flex items-center justify-center',
         ]"
       />
-      <div class="min-w-0 flex flex-1 flex-col items-start gap-0.5">
+      <div :class="['min-w-0 flex flex-1 flex-col items-start gap-0.5']">
         <span
           :class="[
             'w-full truncate',
@@ -125,31 +123,12 @@ watch(isAuthenticated, (val) => {
         >
           {{ userName }}
         </span>
-
-        <!-- Flux balance: horizontal pill -->
-        <div
-          :class="[
-            'flex items-center gap-1',
-            'rounded-md px-1.5 py-0.5',
-            'bg-primary-500/12 dark:bg-primary-400/12',
-            'text-[10px] font-semibold',
-            'text-primary-600 dark:text-primary-400',
-          ]"
-        >
-          <div
-            :class="[
-              'i-solar:battery-charge-bold-duotone',
-              'size-3 shrink-0',
-            ]"
-          />
-          <span class="whitespace-nowrap leading-tight">{{ credits }} Flux</span>
-        </div>
       </div>
     </button>
   </div>
 
   <!-- Not authenticated state -->
-  <div v-else mb-1.5>
+  <div v-else :class="['mb-1.5']">
     <button
       type="button"
       :class="[
@@ -165,13 +144,12 @@ watch(isAuthenticated, (val) => {
       @click="handleClick"
     >
       <div
-        i-solar:login-3-bold-duotone
         :class="[
           props.iconClass ?? 'size-4.5',
-          'shrink-0 text-primary-500 dark:text-primary-400',
+          'i-solar:login-3-bold-duotone shrink-0 text-primary-500 dark:text-primary-400',
         ]"
       />
-      <span text="sm primary-600 dark:primary-400" font-medium>
+      <span :class="['text-sm font-medium text-primary-600 dark:text-primary-400']">
         {{ t('tamagotchi.stage.controls-island.login') }}
       </span>
     </button>

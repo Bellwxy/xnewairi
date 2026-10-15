@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { SpeechProviderWithExtraOptions } from '@xsai-ext/providers/utils'
-import type { UnElevenLabsOptions } from 'unspeech'
 
 import {
   SpeechPlayground,
@@ -42,9 +41,9 @@ const availableVoices = computed(() => {
   return speechStore.availableVoices[providerId] || []
 })
 
-// Generate speech with ElevenLabs-specific parameters
+// Generate speech with the configured Alibaba speech options.
 async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: boolean) {
-  const provider = await providersStore.getProviderInstance(providerId) as SpeechProviderWithExtraOptions<string, UnElevenLabsOptions>
+  const provider = await providersStore.getProviderInstance<SpeechProviderWithExtraOptions<string, Record<string, unknown>>>(providerId)
   if (!provider) {
     throw new Error('Failed to initialize speech provider')
   }
@@ -55,7 +54,6 @@ async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: bo
   // Get model from configuration or use default
   const model = providerConfig.model as string | undefined || defaultModel
 
-  // ElevenLabs doesn't need SSML conversion, but if SSML is provided, use it directly
   return await speechStore.speech(
     provider,
     model,

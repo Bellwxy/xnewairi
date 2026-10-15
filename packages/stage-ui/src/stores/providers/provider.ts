@@ -6,7 +6,6 @@ import type { ChatRequestOptions, ModelInfo, ProviderDefinition, ProviderInstanc
 
 import { errorMessageFrom } from '@moeru/std'
 import { getGenerationProvider } from '@proj-airi/provider-inference'
-import { isCustomProvidersDisabled } from '@proj-airi/stage-shared'
 import { computedAsync, useAsyncState, useIntervalFn } from '@vueuse/core'
 import { listModels } from '@xsai/model'
 import { uniqBy } from 'es-toolkit'
@@ -57,6 +56,13 @@ export interface ProviderRuntimeState {
 /** Stable fallback for reactive consumers when a provider has no cached catalog. */
 const emptyProviderModels: ModelInfo[] = []
 Object.freeze(emptyProviderModels)
+
+// Client catalogs expose custom endpoints. The registry retains inference adapters.
+const customProviderDefinitionIds = new Set([
+  'openai-compatible',
+  'openai-compatible-audio-speech',
+  'openai-compatible-audio-transcription',
+])
 
 // Only the provider data plane crosses renderer boundaries. Async derived refs
 // stay in useProviderStore and recompute locally instead of being patched as
@@ -126,6 +132,21 @@ export const useProviderStore = defineStore('provider', () => {
   const providerMetadataState = useAsyncState(async () => {
     const metadata = await selectProvidersMetadata(definedProviders, t)
 
+    for (const definitionId of customProviderDefinitionIds) {
+      const provider = metadata[definitionId]
+      provider.name = 'Custom Provider'
+      provider.description = 'Custom API endpoint'
+      provider.nameKey = 'settings.pages.providers.custom.title'
+      provider.localizedName = t(provider.nameKey)
+      provider.descriptionKey = 'settings.pages.providers.custom.description'
+      provider.localizedDescription = t(provider.descriptionKey)
+      provider.icon = 'i-solar:server-square-cloud-bold-duotone'
+      provider.defaultConfig = { ...provider.defaultConfig, baseUrl: '' }
+      provider.pricing = undefined
+      provider.deployment = undefined
+      provider.beginnerRecommended = undefined
+    }
+
     await Promise.all(definedProviders.map(async (definition) => {
       const intervalMs = await getProviderValidationIntervalMs({
         definition,
@@ -148,6 +169,15 @@ export const useProviderStore = defineStore('provider', () => {
           category: 'vision',
           tasks: Array.from(new Set([...definition.tasks, 'vision', 'image-understanding'])),
         })
+        if (customProviderDefinitionIds.has(definition.id)) {
+          metadata[id] = {
+            ...metadata[definition.id],
+            id,
+            to: `/settings/providers/vision/${definition.id}`,
+            category: 'vision',
+            tasks: metadata[id].tasks,
+          }
+        }
       }))
 
     return metadata
@@ -396,7 +426,7 @@ export const useProviderStore = defineStore('provider', () => {
     const defaultOptions = getSchemaDefault(schema) as Record<string, unknown>
     return {
       ...defaultOptions,
-      ...(Object.hasOwn(defaultOptions, 'baseUrl') ? {} : { baseUrl: '' }),
+      ...(customProviderDefinitionIds.has(getProviderDefinitionId(providerId)) || !Object.hasOwn(defaultOptions, 'baseUrl') ? { baseUrl: '' } : {}),
     }
   }
 
@@ -984,13 +1014,13 @@ export const useProviderStore = defineStore('provider', () => {
     const providers: ProviderMetadata[] = []
 
     for (const provider of allProvidersMetadata.value) {
+      if (!customProviderDefinitionIds.has(getProviderDefinitionId(provider.id)))
+        continue
+
       if (overrides[provider.id] === false)
         continue
 
       const definition = getProviderDefinition(provider.id)
-      if (isCustomProvidersDisabled() && definition.requiresCredentials !== false)
-        continue
-
       const isAvailableBy = definition.isAvailableBy || (() => true)
 
       const isAvailable = await isAvailableBy()

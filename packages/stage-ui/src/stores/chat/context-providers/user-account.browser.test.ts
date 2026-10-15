@@ -50,7 +50,7 @@ describe('user account request context', () => {
   })
 
   it('includes the latest nickname and profile guidance without balance or private fields', async () => {
-    auth.$patch({ user: { ...user }, session: { ...session }, credits: 987654 })
+    auth.$patch({ user: { ...user }, session: { ...session } })
     await nextTick()
     const context = createUserAccountContext(auth)
     expect(context?.text).toContain('"Alice"')

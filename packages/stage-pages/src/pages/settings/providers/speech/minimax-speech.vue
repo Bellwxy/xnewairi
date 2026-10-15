@@ -70,7 +70,7 @@ const availableVoices = computed(() => {
 })
 
 async function handleGenerateSpeech(input: string, voiceId: string, _useSSML: boolean) {
-  const provider = await providersStore.getProviderInstance(providerId) as SpeechProviderWithExtraOptions<string>
+  const provider = await providersStore.getProviderInstance<SpeechProviderWithExtraOptions<string, object>>(providerId)
   if (!provider) {
     throw new Error(t('settings.pages.providers.provider.minimax-speech.errors.provider-initialization-failed'))
   }

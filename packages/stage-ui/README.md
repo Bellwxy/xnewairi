@@ -2,6 +2,17 @@
 
 Shared core for stage
 
+## Provider access
+
+Inference uses custom API endpoints. Configure credentials, an endpoint, and a model through Settings > Providers.
+The client catalogs expose only custom endpoints for chat, vision, speech, and transcription. The internal inference adapters remain unchanged.
+Custom endpoints use OpenAI-compatible protocols and do not require an AIRI account.
+Onboarding opens custom-provider configuration without a provider selection step. The endpoint starts empty.
+Signing in does not configure inference or complete provider setup.
+The client has no official hosted providers, Flux purchases, Capacitor subscriptions, or RevenueCat SDK.
+Accounts remain available for identity and optional cloud synchronization. The existing hosted backend and database are unchanged.
+Existing profiles that selected an official provider need an explicit custom-provider selection. No replacement credentials are inferred.
+
 ## Experimental features
 
 Register flags in `libs/feature-flags.ts`. Read their state through `useFeatureFlagsStore().isEnabled(key)`.
@@ -176,8 +187,7 @@ The card store owns three distinct states:
 - Each card stores explicit overrides. An empty string means inherit.
 - Module stores expose the resolved runtime selections used by the application.
 
-Use `configureForAuthentication` for login and logout. It updates global
-defaults, then reapplies the active card without saving defaults into that card.
+Login and logout do not change global inference defaults or card overrides.
 Use card commands for activation and explicit edits. Settings pages must not
 save cards from watchers: authentication and remote snapshots also trigger them.
 The synchronization leader owns these commands; followers receive snapshots.

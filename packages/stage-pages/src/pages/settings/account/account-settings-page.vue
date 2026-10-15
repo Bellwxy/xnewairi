@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { errorMessageFrom } from '@moeru/std'
-import { isCapacitorAvailable } from '@proj-airi/stage-shared'
 import { defaultSignInProviders } from '@proj-airi/stage-ui/components/auth'
 import { resolveLinkedAccountOAuthErrorMessageKey, useAnalytics, useLinkedAccounts } from '@proj-airi/stage-ui/composables'
 import { authClient } from '@proj-airi/stage-ui/libs/auth'
@@ -11,7 +10,7 @@ import { storeToRefs } from 'pinia'
 import { DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
 import { computed, reactive, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 type SectionId = 'profile' | 'security' | 'connections' | 'danger'
 
@@ -31,7 +30,7 @@ const {
   trackPasswordResetRequested,
 } = useAnalytics()
 const authStore = useAuthStore()
-const { isAuthenticated, user, credits } = storeToRefs(authStore)
+const { isAuthenticated, user } = storeToRefs(authStore)
 
 const userName = computed(() => user.value?.name ?? '')
 const userEmail = computed(() => user.value?.email ?? null)
@@ -50,13 +49,6 @@ const gravatarProfileUrl = computed(() => {
     return null
   return `https://gravatar.com/${encodeURIComponent(userEmail.value.trim().toLowerCase())}`
 })
-
-// Locale-aware thousand separator. Bare 5–6 digit numbers are noisy to scan
-// (e.g. "44965" reads as one block); Intl.NumberFormat respects user locale
-// (44,965 / 44 965 / 44.965 depending on region) without us having to ship a
-// formatter.
-const formattedCredits = computed(() => credits.value.toLocaleString())
-const capacitorAvailable = isCapacitorAvailable()
 
 // Profile form. Initialized from store and re-synced when user changes (e.g.
 // after a successful save we mutate the store).
@@ -453,16 +445,7 @@ async function handleConfirmDelete(event: Event) {
           />
         </aside>
 
-        <!-- Main column. max-w-3xl keeps long lines (descriptions, the Flux
-             card) within a comfortable reading column instead of stretching
-             across the full settings viewport. -->
         <div :class="['flex flex-col min-w-0 max-w-3xl']">
-          <!-- Identity + Flux. Combined into a single divider-separated
-               section so the page reads as: account-info | profile | security
-               | danger. Earlier version split identity (no border) and flux
-               (border-b) into two visual blocks, which read as "Flux is its
-               own section like Profile/Security" — but Flux is metadata
-               about the same account, not a separate concern. -->
           <section :class="['flex flex-col gap-3 pb-6 border-b border-neutral-200/70 dark:border-neutral-800/60']">
             <div :class="['flex items-center gap-4 py-2']">
               <Avatar
@@ -499,46 +482,6 @@ async function handleConfirmDelete(event: Event) {
                 </p>
               </div>
             </div>
-
-            <!-- Flux row — quiet inline metadata. Hover bg only on hover so at
-                 rest it reads as plain text (not a button); chevron + colored
-                 link text are the only navigability hints. -->
-            <RouterLink
-              to="/settings/flux"
-              :class="[
-                '-mx-2 flex items-center gap-2 px-2 py-1.5 rounded-md',
-                'text-sm no-underline text-inherit',
-                'hover:bg-neutral-50 dark:hover:bg-neutral-800/40 transition-colors',
-              ]"
-            >
-              <span :class="['text-neutral-500 dark:text-neutral-400']">
-                {{ t('settings.pages.account.fluxBalance') }}
-              </span>
-              <span :class="['font-semibold tabular-nums']">
-                {{ formattedCredits }}
-              </span>
-              <span :class="['ml-auto flex items-center gap-1 text-primary-600 dark:text-primary-400']">
-                <span>{{ t('settings.pages.account.viewFluxDetails') }}</span>
-                <div :class="['i-solar:alt-arrow-right-linear', 'size-4']" />
-              </span>
-            </RouterLink>
-            <RouterLink
-              v-if="capacitorAvailable"
-              to="/settings/capacitor"
-              :class="[
-                '-mx-2 flex items-center gap-2 px-2 py-1.5 rounded-md',
-                'text-sm no-underline text-inherit',
-                'hover:bg-neutral-50 dark:hover:bg-neutral-800/40 transition-colors',
-              ]"
-            >
-              <span :class="['text-neutral-500 dark:text-neutral-400']">
-                {{ t('settings.pages.account.capacitorEntry') }}
-              </span>
-              <span :class="['ml-auto flex items-center gap-1 text-primary-600 dark:text-primary-400']">
-                <span>{{ t('settings.pages.account.viewCapacitor') }}</span>
-                <div :class="['i-solar:alt-arrow-right-linear', 'size-4']" />
-              </span>
-            </RouterLink>
           </section>
 
           <!-- Profile section. No card outline — sections are separated by a

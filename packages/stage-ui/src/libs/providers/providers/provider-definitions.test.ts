@@ -12,7 +12,7 @@ import {
   providerBrowserLocalAudioSpeech,
   providerBrowserLocalAudioTranscription,
 } from './local-audio'
-import { getDefinedProvider } from './registry'
+import { getDefinedProvider, listProviders } from './registry'
 
 import './index'
 
@@ -43,13 +43,27 @@ describe('migrated provider definitions', () => {
 
   it('exposes a closed provider id union to stage-ui consumers', () => {
     expectTypeOf<'openai'>().toExtend<StageProviderId>()
-    expectTypeOf<'official-provider'>().toExtend<StageProviderId>()
+    expectTypeOf<'official-provider'>().not.toExtend<StageProviderId>()
     expectTypeOf<'apple-vision'>().toExtend<StageProviderId>()
     expectTypeOf<string>().not.toExtend<StageProviderId>()
   })
 
   it('returns no definition for an unknown runtime provider id', () => {
     expect(getDefinedProvider('unknown-provider')).toBeUndefined()
+  })
+
+  it('registers user-configured providers without hosted AIRI services', () => {
+    const ids = listProviders().map(provider => provider.id)
+
+    expect(ids).toContain('openai-compatible')
+    expect(ids).toContain('ollama')
+    expect(ids).toContain('openai-compatible-audio-speech')
+    expect(ids).toContain('openai-compatible-audio-transcription')
+    expect(ids).not.toContain('official-provider')
+    expect(ids).not.toContain('official-provider-speech')
+    expect(ids).not.toContain('official-provider-speech-streaming')
+    expect(ids).not.toContain('official-provider-transcription')
+    expect(listProviders().some(provider => provider.configuredBy === 'authentication')).toBe(false)
   })
 
   it('registers every provider that moved out of the legacy store', () => {

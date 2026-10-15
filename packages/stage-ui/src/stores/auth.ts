@@ -7,7 +7,6 @@ import { useTimeoutFn, whenever } from '@vueuse/core'
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 
-import { client } from '../composables/api'
 import { useBreakpoints } from '../composables/use-breakpoints'
 import { triggerSignIn } from '../libs/auth'
 import { authClient, requestAuthSession } from '../libs/auth-client'
@@ -63,7 +62,7 @@ export interface AuthTokenSet {
 }
 
 /**
- * Auth store — holds identity state, Flux credits, and the capacitor remaining percent.
+ * Holds account identity and authentication lifecycle state.
  *
  * This store has no dependency on `stores/providers`, which allows
  * `providers` to safely depend on it without creating a circular import.
@@ -94,13 +93,6 @@ export const useAuthStore = defineStore('auth', () => {
   // and explicit clearing advance it. Requests from older versions cannot commit.
   const sessionVersion = ref(0)
   let signingOut = false
-
-  const credits = ref(0)
-  /** Whole percent of the capacitor Flux left. Null without an active capacitor. */
-  const capacitorPercent = ref<number | null>(null)
-  /** Next recharge inside the billing period. Null when the Capacitor recharges only on renewal. */
-  const capacitorRechargesAt = ref<string | null>(null)
-  const fallbackToFlux = ref(false)
 
   // The leader owns this cross-window login request. Web consumes it locally;
   // Electron renderers compete to consume it before starting the IPC flow.
@@ -419,39 +411,17 @@ export const useAuthStore = defineStore('auth', () => {
     needsLogin.value = true
   }
 
-  const updateCredits = async () => {
-    if (!isAuthenticated.value)
-      return
-    const version = sessionVersion.value
-    const res = await client.api.v1.flux.$get()
-    if (res.ok) {
-      const data = await res.json()
-      if (version === sessionVersion.value && isAuthenticated.value) {
-        credits.value = data.flux
-        capacitorPercent.value = data.capacitorPercent
-        capacitorRechargesAt.value = data.capacitorRechargesAt
-        fallbackToFlux.value = data.fallbackToFlux
-      }
-    }
-  }
-
   // This is the only watcher that reacts to an auth-state transition. Each
   // window runs its own lifecycle hooks, while persistence remains owned by
   // the auth commands above.
   watch(isAuthenticated, async (authenticated, wasAuthenticated) => {
     if (authenticated) {
-      void updateCredits()
       needsLogin.value = false
 
       if (!wasAuthenticated)
         await dispatchHooks(authenticatedHooks, 'auth hook error')
     }
     else {
-      credits.value = 0
-      capacitorPercent.value = null
-      capacitorRechargesAt.value = null
-      fallbackToFlux.value = false
-
       if (wasAuthenticated)
         await dispatchHooks(logoutHooks, 'logout hook error')
     }
@@ -476,11 +446,6 @@ export const useAuthStore = defineStore('auth', () => {
     refreshToken,
     idToken,
     isAuthenticated,
-    credits,
-    capacitorPercent,
-    capacitorRechargesAt,
-    fallbackToFlux,
-    updateCredits,
     needsLogin,
     onAuthenticated,
     onLogout,
