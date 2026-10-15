@@ -1,6 +1,7 @@
 import en from '@proj-airi/i18n/locales/en'
 
 import { PiniaColada } from '@pinia/colada'
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProviderConfigStore } from '@proj-airi/stage-ui/stores/providers/config'
 import { createPinia, disposePinia } from 'pinia'
@@ -31,7 +32,7 @@ const voiceCatalog = {
 const savedCredentials = { apiKey: 'saved-minimax-key', baseUrl: 'https://api.minimax.io' }
 
 function storeConfiguredProvider(config: Record<string, unknown>) {
-  localStorage.setItem('settings/providers/configured', JSON.stringify({
+  localStorage.setItem(accountStorageKey('settings/providers/configured'), JSON.stringify({
     [providerId]: {
       id: providerId,
       definitionId: providerId,
@@ -43,7 +44,7 @@ function storeConfiguredProvider(config: Record<string, unknown>) {
 }
 
 function storedConfig() {
-  const stored = localStorage.getItem('settings/providers/configured')
+  const stored = localStorage.getItem(accountStorageKey('settings/providers/configured'))
   if (!stored)
     return undefined
   return JSON.parse(stored)[providerId]?.config
@@ -131,7 +132,7 @@ describe('minimax speech settings page', () => {
 
     await expect.poll(() => storedConfig()?.apiKey, { timeout: 4000 }).toBe('user-entered-key')
     await expect.poll(() => {
-      const stored = localStorage.getItem('settings/providers/configured')
+      const stored = localStorage.getItem(accountStorageKey('settings/providers/configured'))
       if (!stored)
         return undefined
       return JSON.parse(stored)[providerId]?.status

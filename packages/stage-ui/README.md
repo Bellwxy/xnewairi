@@ -13,6 +13,38 @@ The client has no official hosted providers, Flux purchases, Capacitor subscript
 Accounts remain available for identity and optional cloud synchronization. The existing hosted backend and database are unchanged.
 Existing profiles that selected an official provider need an explicit custom-provider selection. No replacement credentials are inferred.
 
+## Account storage upgrade
+
+Each host entrypoint calls `startWithAccountStorage(() => import('./bootstrap'))` from `services/account-startup`.
+It reads the device pointer, awaits the upgrade, and fixes the account before the application module loads.
+Keep every import that can read storage in `bootstrap.ts`, not in `main.ts`.
+A failed upgrade shows the boot splash error, or a plain message on hosts without the splash.
+It rejects invalid pointers and in-page identity changes. It does not fetch a session or fall back after authentication failure.
+
+`services/account-migration` serializes upgrades with a device-wide Web Lock and records copy and cleanup phases in IndexedDB.
+Legacy unstorage records live in `keyval-store/keyval`. Their `airi-local` and `airi-sync-queue` values are key prefixes, not database names.
+Chats and attachments move to their original accounts. Shared settings, imported models, backgrounds and stickers move to `local`.
+Private OPFS files move into `accounts/local`. Public inference files under `airi-model-assets` stay shared.
+Copy failures preserve source data. Cleanup resumes without repeating copies. The completion marker contains no account or session identifiers.
+
+Stores read and write the account fixed at startup. See the account scope section of `@proj-airi/stage-shared`.
+
+`services/account-switch` moves the device to another account. Each host calls `bindAccountToAuthentication(authStore)` before `authStore.initialize()`.
+A resolved user with another ID switches to that user. An explicit sign-out switches to `local`. A rejected credential keeps the account.
+The switch waits for drains registered with `onBeforeAccountSwitch` before it writes the pointer and reloads the page.
+After 5 seconds, `AccountSwitchDialog` offers Wait or Force. Each host mounts this dialog outside its startup overlay.
+Wait keeps the dialog open until the writes finish. Force remains available and can interrupt unsaved writes.
+Completed writes close the dialog automatically. Other pages reload when they see the pointer change.
+Electron passes `enterAccount` to relaunch the whole app through the main process, and passes its account to `startWithAccountStorage`.
+A request during the wait replaces the target. The latest request decides the account.
+
+Cloud features act for the `userId` of the auth store. It is the signed-in user only when that user owns the page account.
+A user of another account only starts the switch, so cloud sync waits for the reload. The chat index always belongs to the page account.
+
+`services/account-device-data` lists the accounts with data on this device and deletes the data of another account.
+It removes the account localStorage keys, every database in `ACCOUNT_DATABASE_NAMES`, and the account OPFS directory.
+A host registers its own account files with `registerAccountHostData`. Server data stays. The current account cannot delete itself.
+
 ## Experimental features
 
 Register flags in `libs/feature-flags.ts`. Read their state through `useFeatureFlagsStore().isEnabled(key)`.

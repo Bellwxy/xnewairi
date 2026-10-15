@@ -8,6 +8,7 @@ import type { SelectTabOption } from '@proj-airi/ui'
 
 import type { ModelSettingsRuntimeSnapshot } from './runtime'
 
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { defaultModelParameters, useExpressionStore, useLive2dParams, useSettingsLive2d } from '@proj-airi/stage-ui-live2d'
 import { OPFSCache } from '@proj-airi/stage-ui-live2d/utils/opfs-loader'
 import { Button, Checkbox, FieldCheckbox, FieldCombobox, FieldRange, SelectTab } from '@proj-airi/ui'
@@ -149,7 +150,7 @@ const llmModeOptions = computed(() => [
 // Get available runtime motions from the model
 onMounted(() => {
   // Restore selected motion
-  const savedPath = localStorage.getItem('selected-runtime-motion')
+  const savedPath = localStorage.getItem(accountStorageKey('selected-runtime-motion'))
   if (savedPath) {
     selectedRuntimeMotion.value = savedPath
   }
@@ -183,9 +184,9 @@ function handleMotionSelect(selectedMotionPath: string | number | undefined) {
     return
   }
 
-  localStorage.setItem('selected-runtime-motion', motion.displayPath)
-  localStorage.setItem('selected-runtime-motion-group', motion.group)
-  localStorage.setItem('selected-runtime-motion-index', motion.index.toString())
+  localStorage.setItem(accountStorageKey('selected-runtime-motion'), motion.displayPath)
+  localStorage.setItem(accountStorageKey('selected-runtime-motion-group'), motion.group)
+  localStorage.setItem(accountStorageKey('selected-runtime-motion-index'), motion.index.toString())
 
   // Enable idle animation
   live2dIdleAnimationEnabled.value = true

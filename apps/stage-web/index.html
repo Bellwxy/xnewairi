@@ -91,7 +91,9 @@
     <script>
       ;(function () {
         const data = JSON.parse(document.querySelector('#boot-splash-locales').textContent)
-        const preferred = localStorage.getItem('settings/language') || navigator.language
+        // The language setting belongs to the current account. See packages/stage-shared/src/account-scope.
+        const account = encodeURIComponent(localStorage.getItem('airi/account/current') || 'local')
+        const preferred = localStorage.getItem('account/' + account + '/settings/language') || navigator.language
         const locale = data.localeRemap[preferred] || preferred
         const labels = data.labels[locale] || data.labels.en
         document.querySelector('#boot-splash .boot-error span').textContent = labels.failed

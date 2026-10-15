@@ -1,6 +1,7 @@
 import en from '@proj-airi/i18n/locales/en'
-import localforage from 'localforage'
 
+import { createAccountLocalForage } from '@proj-airi/stage-shared/account-scope/localforage'
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { createPinia, disposePinia } from 'pinia'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-vue'
@@ -11,7 +12,7 @@ import { createI18n } from 'vue-i18n'
 import Stickers from '../../components/modules/stickers.vue'
 
 import { chatStickers } from '../../assets/stickers'
-import { stickersRepo } from '../../database/repos/stickers.repo'
+import { STICKER_LIBRARY_LOCK, stickersRepo } from '../../database/repos/stickers.repo'
 import { stickerEmotions } from '../../types/sticker'
 import { useStickersStore } from './stickers'
 
@@ -26,17 +27,17 @@ function createStore() {
 }
 
 beforeEach(async () => {
-  await Promise.all(['entries', 'images'].map(storeName => localforage.createInstance({ name: 'airi-stickers', storeName }).clear()))
-  localStorage.removeItem('settings/stickers/enabled')
-  localStorage.removeItem('settings/stickers/frequency')
+  await Promise.all(['entries', 'images'].map(storeName => createAccountLocalForage('airi-stickers', storeName).clear()))
+  localStorage.removeItem(accountStorageKey('settings/stickers/enabled'))
+  localStorage.removeItem(accountStorageKey('settings/stickers/frequency'))
 })
 afterEach(async () => {
   for (const pinia of stores.splice(0))
     disposePinia(pinia)
-  localStorage.removeItem('settings/stickers/enabled')
-  localStorage.removeItem('settings/stickers/frequency')
+  localStorage.removeItem(accountStorageKey('settings/stickers/enabled'))
+  localStorage.removeItem(accountStorageKey('settings/stickers/frequency'))
   vi.restoreAllMocks()
-  await Promise.all(['entries', 'images'].map(storeName => localforage.createInstance({ name: 'airi-stickers', storeName }).clear()))
+  await Promise.all(['entries', 'images'].map(storeName => createAccountLocalForage('airi-stickers', storeName).clear()))
 })
 
 it('requires opt-in and restores the preference when the store is recreated', async () => {
@@ -45,13 +46,13 @@ it('requires opt-in and restores the preference when the store is recreated', as
   expect(store.catalog).toBeUndefined()
   store.enabled = true
   await nextTick()
-  expect(localStorage.getItem('settings/stickers/enabled')).toBe('true')
+  expect(localStorage.getItem(accountStorageKey('settings/stickers/enabled'))).toBe('true')
   const restored = createStore()
   expect(restored.catalog?.map(item => item.id)).toEqual(chatStickers.map(item => item.id))
   restored.resetState()
   await nextTick()
   expect(restored.catalog).toBeUndefined()
-  expect(localStorage.getItem('settings/stickers/enabled')).toBe('false')
+  expect(localStorage.getItem(accountStorageKey('settings/stickers/enabled'))).toBe('false')
 })
 
 it('decodes every bundled image without an external image service', async () => {
@@ -110,7 +111,7 @@ it('persists frequency independently of the toggle and resets both preferences',
   await nextTick()
   expect(restored.enabled).toBe(false)
   expect(restored.frequency).toBe(50)
-  expect(localStorage.getItem('settings/stickers/frequency')).toBe('50')
+  expect(localStorage.getItem(accountStorageKey('settings/stickers/frequency'))).toBe('50')
 })
 
 it('lets users enable stickers and choose each frequency through the real settings controls', async () => {
@@ -128,7 +129,7 @@ it('lets users enable stickers and choose each frequency through the real settin
     await frequency.click()
     await view.getByRole('option', { name: label, exact: true }).click()
     await expect.poll(() => store.frequency).toBe(value)
-    await expect.poll(() => localStorage.getItem('settings/stickers/frequency')).toBe(String(value))
+    await expect.poll(() => localStorage.getItem(accountStorageKey('settings/stickers/frequency'))).toBe(String(value))
     await expect.element(frequency).toHaveTextContent(label)
   }
   await view.getByRole('switch').click()
@@ -206,7 +207,7 @@ it('reads a complete image and metadata version when another window writes a rep
       completed = true
     })
     await expect.poll(() => read.mock.calls.length).toBe(1)
-    await expect.poll(async () => (await navigator.locks.query()).pending?.some(lock => lock.name === 'airi:sticker-library-write')).toBe(true)
+    await expect.poll(async () => (await navigator.locks.query()).pending?.some(lock => lock.name === STICKER_LIBRARY_LOCK)).toBe(true)
     expect(completed).toBe(false)
     expect(second.entries.find(item => item.id === entry.id)?.assetId).toBe(entry.assetId)
     release.resolve()

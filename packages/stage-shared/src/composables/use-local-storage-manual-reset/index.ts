@@ -4,6 +4,12 @@ import type { MaybeRefOrGetter, WatchOptions } from 'vue'
 import { refManualReset, useLocalStorage } from '@vueuse/core'
 import { toRaw, toValue, watch } from 'vue'
 
+import { accountStorageKey } from '../../account-scope/runtime'
+
+/**
+ * Persists a manual-reset ref under the account fixed at startup.
+ * Pass the logical key. Device keys keep their name, other keys get the account prefix.
+ */
 export function useLocalStorageManualReset<T>(
   key: MaybeRefOrGetter<string>,
   initialValue: MaybeRefOrGetter<T>,
@@ -16,7 +22,7 @@ export function useLocalStorageManualReset<T>(
     ? toValue(initialValue)
     : structuredClone(toRaw(toValue(initialValue)))
 
-  const localStorageState = useLocalStorage<T>(key, copyInitialValue(), options)
+  const localStorageState = useLocalStorage<T>(() => accountStorageKey(toValue(key)), copyInitialValue(), options)
   const state = refManualReset<T>(localStorageState)
 
   // `refManualReset` resets to its source, and the source is the storage ref.

@@ -10,6 +10,8 @@ import { app } from 'electron'
 import { throttle } from 'es-toolkit'
 import { safeParse } from 'valibot'
 
+import { accountDataPath } from './account'
+
 type ConfigStatus = 'ok' | 'missing' | 'invalid' | 'read-error'
 
 export interface ConfigDiagnostics<T> {
@@ -23,6 +25,11 @@ export interface ConfigDiagnostics<T> {
 }
 
 export interface CreateConfigOptions<T> {
+  /**
+   * `account` stores the file in the directory of the current account, for settings, keys and tokens.
+   * `device` keeps it in the user data directory, for window layout and diagnostics of this device.
+   */
+  owner: 'account' | 'device'
   default?: T
   autoHeal?: boolean
   onValidationFailure?: (diagnostics: ConfigDiagnostics<T>) => void
@@ -32,8 +39,23 @@ export interface CreateConfigOptions<T> {
 const persistenceMap = new Map<string, unknown>()
 const diagnosticsMap = new Map<string, ConfigDiagnostics<unknown>>()
 
-function createConfigPath(namespace: string, filename: string) {
-  return join(app.getPath('userData'), `${namespace}-${filename}`)
+function createConfigPath(namespace: string, filename: string, owner: CreateConfigOptions<unknown>['owner']) {
+  const name = `${namespace}-${filename}`
+  return owner === 'account' ? accountDataPath(name) : join(app.getPath('userData'), name)
+}
+
+/** Saves that a throttle holds back, and saves that are writing now. */
+const pendingSaves = new Set<{ flush: () => void }>()
+const runningSaves = new Set<Promise<void>>()
+
+/**
+ * Writes every config change that waits in a throttle, and waits for the writes.
+ * Call it before the app relaunches, for example when it switches accounts.
+ */
+export async function flushConfigWrites(): Promise<void> {
+  for (const save of pendingSaves)
+    save.flush()
+  await Promise.allSettled(runningSaves)
 }
 
 async function ensureConfigDirectory(path: string) {
@@ -76,16 +98,16 @@ export function createConfig<TSchema extends PersistedSchema>(
   namespace: string,
   filename: string,
   schema: TSchema,
-  options?: CreateConfigOptions<InferOutput<TSchema>>,
+  options: CreateConfigOptions<InferOutput<TSchema>>,
 ): Config<TSchema> {
-  const autoHeal = options?.autoHeal ?? Boolean(options?.default)
+  const autoHeal = options.autoHeal ?? Boolean(options.default)
 
   // The path resolves once, on first use. A save runs later than the call that
   // scheduled it, and `app.getPath('userData')` can answer with another root by
   // then. A write that followed the new root left this config's value in the file
   // of a config that never read it.
   let resolvedPath: string | undefined
-  const configPath = () => (resolvedPath ??= createConfigPath(namespace, filename))
+  const configPath = () => (resolvedPath ??= createConfigPath(namespace, filename, options.owner))
 
   // The state maps carry the path with the name, so one root never reads the
   // value of another. Two configs for the same file still share one entry.
@@ -96,7 +118,7 @@ export function createConfig<TSchema extends PersistedSchema>(
     return diagnostics
   }
 
-  const save = throttle(async () => {
+  const write = async () => {
     try {
       const path = configPath()
       await ensureConfigDirectory(path)
@@ -116,7 +138,13 @@ export function createConfig<TSchema extends PersistedSchema>(
     catch (error) {
       console.error('Failed to save config', error)
     }
+  }
+  const save = throttle(() => {
+    const running = write().finally(() => runningSaves.delete(running))
+    runningSaves.add(running)
+    return running
   }, 250)
+  pendingSaves.add(save)
 
   const writeHealingConfig = async (value: InferOutput<TSchema>) => {
     try {
@@ -140,9 +168,9 @@ export function createConfig<TSchema extends PersistedSchema>(
       const diagnostics = recordDiagnostics({
         status: 'missing',
         path,
-        value: options?.default,
+        value: options.default,
       })
-      persistenceMap.set(key(), options?.default)
+      persistenceMap.set(key(), options.default)
       return diagnostics
     }
 
@@ -159,7 +187,7 @@ export function createConfig<TSchema extends PersistedSchema>(
         return diagnostics
       }
 
-      const fallback = options?.default
+      const fallback = options.default
       const diagnostics = recordDiagnostics({
         status: 'invalid',
         path,
@@ -167,7 +195,7 @@ export function createConfig<TSchema extends PersistedSchema>(
         raw,
         value: fallback,
       })
-      options?.onValidationFailure?.(diagnostics)
+      options.onValidationFailure?.(diagnostics)
       persistenceMap.set(key(), fallback)
 
       if (autoHeal && fallback !== undefined) {
@@ -180,14 +208,14 @@ export function createConfig<TSchema extends PersistedSchema>(
       return diagnostics
     }
     catch (error) {
-      const fallback = options?.default
+      const fallback = options.default
       const diagnostics = recordDiagnostics({
         status: 'read-error',
         path,
         error,
         value: fallback,
       })
-      options?.onReadError?.(diagnostics)
+      options.onReadError?.(diagnostics)
       persistenceMap.set(key(), fallback)
       return diagnostics
     }

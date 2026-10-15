@@ -238,6 +238,57 @@ describe('authentication request ownership', () => {
     expect(store.token).toBe('second')
   })
 
+  // ROOT CAUSE:
+  //
+  // `onLogout` runs for any transition to signed out, also when the server rejects
+  // the credentials. The account switch needs only an explicit sign-out.
+  //
+  // We fixed this by dispatching `onSignOut` at the end of `signOut` only.
+  it('runs sign-out hooks after an explicit sign-out but not after a rejected session', async () => {
+    const store = useAuthStore()
+    const signOutHook = vi.fn()
+    const logoutHook = vi.fn()
+    store.onSignOut(signOutHook)
+    store.onLogout(logoutHook)
+
+    await signIn('first')
+    const rejected = store.fetchSession()
+    await reply('/api/auth/get-session', null)
+    expect(await rejected).toBe(false)
+    await vi.waitFor(() => expect(logoutHook).toHaveBeenCalledOnce())
+    expect(signOutHook).not.toHaveBeenCalled()
+
+    await signIn('second')
+    const logout = store.signOut()
+    await reply('/api/auth/sign-out', {})
+    await logout
+    expect(signOutHook).toHaveBeenCalledOnce()
+  })
+
+  // ROOT CAUSE: Cloud sync started for a new sign-in while the page still held another account's data.
+  it('reports no cloud user while the signed-in user belongs to another account', async () => {
+    const store = useAuthStore()
+
+    // The shared test setup fixes the page account to `local`.
+    await signIn('other-account')
+
+    expect(store.isAuthenticated).toBe(true)
+    expect(store.user?.id).toBe('other-account')
+    expect(store.userId).toBe('local')
+  })
+
+  it('does not run sign-out hooks when a newer sign-in replaces the logout', async () => {
+    await signIn('first')
+    const store = useAuthStore()
+    const signOutHook = vi.fn()
+    store.onSignOut(signOutHook)
+    const pending = store.signOut()
+    await signIn('second')
+    await reply('/api/auth/sign-out', {})
+    await pending
+    expect(signOutHook).not.toHaveBeenCalled()
+  })
+
   it('does not clear a new sign-in when an earlier logout finishes', async () => {
     await signIn('first')
     const store = useAuthStore()

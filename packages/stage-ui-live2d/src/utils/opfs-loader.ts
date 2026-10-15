@@ -2,6 +2,8 @@ import type { Live2DFactoryContext, Middleware } from 'pixi-live2d-display/cubis
 
 import JSZip from 'jszip'
 
+import { getAccountOpfsRoot } from '@proj-airi/stage-shared/account-scope/opfs'
+
 import { decodeZipFileName } from './decode-zip-filename'
 
 interface OPFSContext extends Live2DFactoryContext {
@@ -49,7 +51,7 @@ function blobFromBytes(data: Uint8Array): Blob {
 export class OPFSCache {
   static async clearAll(): Promise<void> {
     try {
-      const root = await navigator.storage.getDirectory()
+      const root = await getAccountOpfsRoot()
       for await (const entry of root.values()) {
         await root.removeEntry(entry.name, { recursive: true })
       }
@@ -133,7 +135,7 @@ export class OPFSCache {
 
   static async get(key: string, sourceUrl: string): Promise<File[] | null> {
     try {
-      const root = await navigator.storage.getDirectory()
+      const root = await getAccountOpfsRoot()
       const dirHandle = await root.getDirectoryHandle(key, { create: false })
       // eslint-disable-next-line no-console
       console.debug(`[OPFS] Cache hit for ${key}`)
@@ -196,7 +198,7 @@ export class OPFSCache {
       // eslint-disable-next-line no-console
       console.debug(`[OPFS] Saving ${fileEntries.length} zip entries to ${key}`)
 
-      const root = await navigator.storage.getDirectory()
+      const root = await getAccountOpfsRoot()
       const dirHandle = await root.getDirectoryHandle(key, { create: true })
       await OPFSCache.clearDirectory(dirHandle)
 

@@ -150,6 +150,7 @@ export function setupCaptionWindowManager(params: {
     get: getConfigRaw,
     update: updateConfig,
   } = createConfig('windows-caption', 'config.json', captionConfigSchema, {
+    owner: 'device',
     default: { isFollowing: true, matrices: {} },
     autoHeal: true,
   })

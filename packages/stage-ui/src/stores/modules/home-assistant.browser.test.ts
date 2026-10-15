@@ -1,3 +1,4 @@
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, describe, expect, it } from 'vitest'
 
@@ -17,13 +18,13 @@ describe('homeAssistantStore', () => {
     // hand edit can leave another type, which the grid and the tools both fail on.
     //
     // We now reset a list that does not parse.
-    localStorage.setItem(allowedKey, JSON.stringify({ 'light.kitchen': true }))
+    localStorage.setItem(accountStorageKey(allowedKey), JSON.stringify({ 'light.kitchen': true }))
     setActivePinia(createPinia())
 
     const settings = useHomeAssistantStore()
 
     expect(settings.allowedEntities).toEqual([])
-    await expect.poll(() => localStorage.getItem(allowedKey)).toBe('[]')
+    await expect.poll(() => localStorage.getItem(accountStorageKey(allowedKey))).toBe('[]')
   })
 
   // https://github.com/moeru-ai/airi/pull/2903#discussion_r4241893400
@@ -47,6 +48,6 @@ describe('homeAssistantStore', () => {
 
     await expect.poll(() => settings.allowedEntities).toEqual([])
     expect(() => filterExposed(settings.exposure, [{ entityId: 'light.kitchen' }])).not.toThrow()
-    await expect.poll(() => localStorage.getItem(allowedKey)).toBe('[]')
+    await expect.poll(() => localStorage.getItem(accountStorageKey(allowedKey))).toBe('[]')
   })
 })

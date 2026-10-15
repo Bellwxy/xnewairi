@@ -13,6 +13,7 @@ vi.mock('@proj-airi/stage-shared/composables', () => {
   }
 
   return {
+    useAccountLocalStorage: (_key: string, initialValue: unknown) => ref(initialValue),
     useLocalStorageManualReset,
     useVersionedLocalStorageManualReset: useLocalStorageManualReset,
   }

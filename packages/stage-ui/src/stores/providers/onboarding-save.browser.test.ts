@@ -3,6 +3,7 @@ import type { App } from 'vue'
 
 import en from '@proj-airi/i18n/locales/en'
 
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { createPinia, disposePinia } from 'pinia'
 import { createSyncedPiniaPlugin } from 'pinia-plugin-synced'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -101,7 +102,7 @@ describe('onboarding provider save synchronization', () => {
     expect(follower.providerConfigStore.providers[providerId]?.status).toBe('configured')
 
     // Persistence owner wrote the configuration to localStorage.
-    await expect.poll(() => JSON.parse(localStorage.getItem('settings/providers/configured') ?? '{}')).toMatchObject({
+    await expect.poll(() => JSON.parse(localStorage.getItem(accountStorageKey('settings/providers/configured')) ?? '{}')).toMatchObject({
       [providerId]: { config },
     })
 

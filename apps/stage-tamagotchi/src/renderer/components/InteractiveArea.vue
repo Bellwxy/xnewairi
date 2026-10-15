@@ -8,6 +8,7 @@ import type { ChatDraftHandover } from '../../shared/eventa'
 
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { useChatInterruption } from '@proj-airi/stage-layouts/composables/use-chat-interruption'
+import { useAccountLocalStorage } from '@proj-airi/stage-shared/composables'
 import { ChatHistory, JournalPreviewModal } from '@proj-airi/stage-ui/components'
 import { ChatImageAttachmentPreview, ChatProviderSetupCallout, ChatReplyPreview, ChatSendButton, useChatComposer, useChatImages, VoiceInputButton } from '@proj-airi/stage-ui/components/scenarios/chat'
 import { useAnalytics } from '@proj-airi/stage-ui/composables/use-analytics'
@@ -19,7 +20,7 @@ import { useJournalPreviewStore } from '@proj-airi/stage-ui/stores/journal-previ
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { BasicTextarea, GhostButton } from '@proj-airi/ui'
-import { until, useLocalStorage } from '@vueuse/core'
+import { until } from '@vueuse/core'
 import { nanoid } from 'nanoid/non-secure'
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, onMounted, ref, shallowRef, toRaw, useTemplateRef, watch } from 'vue'
@@ -126,7 +127,7 @@ const { openImagePreview } = journalPreviewStore
 const DOUBLE_ENTER_INTERVAL_MS = 300
 const TRAILING_NEWLINES_REGEX = /[\r\n]+$/
 type SendMode = 'enter' | 'ctrl-enter' | 'double-enter'
-const sendMode = useLocalStorage<SendMode>('ui/chat/settings/send-mode', 'enter')
+const sendMode = useAccountLocalStorage<SendMode>('ui/chat/settings/send-mode', 'enter')
 const toolCallRenderers = {
   image_journal: JournalToolCallBlock,
   text_journal: JournalToolCallBlock,

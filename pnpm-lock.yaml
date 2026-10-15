@@ -4411,6 +4411,9 @@ importers:
       '@moeru/std':
         specifier: 'catalog:'
         version: 0.1.0-beta.17
+      '@proj-airi/stage-shared':
+        specifier: workspace:^
+        version: link:../stage-shared
       '@vishot/source-electron':
         specifier: 'catalog:'
         version: 0.2.0
@@ -4749,6 +4752,9 @@ importers:
       gpuu:
         specifier: 'catalog:'
         version: 1.0.7
+      localforage:
+        specifier: 'catalog:'
+        version: 1.10.0
       pinia:
         specifier: 'catalog:'
         version: 4.0.3(@vue/devtools-api@8.2.1)(typescript@6.0.3)(vue@3.5.41(typescript@6.0.3))

@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { useAccountLocalStorage } from '@proj-airi/stage-shared/composables'
 import { useTheme } from '@proj-airi/ui'
-import { useLocalStorage } from '@vueuse/core'
 import { DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger } from 'reka-ui'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -31,7 +31,7 @@ type SendMode = (typeof SEND_MODES)[number]
 
 const aboutOpen = ref(false)
 const backgroundDialogOpen = ref(false)
-const sendMode = useLocalStorage<SendMode>('ui/chat/settings/send-mode', 'enter')
+const sendMode = useAccountLocalStorage<SendMode>('ui/chat/settings/send-mode', 'enter')
 const sendModeLabels = computed<Record<SendMode, string>>(() => ({
   'enter': t('stage.send-mode.enter'),
   'ctrl-enter': t('stage.send-mode.ctrl-enter'),

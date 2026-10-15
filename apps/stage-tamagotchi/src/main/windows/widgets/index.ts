@@ -286,6 +286,7 @@ export function setupWidgetsWindowManager(params: {
   i18n: I18n
 }): WidgetsWindowManager {
   const { setup, get: getConfigRaw, update } = createConfig('windows-widgets', 'config.json', widgetsWindowConfigSchema, {
+    owner: 'device',
     default: {},
     autoHeal: true,
   })

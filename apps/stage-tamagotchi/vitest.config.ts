@@ -48,6 +48,7 @@ export default defineConfig({
         test: {
           name: 'node',
           include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
+          setupFiles: ['@proj-airi/stage-shared/account-scope/testing'],
           exclude: ['src/**/*.browser.test.ts', '**/node_modules/**', '**/.git/**'],
           fileParallelism: false,
           maxWorkers: 1,
@@ -66,7 +67,7 @@ export default defineConfig({
           name: 'browser',
           include: ['src/**/*.browser.test.ts'],
           exclude: ['**/node_modules/**', '**/.git/**'],
-          setupFiles: ['./src/test/setup-live2d.browser.ts'],
+          setupFiles: ['@proj-airi/stage-shared/account-scope/testing', './src/test/setup-live2d.browser.ts'],
           browser: {
             enabled: true,
             headless: true,

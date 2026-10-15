@@ -78,7 +78,7 @@ describe('createConfig', () => {
 
     const { createConfig } = await import('./persistence')
     const schema = object({ value: number() })
-    const config = createConfig('windows-widgets', 'config.json', schema, { default: { value: 0 } })
+    const config = createConfig('windows-widgets', 'config.json', schema, { owner: 'device', default: { value: 0 } })
     const saveErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     config.setup()
@@ -145,7 +145,7 @@ describe('createConfig', () => {
     const { createConfig } = await import('./persistence')
     const schema = object({ value: number() })
 
-    const first = createConfig('app', 'options.json', schema, { default: { value: 0 } })
+    const first = createConfig('app', 'options.json', schema, { owner: 'device', default: { value: 0 } })
     first.setup()
     first.update({ value: 7 })
     const deferredSave = runPendingSave
@@ -163,10 +163,90 @@ describe('createConfig', () => {
     expect(files.get(fileOf(rootA))).toBe(JSON.stringify({ value: 7 }))
     expect(files.has(fileOf(rootB))).toBe(false)
 
-    const second = createConfig('app', 'options.json', schema, { default: { value: 0 } })
+    const second = createConfig('app', 'options.json', schema, { owner: 'device', default: { value: 0 } })
     second.setup()
 
     expect(second.get()).toEqual({ value: 0 })
     expect(first.get()).toEqual({ value: 7 })
+  })
+
+  it('stores account configs in the account directory and device configs at the root', async () => {
+    const files = new Map<string, string>()
+    const root = join(tmpdir(), 'airi-user-data-owner')
+    vi.doMock('electron', () => ({ app: { getPath: () => root } }))
+    vi.doMock('es-toolkit', () => ({ throttle: (handler: () => unknown) => handler }))
+    vi.doMock('node:fs', () => ({ existsSync: () => false, readFileSync: () => '' }))
+    vi.doMock('node:fs/promises', () => ({
+      copyFile: vi.fn(async () => {}),
+      mkdir: vi.fn(async () => {}),
+      rename: vi.fn(async (from: string, to: string) => {
+        files.set(to, files.get(from) ?? '')
+        files.delete(from)
+      }),
+      writeFile: vi.fn(async (path: string, body: string) => {
+        files.set(path, body)
+      }),
+    }))
+
+    // `vi.resetModules` also reset the account runtime, so fix the account again.
+    const { initializeAccountScope } = await import('@proj-airi/stage-shared/account-scope/runtime')
+    initializeAccountScope('local')
+    const { createConfig } = await import('./persistence')
+    const schema = object({ value: number() })
+    const keys = createConfig('artistry', 'options.json', schema, { owner: 'account', default: { value: 0 } })
+    const layout = createConfig('app', 'config.json', schema, { owner: 'device', default: { value: 0 } })
+    keys.setup()
+    layout.setup()
+    keys.update({ value: 1 })
+    layout.update({ value: 2 })
+
+    await vi.waitFor(() => expect(files.get(join(root, 'accounts', 'local', 'artistry-options.json'))).toBe('{"value":1}'))
+    await vi.waitFor(() => expect(files.get(join(root, 'app-config.json'))).toBe('{"value":2}'))
+  })
+
+  // ROOT CAUSE:
+  //
+  // A throttled save runs up to 250 ms after `update`. An account switch relaunches
+  // the app at once, so the last change of the previous account was lost.
+  //
+  // We fixed this by flushing every held save before the relaunch.
+  it('writes a held change when the configs are flushed', async () => {
+    const files = new Map<string, string>()
+    const root = join(tmpdir(), 'airi-user-data-flush')
+    let held: (() => unknown) | undefined
+    vi.doMock('electron', () => ({ app: { getPath: () => root } }))
+    vi.doMock('es-toolkit', () => ({
+      throttle: (handler: () => unknown) => Object.assign(() => {
+        held = handler
+      }, {
+        flush: () => {
+          const run = held
+          held = undefined
+          run?.()
+        },
+      }),
+    }))
+    vi.doMock('node:fs', () => ({ existsSync: () => false, readFileSync: () => '' }))
+    vi.doMock('node:fs/promises', () => ({
+      copyFile: vi.fn(async () => {}),
+      mkdir: vi.fn(async () => {}),
+      rename: vi.fn(async (from: string, to: string) => {
+        files.set(to, files.get(from) ?? '')
+        files.delete(from)
+      }),
+      writeFile: vi.fn(async (path: string, body: string) => {
+        files.set(path, body)
+      }),
+    }))
+
+    const { createConfig, flushConfigWrites } = await import('./persistence')
+    const config = createConfig('app', 'options.json', object({ value: number() }), { owner: 'device', default: { value: 0 } })
+    config.setup()
+    config.update({ value: 3 })
+    expect(files.size).toBe(0)
+
+    await flushConfigWrites()
+
+    expect(files.get(join(root, 'app-options.json'))).toBe('{"value":3}')
   })
 })

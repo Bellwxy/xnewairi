@@ -1,7 +1,7 @@
 import type { TurnRef } from '@proj-airi/core-agent'
 
 import { defineInvoke } from '@moeru/eventa'
-import { useLocalStorage } from '@vueuse/core'
+import { useAccountLocalStorage } from '@proj-airi/stage-shared/composables'
 import { defineStore } from 'pinia'
 import { onScopeDispose, shallowRef } from 'vue'
 
@@ -12,7 +12,7 @@ export type SpeechOutputStopRequest = { reason: 'manual-chat', sessionId: string
 
 /** Settings control future speech. External interruption targets identities supplied by the audio host. */
 export const useSpeechOutputControlStore = defineStore('speech-output-control', () => {
-  const speechMuted = useLocalStorage('settings/speech/output-muted', false)
+  const speechMuted = useAccountLocalStorage('settings/speech/output-muted', false)
   const activeTurns = shallowRef<readonly TurnRef[]>([])
   const lifetime = new AbortController()
   let connection = new AbortController()

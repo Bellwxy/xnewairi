@@ -53,6 +53,7 @@ import {
   electronGodotStageViewStateError,
 } from '../../../../shared/eventa'
 import { onAppBeforeQuit } from '../../../libs/bootkit/lifecycle'
+import { accountDataPath } from '../../../libs/electron/account'
 import { getElectronMainDirname } from '../../../libs/electron/location'
 
 type GodotStageProcess = ChildProcessByStdio<null, Readable, Readable>
@@ -934,8 +935,9 @@ function resolveGodotStageProcessEnv(): NodeJS.ProcessEnv {
   }
 }
 
+/** Imported models belong to the account. */
 function resolveGodotStageStorageRoot() {
-  return join(app.getPath('userData'), 'godot-stage')
+  return accountDataPath('godot-stage')
 }
 
 async function validateConfiguredGodotEnginePath(executable: string) {

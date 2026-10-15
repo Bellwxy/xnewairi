@@ -89,13 +89,16 @@ async function createZip(entries: Record<string, Blob | string | Uint8Array>): P
   return new Blob([await blobFromBytes(data).arrayBuffer()], { type: 'application/zip' })
 }
 
-function installMemoryOPFS(root = new MemoryDirectoryHandle('root')): MemoryDirectoryHandle {
+/** Returns the directory of the `local` account, where the cache keeps imported models. */
+async function installMemoryOPFS(): Promise<MemoryDirectoryHandle> {
+  const origin = new MemoryDirectoryHandle('root')
   vi.stubGlobal('navigator', {
     storage: {
-      getDirectory: vi.fn(async () => root as unknown as FileSystemDirectoryHandle),
+      getDirectory: vi.fn(async () => origin as unknown as FileSystemDirectoryHandle),
     },
   })
-  return root
+  const accounts = await origin.getDirectoryHandle('accounts', { create: true })
+  return await accounts.getDirectoryHandle('local', { create: true })
 }
 
 async function writeLegacyCache(root: MemoryDirectoryHandle, key: string): Promise<void> {
@@ -114,8 +117,8 @@ function filePaths(files: File[]): string[] {
 describe('opfs cache full directory persistence', () => {
   let root: MemoryDirectoryHandle
 
-  beforeEach(() => {
-    root = installMemoryOPFS()
+  beforeEach(async () => {
+    root = await installMemoryOPFS()
   })
 
   afterEach(() => {

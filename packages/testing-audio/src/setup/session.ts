@@ -9,6 +9,7 @@ import { Buffer } from 'node:buffer'
 import { IOAttributes, IOSpanNames } from '@proj-airi/stage-shared/perf/io-trace'
 import { piniaActionTracingChannelName } from '@proj-airi/stage-shared/types/pinia-action-event'
 
+import { pageAccountScope } from './account-scope'
 import { readCompletedSpans } from './browser-probe'
 
 /** Creates the runtime session for one audio test. */
@@ -35,23 +36,30 @@ export function createSession(options: {
         ), count, { timeout: 60_000 })
       }
       catch (error) {
-        const runtimeState = await options.page.evaluate(async () => ({
-          activeModel: localStorage.getItem('settings/hearing/active-model'),
-          activeProvider: localStorage.getItem('settings/hearing/active-provider'),
+        const scope = await pageAccountScope(options.page)
+        const keys = {
+          activeModel: scope.storageKey('settings/hearing/active-model'),
+          activeProvider: scope.storageKey('settings/hearing/active-provider'),
+          microphoneEnabled: scope.storageKey('settings/audio/input/enabled'),
+          microphoneInput: scope.storageKey('settings/audio/input'),
+        }
+        const runtimeState = await options.page.evaluate(async keys => ({
+          activeModel: localStorage.getItem(keys.activeModel),
+          activeProvider: localStorage.getItem(keys.activeProvider),
           devices: (await navigator.mediaDevices.enumerateDevices()).map(device => ({
             deviceId: device.deviceId,
             kind: device.kind,
             label: device.label,
           })),
-          microphoneEnabled: localStorage.getItem('settings/audio/input/enabled'),
-          microphoneInput: localStorage.getItem('settings/audio/input'),
+          microphoneEnabled: localStorage.getItem(keys.microphoneEnabled),
+          microphoneInput: localStorage.getItem(keys.microphoneInput),
           microphoneOffIconVisible: Boolean(document.querySelector('[i-ph\\:microphone-slash]')),
           piniaActionEvents: window.__airiAudioInputE2E?.piniaActionEvents ?? [],
           probeInstalled: Boolean(window.__airiAudioInputE2E),
           streamingTranscriptionReady: window.__airiAudioInputE2E?.streamingTranscriptionReady ?? false,
           url: window.location.href,
           vadReady: window.__airiAudioInputE2E?.vadReady ?? false,
-        }))
+        }), keys)
         throw new Error(`Timed out waiting for captured transcription audio: ${JSON.stringify(runtimeState)}`, { cause: error })
       }
       const capturedAudio = await options.page.evaluate(() => window.__airiAudioInputE2E?.transcriptionAudio ?? [])

@@ -16,19 +16,18 @@ const { resetArtistryToGlobal } = vi.hoisted(() => ({
 }))
 
 // NOTICE:
-// Vitest runs these store tests in Node, where localforage cannot select a
-// browser storage driver. The stage-model watcher legitimately asks the
-// display-model store to resolve IDs, so provide the storage boundary with a
-// deterministic no-op instead of allowing rejected driver initialization to
-// escape as an unrelated test error.
-vi.mock('localforage', () => ({
-  default: {
+// These store tests run in Node, where localforage has no browser storage driver.
+// The stage-model watcher asks the display-model store to resolve IDs. A no-op
+// storage boundary keeps a rejected driver from failing an unrelated test.
+vi.mock('@proj-airi/stage-shared/account-scope/localforage', () => {
+  const store = {
     getItem: vi.fn(async () => undefined),
     iterate: vi.fn(async () => undefined),
     removeItem: vi.fn(async () => undefined),
     setItem: vi.fn(async <T>(_: string, value: T) => value),
-  },
-}))
+  }
+  return { accountDefaultLocalForage: () => store, createAccountLocalForage: () => store }
+})
 
 vi.mock('./artistry', async () => {
   const { defineStore } = await import('pinia')

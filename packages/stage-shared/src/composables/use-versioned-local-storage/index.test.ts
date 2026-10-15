@@ -3,6 +3,8 @@ import { nextTick } from 'vue'
 
 import { useVersionedLocalStorage } from '.'
 
+import '../../account-scope/testing'
+
 class MemoryStorage {
   #items = new Map<string, string>()
 
@@ -22,7 +24,7 @@ class MemoryStorage {
 const storage = new MemoryStorage()
 
 afterEach(() => {
-  storage.removeItem('settings/live2d/auto-blink-enabled')
+  storage.removeItem('account/local/settings/live2d/auto-blink-enabled')
 })
 
 describe('useVersionedLocalStorage', () => {
@@ -47,7 +49,7 @@ describe('useVersionedLocalStorage', () => {
     value.value = false
     await nextTick()
 
-    expect(JSON.parse(storage.getItem('settings/live2d/auto-blink-enabled')!)).toEqual({
+    expect(JSON.parse(storage.getItem('account/local/settings/live2d/auto-blink-enabled')!)).toEqual({
       version: '2.0.0',
       data: false,
     })

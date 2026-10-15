@@ -1,6 +1,8 @@
 import type { Vector3 } from 'three'
 
-import { useBroadcastChannel, useLocalStorage } from '@vueuse/core'
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
+import { useAccountLocalStorage } from '@proj-airi/stage-shared/composables'
+import { useBroadcastChannel } from '@vueuse/core'
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 
@@ -83,9 +85,9 @@ let vrmViewUpdateMessageSequence = 0
 const { modelOffset, set: setViewControl } = useThreeViewControl()
 const { cameraDistance, cameraFOV, cameraPosition } = useThreeCamera()
 
-const modelRotationY = useLocalStorage('settings/stage-ui-three/modelRotationY', 0)
-const trackingMode = useLocalStorage<TrackingMode>('settings/stage-ui-three/trackingMode', 'none')
-const maxFps = useLocalStorage('settings/stage-ui-three/max-fps', 0)
+const modelRotationY = useAccountLocalStorage('settings/stage-ui-three/modelRotationY', 0)
+const trackingMode = useAccountLocalStorage<TrackingMode>('settings/stage-ui-three/trackingMode', 'none')
+const maxFps = useAccountLocalStorage('settings/stage-ui-three/max-fps', 0)
 
 export const useModelStore = defineStore('modelStore', () => {
   const { post, data } = useBroadcastChannel<BroadcastChannelEvents, BroadcastChannelEvents>({ name: 'airi-stores-stage-ui-three-vrm' })
@@ -141,7 +143,7 @@ export const useModelStore = defineStore('modelStore', () => {
 
   // === Model identity ===
   // The display model ID is stable across application restarts. Runtime URLs are not.
-  const lastCommittedModelId = useLocalStorage('settings/stage-ui-three/lastModelId', '')
+  const lastCommittedModelId = useAccountLocalStorage('settings/stage-ui-three/lastModelId', '')
   /** The storage key from releases that used runtime URLs as model identity. */
   const legacyLastCommittedModelSrcStorageKey = 'settings/stage-ui-three/lastModelSrc'
 
@@ -152,31 +154,31 @@ export const useModelStore = defineStore('modelStore', () => {
    * The first VRM load after this reset establishes the stable model ID for later starts.
    */
   function resetLegacyModelIdentity() {
-    const legacyModelSrc = window.localStorage.getItem(legacyLastCommittedModelSrcStorageKey)
+    const legacyModelSrc = window.localStorage.getItem(accountStorageKey(legacyLastCommittedModelSrcStorageKey))
     if (!legacyModelSrc)
       return
 
     lastCommittedModelId.value = ''
-    window.localStorage.removeItem(legacyLastCommittedModelSrcStorageKey)
+    window.localStorage.removeItem(accountStorageKey(legacyLastCommittedModelSrcStorageKey))
   }
 
   // === Model lifecycle / bootstrap ===
   // These values are recalculated from the currently bound model instance whenever
   // a new bootstrap payload is committed into the scene.
-  const modelSize = useLocalStorage('settings/stage-ui-three/modelSize', { x: 0, y: 0, z: 0 })
-  const modelOrigin = useLocalStorage('settings/stage-ui-three/modelOrigin', { x: 0, y: 0, z: 0 })
-  const eyeHeight = useLocalStorage('settings/stage-ui-three/eyeHeight', 0)
+  const modelSize = useAccountLocalStorage('settings/stage-ui-three/modelSize', { x: 0, y: 0, z: 0 })
+  const modelOrigin = useAccountLocalStorage('settings/stage-ui-three/modelOrigin', { x: 0, y: 0, z: 0 })
+  const eyeHeight = useAccountLocalStorage('settings/stage-ui-three/eyeHeight', 0)
 
   // === View state ===
   /** current runtime pose. may be recalculated when a new model bootstrap is applied. */
-  const lookAtTarget = useLocalStorage('settings/stage-ui-three/lookAtTarget', { x: 0, y: 0, z: 0 })
+  const lookAtTarget = useAccountLocalStorage('settings/stage-ui-three/lookAtTarget', { x: 0, y: 0, z: 0 })
 
   function resetModelStore() {
     scenePhase.value = 'pending'
     sceneTransactionDepth.value = 0
 
     lastCommittedModelId.value = ''
-    window.localStorage.removeItem(legacyLastCommittedModelSrcStorageKey)
+    window.localStorage.removeItem(accountStorageKey(legacyLastCommittedModelSrcStorageKey))
     modelSize.value = { x: 0, y: 0, z: 0 }
     modelOrigin.value = { x: 0, y: 0, z: 0 }
     modelRotationY.value = 0
@@ -190,9 +192,9 @@ export const useModelStore = defineStore('modelStore', () => {
   }
 
   // === Environment / lighting / render settings ===
-  const directionalLightPosition = useLocalStorage('settings/stage-ui-three/scenes/scene/directional-light/position', { x: 0, y: 0, z: -1 })
-  const directionalLightTarget = useLocalStorage('settings/stage-ui-three/scenes/scene/directional-light/target', { x: 0, y: 0, z: 0 })
-  const directionalLightRotation = useLocalStorage('settings/stage-ui-three/scenes/scene/directional-light/rotation', { x: 0, y: 0, z: 0 })
+  const directionalLightPosition = useAccountLocalStorage('settings/stage-ui-three/scenes/scene/directional-light/position', { x: 0, y: 0, z: -1 })
+  const directionalLightTarget = useAccountLocalStorage('settings/stage-ui-three/scenes/scene/directional-light/target', { x: 0, y: 0, z: 0 })
+  const directionalLightRotation = useAccountLocalStorage('settings/stage-ui-three/scenes/scene/directional-light/rotation', { x: 0, y: 0, z: 0 })
   // TODO: Manual directional light intensity will not work for other
   //       scenes with different lighting setups. But since the model
   //       is possible to have MeshToonMaterial, and MeshBasicMaterial
@@ -205,25 +207,25 @@ export const useModelStore = defineStore('modelStore', () => {
   //             harsh shadows and bright highlights.
   // REVIEW: This is a temporary solution, and will be replaced with
   //         a more flexible lighting system in the future.
-  const directionalLightIntensity = useLocalStorage('settings/stage-ui-three/scenes/scene/directional-light/intensity', 2.02)
+  const directionalLightIntensity = useAccountLocalStorage('settings/stage-ui-three/scenes/scene/directional-light/intensity', 2.02)
   // TODO: color are the same
-  const directionalLightColor = useLocalStorage('settings/stage-ui-three/scenes/scene/directional-light/color', '#fffbf5')
+  const directionalLightColor = useAccountLocalStorage('settings/stage-ui-three/scenes/scene/directional-light/color', '#fffbf5')
 
-  const hemisphereSkyColor = useLocalStorage('settings/stage-ui-three/scenes/scene/hemisphere-light/sky-color', '#FFFFFF')
-  const hemisphereGroundColor = useLocalStorage('settings/stage-ui-three/scenes/scene/hemisphere-light/ground-color', '#222222')
-  const hemisphereLightIntensity = useLocalStorage('settings/stage-ui-three/scenes/scene/hemisphere-light/intensity', 0.4)
+  const hemisphereSkyColor = useAccountLocalStorage('settings/stage-ui-three/scenes/scene/hemisphere-light/sky-color', '#FFFFFF')
+  const hemisphereGroundColor = useAccountLocalStorage('settings/stage-ui-three/scenes/scene/hemisphere-light/ground-color', '#222222')
+  const hemisphereLightIntensity = useAccountLocalStorage('settings/stage-ui-three/scenes/scene/hemisphere-light/intensity', 0.4)
 
-  const ambientLightColor = useLocalStorage('settings/stage-ui-three/scenes/scene/ambient-light/color', '#FFFFFF')
-  const ambientLightIntensity = useLocalStorage('settings/stage-ui-three/scenes/scene/ambient-light/intensity', 0.6)
+  const ambientLightColor = useAccountLocalStorage('settings/stage-ui-three/scenes/scene/ambient-light/color', '#FFFFFF')
+  const ambientLightIntensity = useAccountLocalStorage('settings/stage-ui-three/scenes/scene/ambient-light/intensity', 0.6)
 
   // Rendering quality
-  const renderScale = useLocalStorage('settings/stage-ui-three/renderScale', Math.min(window.devicePixelRatio, 2))
-  const multisampling = useLocalStorage('settings/stage-ui-three/multisampling', 4)
+  const renderScale = useAccountLocalStorage('settings/stage-ui-three/renderScale', Math.min(window.devicePixelRatio, 2))
+  const multisampling = useAccountLocalStorage('settings/stage-ui-three/multisampling', 4)
 
   // environment related setting
-  const envSelect = useLocalStorage('settings/stage-ui-three/envEnabled', 'hemisphere' as 'hemisphere' | 'skyBox')
-  const skyBoxSrc = useLocalStorage('settings/stage-ui-three/skyBoxUrl', defaultSkyBoxSrc)
-  const skyBoxIntensity = useLocalStorage('settings/stage-ui-three/skyBoxIntensity', 0.1)
+  const envSelect = useAccountLocalStorage('settings/stage-ui-three/envEnabled', 'hemisphere' as 'hemisphere' | 'skyBox')
+  const skyBoxSrc = useAccountLocalStorage('settings/stage-ui-three/skyBoxUrl', defaultSkyBoxSrc)
+  const skyBoxIntensity = useAccountLocalStorage('settings/stage-ui-three/skyBoxIntensity', 0.1)
 
   return {
     scenePhase,

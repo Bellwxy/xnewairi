@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it } from 'vitest'
 
@@ -18,7 +19,7 @@ describe('consciousness settings store', () => {
   })
 
   it('loads the persisted value', () => {
-    localStorage.setItem('settings/consciousness/reasoning', 'true')
+    localStorage.setItem(accountStorageKey('settings/consciousness/reasoning'), 'true')
     const store = useConsciousnessSettingsStore()
 
     expect(store.reasoning).toBe(true)
@@ -29,12 +30,12 @@ describe('consciousness settings store', () => {
     await store.setReasoning(true)
 
     expect(store.reasoning).toBe(true)
-    expect(localStorage.getItem('settings/consciousness/reasoning')).toBe('true')
+    expect(localStorage.getItem(accountStorageKey('settings/consciousness/reasoning'))).toBe('true')
 
     await store.resetState()
 
     expect(store.reasoning).toBe(false)
-    expect(localStorage.getItem('settings/consciousness/reasoning')).toBe('false')
+    expect(localStorage.getItem(accountStorageKey('settings/consciousness/reasoning'))).toBe('false')
   })
 
   it('ignores storage events because Pinia owns cross-window synchronization', () => {

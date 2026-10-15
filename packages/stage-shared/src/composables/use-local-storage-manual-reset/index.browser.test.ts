@@ -1,9 +1,9 @@
-// @vitest-environment jsdom
-
 import { afterEach, describe, expect, it } from 'vitest'
 import { nextTick, watch } from 'vue'
 
 import { useLocalStorageManualReset } from '.'
+
+import '../../account-scope/testing'
 
 afterEach(() => {
   localStorage.clear()
@@ -51,17 +51,17 @@ describe('useLocalStorageManualReset', () => {
 
     state.value = 'changed'
     await nextTick()
-    expect(localStorage.getItem('provider')).toBe('changed')
+    expect(localStorage.getItem('account/local/provider')).toBe('changed')
 
     state.reset()
     await nextTick()
 
     expect(state.value).toBe('default')
-    expect(localStorage.getItem('provider')).toBe('default')
+    expect(localStorage.getItem('account/local/provider')).toBe('default')
   })
 
   it('restores the initial value when storage held a value before the ref was created', async () => {
-    localStorage.setItem('provider', 'stored')
+    localStorage.setItem('account/local/provider', 'stored')
     const state = useLocalStorageManualReset('provider', 'default')
     expect(state.value).toBe('stored')
 
@@ -69,7 +69,7 @@ describe('useLocalStorageManualReset', () => {
     await nextTick()
 
     expect(state.value).toBe('default')
-    expect(localStorage.getItem('provider')).toBe('default')
+    expect(localStorage.getItem('account/local/provider')).toBe('default')
   })
 
   // ROOT CAUSE:
@@ -88,7 +88,7 @@ describe('useLocalStorageManualReset', () => {
     await nextTick()
 
     expect(state.value).toEqual({ x: 0, y: 0 })
-    expect(localStorage.getItem('offset')).toBe('{"x":0,"y":0}')
+    expect(localStorage.getItem('account/local/offset')).toBe('{"x":0,"y":0}')
   })
 
   // ROOT CAUSE:
@@ -113,7 +113,7 @@ describe('useLocalStorageManualReset', () => {
     await nextTick()
 
     expect(changes).toBe(1)
-    expect(localStorage.getItem('offset')).toBe('{"x":7,"y":0}')
+    expect(localStorage.getItem('account/local/offset')).toBe('{"x":7,"y":0}')
     stop()
   })
 
@@ -128,6 +128,6 @@ describe('useLocalStorageManualReset', () => {
     state.value.set('card-1', 'ReLU')
     await nextTick()
 
-    expect(JSON.parse(localStorage.getItem('cards')!)).toEqual([['card-1', 'ReLU']])
+    expect(JSON.parse(localStorage.getItem('account/local/cards')!)).toEqual([['card-1', 'ReLU']])
   })
 })

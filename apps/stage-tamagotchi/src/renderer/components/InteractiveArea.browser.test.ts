@@ -6,6 +6,7 @@ import SharedInteractiveArea from '@proj-airi/stage-layouts/components/Layouts/I
 import MobileInteractiveArea from '@proj-airi/stage-layouts/components/Layouts/MobileInteractiveArea'
 
 import { PiniaColada } from '@pinia/colada'
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { useThreeViewControl } from '@proj-airi/stage-ui-three'
 import { browserAuthorizationHandler, registerAuthorizationHandler } from '@proj-airi/stage-ui/libs/auth'
 import { useChatStore } from '@proj-airi/stage-ui/stores/chat'
@@ -71,8 +72,8 @@ async function renderArea(component: Component = InteractiveArea, options: { pro
     },
   }
   // The consciousness store reads these keys when the area first uses it.
-  localStorage.setItem('settings/consciousness/active-provider', options.providerConfigured === false ? '' : 'openai')
-  localStorage.setItem('settings/consciousness/active-model', options.providerConfigured === false ? '' : 'gpt-test')
+  localStorage.setItem(accountStorageKey('settings/consciousness/active-provider'), options.providerConfigured === false ? '' : 'openai')
+  localStorage.setItem(accountStorageKey('settings/consciousness/active-model'), options.providerConfigured === false ? '' : 'gpt-test')
   onTestFinished(() => localStorage.clear())
   const router = createRouter({
     history: createMemoryHistory(),

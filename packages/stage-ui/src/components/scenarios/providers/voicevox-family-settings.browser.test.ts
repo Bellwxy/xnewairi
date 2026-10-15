@@ -1,6 +1,7 @@
 import type { Pinia } from 'pinia'
 
 import { PiniaColada } from '@pinia/colada'
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { createPinia } from 'pinia'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-vue'
@@ -83,7 +84,7 @@ async function expectVoiceSettingsPersistence(providerId: 'voicevox' | 'aivis-sp
 
   await expect.poll(() => providerConfig.getProviderConfig(providerId)?.voiceSettings).toMatchObject({ speed: 1.5 })
   await expect.poll(() => {
-    const stored = localStorage.getItem('settings/providers/configured')
+    const stored = localStorage.getItem(accountStorageKey('settings/providers/configured'))
     if (!stored)
       return undefined
     return JSON.parse(stored)[providerId]?.config?.voiceSettings?.speed

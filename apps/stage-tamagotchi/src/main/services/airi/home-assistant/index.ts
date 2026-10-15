@@ -36,6 +36,7 @@ const defaultConfig: HomeAssistantStoredConfig = {
  */
 export function setupHomeAssistant(context: ReturnType<typeof createContext>['context']) {
   const config = createConfig('home-assistant', 'v1.json', configSchema, {
+    owner: 'account',
     default: defaultConfig,
     autoHeal: true,
   })

@@ -1,3 +1,5 @@
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
+
 const localeStorageKey = 'settings/language'
 
 export interface HostLocale {
@@ -8,10 +10,10 @@ export interface HostLocale {
 export function useHostLocale(): HostLocale {
   return {
     async get() {
-      return localStorage.getItem(localeStorageKey) || undefined
+      return localStorage.getItem(accountStorageKey(localeStorageKey)) || undefined
     },
     async set(locale) {
-      localStorage.setItem(localeStorageKey, locale)
+      localStorage.setItem(accountStorageKey(localeStorageKey), locale)
     },
   }
 }

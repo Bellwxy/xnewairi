@@ -12,7 +12,7 @@ import type { CommonContentPart } from '@xsai/shared-chat'
 import { errorMessageFrom } from '@moeru/std'
 import { Client, createTextProtocolConnector, WebSocketEventSource } from '@proj-airi/server-sdk'
 import { isStageTamagotchi, isStageWeb } from '@proj-airi/stage-shared'
-import { useLocalStorage } from '@vueuse/core'
+import { useAccountLocalStorage } from '@proj-airi/stage-shared/composables'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
@@ -67,8 +67,8 @@ export const useModsServerChannelStore = defineStore('mods:channels:proj-airi:se
   const reconnectedCallbacks = new Set<() => void>()
 
   const defaultWebSocketUrl = import.meta.env.VITE_AIRI_WS_URL || 'ws://localhost:6121/ws'
-  const websocketUrl = useLocalStorage('settings/connection/websocket-url', defaultWebSocketUrl)
-  const websocketAuthToken = useLocalStorage('settings/connection/websocket-auth-token', '')
+  const websocketUrl = useAccountLocalStorage('settings/connection/websocket-url', defaultWebSocketUrl)
+  const websocketAuthToken = useAccountLocalStorage('settings/connection/websocket-auth-token', '')
   const registeredListeners: ChannelListenerEntry[] = []
   const replayableEvents = new Map<keyof WebSocketEvents, WebSocketBaseEvent<any, any>>()
 

@@ -72,6 +72,7 @@ export async function setupMainWindow(params: {
     get: getConfigRaw,
     update: updateConfig,
   } = createConfig('app', 'config.json', appConfigSchema, {
+    owner: 'device',
     default: { windows: [] },
     autoHeal: true,
   })

@@ -6,7 +6,7 @@ import { defineStore } from 'pinia'
 import { computed, onScopeDispose, ref, watch } from 'vue'
 
 import { chatStickers } from '../../assets/stickers'
-import { stickersRepo } from '../../database/repos/stickers.repo'
+import { STICKER_LIBRARY_LOCK, stickersRepo } from '../../database/repos/stickers.repo'
 import { StickerValidationError, validateStickerImage, validateStickerMetadata } from '../../libs/stickers/import'
 
 /** IndexedDB owns the library. Broadcasts invalidate snapshots without sending image bytes between windows. */
@@ -69,7 +69,7 @@ export const useStickersStore = defineStore('stickers', () => {
     const metadata = validateStickerMetadata(name, emotions)
     if (file)
       await validateStickerImage(file)
-    const entry = await navigator.locks.request('airi:sticker-library-write', async () => {
+    const entry = await navigator.locks.request(STICKER_LIBRARY_LOCK, async () => {
       const builtin = chatStickers.find(sticker => sticker.id === id)
       const stored = await stickersRepo.get(id)
       if ((stored?.deleted || (!stored && !builtin)) && !id.startsWith('custom-'))
@@ -98,7 +98,7 @@ export const useStickersStore = defineStore('stickers', () => {
   }
 
   async function remove(id: string) {
-    await navigator.locks.request('airi:sticker-library-write', async () => {
+    await navigator.locks.request(STICKER_LIBRARY_LOCK, async () => {
       const entry = await stickersRepo.get(id) ?? entries.value.find(item => item.id === id)
       if (!entry)
         throw new StickerValidationError('missing')

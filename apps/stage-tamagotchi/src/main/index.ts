@@ -29,6 +29,7 @@ import { createArtistryConfig } from './configs/artistry'
 import { createGlobalAppConfig } from './configs/global'
 import { createIOTraceRecordingConfig } from './configs/io-trace-recording'
 import { emitAppBeforeQuit, emitAppWindowAllClosed } from './libs/bootkit/lifecycle'
+import { initializeMainAccount } from './libs/electron/account'
 import { getElectronMainDirname, setElectronMainDirname } from './libs/electron/location'
 import { createI18n } from './libs/i18n'
 import { setupAppleSpeechTranscriptionService } from './services/airi/apple-speech-transcription'
@@ -42,6 +43,7 @@ import { IOTraceRecordingService } from './services/airi/io-trace-recording'
 import { setupMcpManager } from './services/airi/mcp-servers'
 import { setupExtensionHost } from './services/airi/plugins'
 import { setupArtistryBridge } from './services/airi/widgets/artistry-bridge'
+import { createAccountService } from './services/electron/account'
 import { setupAutoUpdater } from './services/electron/auto-updater'
 import { setupSherpawModelAssetsProtocol } from './services/electron/bundled-sherpaw-assets'
 import { setupGlobalShortcutService } from './services/electron/global-shortcut'
@@ -169,6 +171,12 @@ app.whenReady().then(async () => {
   if (!shouldStartMainProcess) {
     return
   }
+
+  // Account configs resolve their paths on first use, so the account is fixed before any service starts.
+  // Only this instance passed the single-instance guard, so no other process runs the file migration.
+  initializeMainAccount()
+  // One global context answers every window, including windows without the base window handlers.
+  createAccountService({ context: createContext(ipcMain).context })
 
   setupSherpawModelAssetsProtocol(resolve(getElectronMainDirname(), '..', 'renderer'))
   setupSherpawModelAssets(createContext(ipcMain).context)

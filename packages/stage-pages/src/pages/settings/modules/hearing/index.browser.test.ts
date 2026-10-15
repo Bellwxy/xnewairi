@@ -1,5 +1,6 @@
 import en from '@proj-airi/i18n/locales/en'
 
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { pushToTalkTriggerKey } from '@proj-airi/stage-ui/composables/push-to-talk-trigger'
 import { createPinia, disposePinia } from 'pinia'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -63,7 +64,7 @@ describe('hearing overview', () => {
   })
 
   it('shows the wake word status when the input mode is wake words', async () => {
-    localStorage.setItem('settings/hearing/input-mode', 'wake-word')
+    localStorage.setItem(accountStorageKey('settings/hearing/input-mode'), 'wake-word')
     const screen = await renderHearing(true)
 
     await expect.element(screen.getByTestId('hearing-wake-word-status')).toHaveTextContent('No character has wake words.')
@@ -91,7 +92,7 @@ describe('hearing input mode', () => {
   })
 
   it('warns when the saved mode is Push to Talk and the host has no trigger', async () => {
-    localStorage.setItem('settings/hearing/input-mode', 'push-to-talk')
+    localStorage.setItem(accountStorageKey('settings/hearing/input-mode'), 'push-to-talk')
     const screen = await renderHearing(false)
 
     await expect.element(screen.getByTestId('hearing-input-mode-stranded')).toBeVisible()
@@ -99,7 +100,7 @@ describe('hearing input mode', () => {
   })
 
   it('shows no warning for a saved Push to Talk mode when the host has a trigger', async () => {
-    localStorage.setItem('settings/hearing/input-mode', 'push-to-talk')
+    localStorage.setItem(accountStorageKey('settings/hearing/input-mode'), 'push-to-talk')
     const screen = await renderHearing(true)
 
     await expect.element(screen.getByTestId('hearing-input-mode')).toBeVisible()

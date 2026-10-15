@@ -2,6 +2,7 @@ import type { VoiceMessageSnapshot } from '../../../../libs/voice/voice-message'
 import type { VoiceHostSnapshot, VoiceInputCommand, VoiceMessageCommand } from '../../../../services/speech/bus'
 
 import { defineInvokeHandler } from '@moeru/eventa'
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { createPinia, disposePinia } from 'pinia'
 import { afterEach, describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-vue'
@@ -79,7 +80,7 @@ async function mountButton(options: { afterFinish?: Partial<VoiceMessageSnapshot
 describe('voiceInputButton', () => {
   // Review: https://github.com/moeru-ai/airi/pull/2729#discussion_r4239147482
   it('warns in the menu when the saved mode is Push to Talk and the host has no trigger', async () => {
-    localStorage.setItem('settings/hearing/input-mode', 'push-to-talk')
+    localStorage.setItem(accountStorageKey('settings/hearing/input-mode'), 'push-to-talk')
     const { screen } = await mountButton()
 
     await screen.getByTestId('voice-input-button').click({ button: 'right' })
@@ -89,7 +90,7 @@ describe('voiceInputButton', () => {
   })
 
   it('shows no Push to Talk warning in the menu when the host has a trigger', async () => {
-    localStorage.setItem('settings/hearing/input-mode', 'push-to-talk')
+    localStorage.setItem(accountStorageKey('settings/hearing/input-mode'), 'push-to-talk')
     const { screen } = await mountButton({ pushToTalkTrigger: true })
 
     await screen.getByTestId('voice-input-button').click({ button: 'right' })
@@ -116,7 +117,7 @@ describe('voiceInputButton', () => {
   })
 
   it('sends the voice message when the recording stops with Auto send on', async () => {
-    localStorage.setItem('settings/hearing/auto-send-enabled', 'true')
+    localStorage.setItem(accountStorageKey('settings/hearing/auto-send-enabled'), 'true')
     const { screen, commands } = await mountButton()
     const button = screen.getByTestId('voice-input-button')
     await button.click()
@@ -137,7 +138,7 @@ describe('voiceInputButton', () => {
 
   // The chat queues a voice message behind a running reply. The control used to spin until that reply ended.
   it('frees the control while a sent voice message waits in the chat queue', async () => {
-    localStorage.setItem('settings/hearing/auto-send-enabled', 'true')
+    localStorage.setItem(accountStorageKey('settings/hearing/auto-send-enabled'), 'true')
     const { screen } = await mountButton({ queued: true })
     const button = screen.getByTestId('voice-input-button')
     await button.click()
@@ -149,7 +150,7 @@ describe('voiceInputButton', () => {
   })
 
   it('cancels from the status bar without sending when Auto send is on', async () => {
-    localStorage.setItem('settings/hearing/auto-send-enabled', 'true')
+    localStorage.setItem(accountStorageKey('settings/hearing/auto-send-enabled'), 'true')
     const { screen, commands } = await mountButton()
     await screen.getByTestId('voice-input-button').click()
     await screen.getByTestId('voice-status-cancel').click()
@@ -160,8 +161,8 @@ describe('voiceInputButton', () => {
   })
 
   it('writes the live transcript into the composer and keeps the final text', async () => {
-    localStorage.setItem('ui/chat/voice-mode', 'transcription')
-    localStorage.setItem('settings/hearing/active-provider', 'browser-web-speech-api')
+    localStorage.setItem(accountStorageKey('ui/chat/voice-mode'), 'transcription')
+    localStorage.setItem(accountStorageKey('settings/hearing/active-provider'), 'browser-web-speech-api')
     const { screen, commands, draft, submitted } = await mountButton({ dictation: 'how are you' })
     const button = screen.getByTestId('voice-input-button')
     await button.click()

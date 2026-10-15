@@ -104,6 +104,7 @@ export function setupChatWindowManager(params: {
     get: getConfigRaw,
     update: updateConfig,
   } = createConfig('chat-window', 'config.json', chatWindowConfigSchema, {
+    owner: 'device',
     default: defaultChatWindowConfig,
     autoHeal: true,
   })

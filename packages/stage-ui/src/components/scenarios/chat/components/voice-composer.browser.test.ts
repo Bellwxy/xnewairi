@@ -2,6 +2,7 @@ import type { VoiceMessageSnapshot } from '../../../../libs/voice/voice-message'
 import type { VoiceInputCommand, VoiceMessageCommand } from '../../../../services/speech/bus'
 
 import { defineInvokeHandler } from '@moeru/eventa'
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { createPinia, disposePinia } from 'pinia'
 import { afterEach, describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-vue'
@@ -124,7 +125,7 @@ describe('voiceComposer', () => {
   })
 
   it('appends dictation to the composer text', async () => {
-    localStorage.setItem('settings/hearing/active-provider', 'browser-web-speech-api')
+    localStorage.setItem(accountStorageKey('settings/hearing/active-provider'), 'browser-web-speech-api')
     const { screen, commands, draft } = await mountComposer({ dictation: 'how are you' })
     const button = screen.getByTestId('voice-composer-button')
     await button.click()

@@ -1,5 +1,4 @@
-import localforage from 'localforage'
-
+import { accountDefaultLocalForage } from '@proj-airi/stage-shared/account-scope/localforage'
 import { useBroadcastChannel } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
@@ -94,7 +93,7 @@ export const useBackgroundStore = defineStore('background-entries', () => {
       const loadedEntries = new Map<string, BackgroundEntry>()
 
       // 1. Read existing backgrounds from IndexedDB
-      await localforage.iterate<BackgroundEntry, void>((val, key) => {
+      await accountDefaultLocalForage().iterate<BackgroundEntry, void>((val, key) => {
         if (key.startsWith(STORAGE_PREFIX) || key.startsWith('builtin:')) {
           const entry = { ...val, id: key }
           if (entry.blob instanceof Blob) {
@@ -109,7 +108,7 @@ export const useBackgroundStore = defineStore('background-entries', () => {
       const legacyEntriesToMigrate: BackgroundEntry[] = []
       const legacyKeysToDelete: string[] = []
 
-      await localforage.iterate<any, void>((val, key) => {
+      await accountDefaultLocalForage().iterate<any, void>((val, key) => {
         if (key.startsWith(legacyPrefix)) {
           legacyKeysToDelete.push(key)
           const newId = key.replace(legacyPrefix, STORAGE_PREFIX)
@@ -134,10 +133,10 @@ export const useBackgroundStore = defineStore('background-entries', () => {
       })
 
       for (const entry of legacyEntriesToMigrate) {
-        await localforage.setItem(entry.id, entry)
+        await accountDefaultLocalForage().setItem(entry.id, entry)
       }
       for (const key of legacyKeysToDelete) {
-        await localforage.removeItem(key)
+        await accountDefaultLocalForage().removeItem(key)
       }
 
       // 3. Seeding logic for defaults
@@ -157,7 +156,7 @@ export const useBackgroundStore = defineStore('background-entries', () => {
               createdAt: Date.now(),
             }
             ensureObjectUrl(entry.id, blob)
-            await localforage.setItem(entry.id, entry)
+            await accountDefaultLocalForage().setItem(entry.id, entry)
             loadedEntries.set(entry.id, entry)
           }
           catch (e) {
@@ -296,7 +295,7 @@ export const useBackgroundStore = defineStore('background-entries', () => {
     }
 
     try {
-      await localforage.setItem(id, entry)
+      await accountDefaultLocalForage().setItem(id, entry)
       ensureObjectUrl(id, blob)
 
       const nextEntries = new Map(entries.value)
@@ -315,7 +314,7 @@ export const useBackgroundStore = defineStore('background-entries', () => {
 
   async function removeBackground(id: string) {
     try {
-      await localforage.removeItem(id)
+      await accountDefaultLocalForage().removeItem(id)
 
       const nextEntries = new Map(entries.value)
       nextEntries.delete(id)

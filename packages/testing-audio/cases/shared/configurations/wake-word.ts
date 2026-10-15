@@ -6,6 +6,7 @@ import type { AudioInputPreflightCallback, AudioInputPreflightContext } from '..
 import { sherpawModelArtifactUrl } from '@proj-airi/provider-inference/sherpaw-transcription/models'
 import { kwsModel } from '@proj-airi/stage-ui/libs/voice/kws-model-info'
 
+import { pageAccountScope } from '../../../src/setup/account-scope'
 import { prepareWakeWordModel } from '../../../src/setup/wake-word-model'
 import { configureStorage } from './storage'
 
@@ -52,12 +53,14 @@ export function configureWakeWord(resolve: WakeWordResolver): AudioInputPrefligh
       cardId: configuration.targetCardId,
       wakeWord: { text: configuration.text, modelId: kwsModel.id, pronunciations: configuration.pronunciations } satisfies WakeWord,
     }))
-    await context.runtime.runtimePage.evaluate((configuredTargets) => {
-      const serializedCards = localStorage.getItem('airi-cards')
+    const scope = await pageAccountScope(context.runtime.runtimePage)
+    const keys = { cards: scope.storageKey('airi-cards'), activeCardId: scope.storageKey('airi-card-active-id') }
+    await context.runtime.runtimePage.evaluate(({ configuredTargets, keys }) => {
+      const serializedCards = localStorage.getItem(keys.cards)
       if (!serializedCards)
         throw new Error('The AIRI Card store is not initialized.')
 
-      const activeCardId = localStorage.getItem('airi-card-active-id') ?? 'default'
+      const activeCardId = localStorage.getItem(keys.activeCardId) ?? 'default'
       const cards = JSON.parse(serializedCards) as Array<[string, AiriCard]>
       const activeCard = cards.find(([cardId]) => cardId === activeCardId)?.[1]
       if (!activeCard)
@@ -72,8 +75,8 @@ export function configureWakeWord(resolve: WakeWordResolver): AudioInputPrefligh
         targetCard.extensions.airi.wakeWords = [target.wakeWord]
         cards.push([target.cardId, targetCard])
       }
-      localStorage.setItem('airi-cards', JSON.stringify(cards))
-    }, targets)
+      localStorage.setItem(keys.cards, JSON.stringify(cards))
+    }, { configuredTargets: targets, keys })
 
     const microphoneInput = await context.runtime.runtimePage.evaluate(async () => {
       const devices = await navigator.mediaDevices.enumerateDevices()

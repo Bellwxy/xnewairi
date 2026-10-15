@@ -27,8 +27,9 @@ vi.mock('@proj-airi/electron-vueuse', () => ({
   },
 }))
 
-vi.mock('@vueuse/core', () => ({
-  useLocalStorage: <T>(key: string, initialValue: T) => {
+vi.mock('@proj-airi/stage-shared/composables', async importOriginal => ({
+  ...await importOriginal<typeof import('@proj-airi/stage-shared/composables')>(),
+  useAccountLocalStorage: <T>(key: string, initialValue: T) => {
     if (key === 'settings/server-channel/hostname')
       return ref('127.0.0.1')
     if (key === 'settings/server-channel/auth-token')

@@ -2,6 +2,7 @@ import type { GenerationProvider } from '@proj-airi/provider-inference'
 
 import en from '@proj-airi/i18n/locales/en'
 
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { createPinia, disposePinia } from 'pinia'
 import { afterEach, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-vue'
@@ -41,8 +42,8 @@ function storeDefaultCharacter(provider: string, model: string) {
     vision: { provider: '', model: '' },
     speech: { provider: '', model: '', voice_id: '' },
   }
-  localStorage.setItem('airi-cards', JSON.stringify([['default', { name: 'Character', version: '1.0', extensions: { airi: { agents: {}, modules } } }]]))
-  localStorage.setItem('airi-card-module-defaults', JSON.stringify(modules))
+  localStorage.setItem(accountStorageKey('airi-cards'), JSON.stringify([['default', { name: 'Character', version: '1.0', extensions: { airi: { agents: {}, modules } } }]]))
+  localStorage.setItem(accountStorageKey('airi-card-module-defaults'), JSON.stringify(modules))
 }
 
 afterEach(() => {
@@ -52,12 +53,12 @@ afterEach(() => {
     useChatStore(pinia).dispose()
     disposePinia(pinia)
   }
-  localStorage.removeItem('settings/stickers/enabled')
-  localStorage.removeItem('settings/stickers/frequency')
-  localStorage.removeItem('settings/consciousness/active-provider')
-  localStorage.removeItem('settings/consciousness/active-model')
-  localStorage.removeItem('airi-cards')
-  localStorage.removeItem('airi-card-module-defaults')
+  localStorage.removeItem(accountStorageKey('settings/stickers/enabled'))
+  localStorage.removeItem(accountStorageKey('settings/stickers/frequency'))
+  localStorage.removeItem(accountStorageKey('settings/consciousness/active-provider'))
+  localStorage.removeItem(accountStorageKey('settings/consciousness/active-model'))
+  localStorage.removeItem(accountStorageKey('airi-cards'))
+  localStorage.removeItem(accountStorageKey('airi-card-module-defaults'))
 })
 
 it('captures the direct ingest session, provider, and supplement before waiting for the library', async () => {

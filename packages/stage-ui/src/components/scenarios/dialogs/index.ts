@@ -1,5 +1,6 @@
 export * from './about'
 export { default as AboutDialogWithContent } from './about.vue'
+export { default as AccountSwitchDialog } from './account-switch/account-switch-dialog.vue'
 export * from './audio-input'
 export * from './background-picker'
 export * from './bug-report'

@@ -1,3 +1,4 @@
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { ThreeScene, useModelStore } from '@proj-airi/stage-ui-three'
 import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
 import { createPinia } from 'pinia'
@@ -44,7 +45,7 @@ describe('imported VRM view settings', () => {
     const pinia = createPinia()
     const modelStore = useModelStore(pinia)
     modelStore.resetModelStore()
-    localStorage.setItem('settings/stage-ui-three/lastModelSrc', vrmModelUrl)
+    localStorage.setItem(accountStorageKey('settings/stage-ui-three/lastModelSrc'), vrmModelUrl)
     modelStore.modelOffset = { x: 0.25, y: 0.25, z: 0 }
     const modelId = shallowRef('display-model-issue-1806')
     const modelSrc = shallowRef(vrmModelUrl)
@@ -87,9 +88,9 @@ describe('imported VRM view settings', () => {
 
     await expect.poll(() => modelStore.scenePhase, { timeout: 20_000 }).toBe('mounted')
     expect(modelStore.lastCommittedModelId).toBe('display-model-issue-1806')
-    expect(localStorage.getItem('settings/stage-ui-three/lastModelId')).toBe('display-model-issue-1806')
+    expect(localStorage.getItem(accountStorageKey('settings/stage-ui-three/lastModelId'))).toBe('display-model-issue-1806')
     expect(modelStore.modelOffset).toEqual({ x: 0, y: 0, z: 0 })
-    expect(localStorage.getItem('settings/stage-ui-three/lastModelSrc')).toBeNull()
+    expect(localStorage.getItem(accountStorageKey('settings/stage-ui-three/lastModelSrc'))).toBeNull()
 
     modelStore.modelOffset = { x: 0.35, y: 0.35, z: 0 }
     modelStore.cameraDistance = 1.75

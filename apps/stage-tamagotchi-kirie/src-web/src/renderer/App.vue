@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { useHostEventaContext, useHostLocale } from '@proj-airi/stage-host-context'
 import { themeColorFromValue, useThemeColor } from '@proj-airi/stage-layouts/composables/theme-color'
-import { ToasterRoot } from '@proj-airi/stage-ui/components'
+import { AccountSwitchDialog, ToasterRoot } from '@proj-airi/stage-ui/components'
 import { useInferencePreload } from '@proj-airi/stage-ui/composables'
 import { usePiniaSynced } from '@proj-airi/stage-ui/libs/pinia'
 import { initializeAnalytics } from '@proj-airi/stage-ui/libs/product-signals'
+import { bindAccountToAuthentication } from '@proj-airi/stage-ui/services/account-switch'
 import { useAuthStore } from '@proj-airi/stage-ui/stores/auth'
 import { useChatStore } from '@proj-airi/stage-ui/stores/chat'
 import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
@@ -125,6 +126,7 @@ function createFullStageRuntime() {
   return {
     async initialize() {
       initializeAnalytics()
+      bindAccountToAuthentication(authStore)
       await authStore.initialize()
       await displayModelsStore.initialize()
       await cardStore.initialize()
@@ -224,6 +226,7 @@ function handleRouteRenderError(error: unknown, _instance: unknown, info: string
 </script>
 
 <template>
+  <AccountSwitchDialog />
   <ToasterRoot @close="id => toast.dismiss(id)">
     <Toaster />
   </ToasterRoot>

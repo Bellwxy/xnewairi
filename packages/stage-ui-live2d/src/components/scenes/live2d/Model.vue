@@ -10,6 +10,7 @@ import type {
 
 import type { PixiLive2DInternalModel } from '../../../composables/live2d'
 
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { listenBeatSyncBeatSignal } from '@proj-airi/stage-shared/beat-sync'
 import { ambientLightDefaults, ambientLightNeutralEnvironment, ambientLightPerceptualLevel, wholeWindowRectangle } from '@proj-airi/stage-shared/screen-ambient-light'
 import { useTheme } from '@proj-airi/ui'
@@ -396,8 +397,8 @@ async function performModelLoad() {
       .filter(Boolean)
 
     // Check if user has selected a runtime motion to play as idle
-    const selectedMotionGroup = localStorage.getItem('selected-runtime-motion-group')
-    const selectedMotionIndex = localStorage.getItem('selected-runtime-motion-index')
+    const selectedMotionGroup = localStorage.getItem(accountStorageKey('selected-runtime-motion-group'))
+    const selectedMotionIndex = localStorage.getItem(accountStorageKey('selected-runtime-motion-index'))
 
     // Configure the selected motion to loop
     if (selectedMotionGroup !== null && selectedMotionIndex) {
@@ -486,8 +487,8 @@ async function performModelLoad() {
 
     // Listen for motion finish to restart runtime motion for looping
     motionManager.on('motionFinish', () => {
-      const selectedMotionGroup = localStorage.getItem('selected-runtime-motion-group')
-      const selectedMotionIndex = localStorage.getItem('selected-runtime-motion-index')
+      const selectedMotionGroup = localStorage.getItem(accountStorageKey('selected-runtime-motion-group'))
+      const selectedMotionIndex = localStorage.getItem(accountStorageKey('selected-runtime-motion-index'))
 
       if (selectedMotionGroup !== null && selectedMotionIndex && live2dIdleAnimationEnabled.value) {
         // Restart the selected runtime motion at once, so the loop has no gap

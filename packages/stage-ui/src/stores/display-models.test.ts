@@ -3,14 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { DisplayModelFormat, useDisplayModelsStore } from './display-models'
 
-vi.mock('localforage', () => ({
-  default: {
+vi.mock('@proj-airi/stage-shared/account-scope/localforage', () => {
+  const store = {
     getItem: vi.fn(async () => undefined),
     iterate: vi.fn(async () => undefined),
     removeItem: vi.fn(async () => undefined),
     setItem: vi.fn(async (_key: string, value: unknown) => value),
-  },
-}))
+  }
+  return { accountDefaultLocalForage: () => store, createAccountLocalForage: () => store }
+})
 
 /**
  * @example

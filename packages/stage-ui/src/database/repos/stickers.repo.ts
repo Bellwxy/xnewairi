@@ -1,14 +1,18 @@
 import type { StickerEntry } from '../../types/sticker'
 
-import localforage from 'localforage'
+import { createAccountLocalForage } from '@proj-airi/stage-shared/account-scope/localforage'
+import { getAccountScope } from '@proj-airi/stage-shared/account-scope/runtime'
 
-const entries = localforage.createInstance({ name: 'airi-stickers', storeName: 'entries' })
-const images = localforage.createInstance({ name: 'airi-stickers', storeName: 'images' })
+const entries = createAccountLocalForage('airi-stickers', 'entries')
+const images = createAccountLocalForage('airi-stickers', 'images')
+
+/** Serializes sticker library writes of this account across windows. */
+export const STICKER_LIBRARY_LOCK = getAccountScope().lockName('airi:sticker-library-write')
 
 /** Device-local library. Immutable image versions remain available to saved and queued replies. */
 export const stickersRepo = {
   async read() {
-    return navigator.locks.request('airi:sticker-library-write', async () => {
+    return navigator.locks.request(STICKER_LIBRARY_LOCK, async () => {
       const records: StickerEntry[] = []
       const artwork: { id: string, blob: Blob }[] = []
       await Promise.all([

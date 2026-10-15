@@ -1,5 +1,6 @@
 import type { LeadershipMode, SyncedPiniaRuntime } from 'pinia-plugin-synced'
 
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { createPinia, disposePinia, setActivePinia } from 'pinia'
 import { createSyncedPiniaPlugin } from 'pinia-plugin-synced'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -65,9 +66,9 @@ describe('consciousness settings synchronization', () => {
     expect(leaderMutations).toBe(1)
     expect(followerMutations).toBe(1)
     expect(followerActions).toBe(0)
-    expect(localStorage.getItem('settings/consciousness/reasoning')).toBeNull()
-    expect(localStorage.getItem('settings/consciousness/temperature-enabled')).toBeNull()
-    expect(localStorage.getItem('settings/consciousness/top-p-enabled')).toBeNull()
+    expect(localStorage.getItem(accountStorageKey('settings/consciousness/reasoning'))).toBeNull()
+    expect(localStorage.getItem(accountStorageKey('settings/consciousness/temperature-enabled'))).toBeNull()
+    expect(localStorage.getItem(accountStorageKey('settings/consciousness/top-p-enabled'))).toBeNull()
   })
 
   it('persists a follower update through one leader-owned action', async () => {
@@ -94,7 +95,7 @@ describe('consciousness settings synchronization', () => {
 
     expect(leaderStore.reasoning).toBe(true)
     expect(leaderActions).toBe(1)
-    expect(localStorage.getItem('settings/consciousness/reasoning')).toBe('true')
+    expect(localStorage.getItem(accountStorageKey('settings/consciousness/reasoning'))).toBe('true')
 
     await followerStore.setTemperatureEnabled(true)
     await followerStore.setTopPEnabled(true)
@@ -102,15 +103,15 @@ describe('consciousness settings synchronization', () => {
     await vi.waitFor(() => expect(followerStore.topPEnabled).toBe(true))
     expect(leaderStore.temperatureEnabled).toBe(true)
     expect(leaderStore.topPEnabled).toBe(true)
-    expect(localStorage.getItem('settings/consciousness/temperature-enabled')).toBe('true')
-    expect(localStorage.getItem('settings/consciousness/top-p-enabled')).toBe('true')
+    expect(localStorage.getItem(accountStorageKey('settings/consciousness/temperature-enabled'))).toBe('true')
+    expect(localStorage.getItem(accountStorageKey('settings/consciousness/top-p-enabled'))).toBe('true')
 
     await followerStore.resetState()
     await vi.waitFor(() => expect(followerStore.temperatureEnabled).toBe(false))
     await vi.waitFor(() => expect(followerStore.topPEnabled).toBe(false))
     expect(leaderStore.temperatureEnabled).toBe(false)
     expect(leaderStore.topPEnabled).toBe(false)
-    expect(localStorage.getItem('settings/consciousness/temperature-enabled')).toBe('false')
-    expect(localStorage.getItem('settings/consciousness/top-p-enabled')).toBe('false')
+    expect(localStorage.getItem(accountStorageKey('settings/consciousness/temperature-enabled'))).toBe('false')
+    expect(localStorage.getItem(accountStorageKey('settings/consciousness/top-p-enabled'))).toBe('false')
   })
 })

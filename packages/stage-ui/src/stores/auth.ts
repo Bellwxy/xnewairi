@@ -3,6 +3,7 @@ import type {} from 'pinia-plugin-synced'
 
 import { errorMessageFrom } from '@moeru/std'
 import { isStageTamagotchi } from '@proj-airi/stage-shared'
+import { getAccountScope } from '@proj-airi/stage-shared/account-scope/runtime'
 import { useTimeoutFn, whenever } from '@vueuse/core'
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
@@ -83,7 +84,12 @@ export const useAuthStore = defineStore('auth', () => {
   // — without this we'd be back to relying on cross-site session cookies.
   const idToken = ref<string | null>(null)
   const isAuthenticated = computed(() => !!user.value && !!session.value)
-  const userId = computed(() => user.value?.id ?? 'local')
+  /**
+   * The user that cloud features act for, or `local`.
+   * The page account is fixed at startup. A signed-in user of another account only starts the account switch,
+   * so this stays `local` until the page reloads into that account.
+   */
+  const userId = computed(() => user.value && user.value.id === getAccountScope().accountId ? user.value.id : 'local')
 
   // --- OIDC token refresh state ---
   const oidcClientId = ref<string | null>(null)
@@ -118,6 +124,7 @@ export const useAuthStore = defineStore('auth', () => {
   type AuthHook = () => void | Promise<void>
   const authenticatedHooks: AuthHook[] = []
   const logoutHooks: AuthHook[] = []
+  const signOutHooks: AuthHook[] = []
 
   function onAuthenticated(hook: AuthHook) {
     authenticatedHooks.push(hook)
@@ -139,6 +146,19 @@ export const useAuthStore = defineStore('auth', () => {
       const idx = logoutHooks.indexOf(hook)
       if (idx >= 0)
         logoutHooks.splice(idx, 1)
+    }
+  }
+
+  /**
+   * Runs after the user signs out on purpose. `onLogout` also runs when the server rejects the credentials.
+   * The account switch uses this hook, so a rejected credential keeps the current account.
+   */
+  function onSignOut(hook: AuthHook) {
+    signOutHooks.push(hook)
+    return () => {
+      const idx = signOutHooks.indexOf(hook)
+      if (idx >= 0)
+        signOutHooks.splice(idx, 1)
     }
   }
 
@@ -351,8 +371,11 @@ export const useAuthStore = defineStore('auth', () => {
       console.error('Server sign-out failed', errorMessageFrom(error))
     }
 
-    if (version === sessionVersion.value)
-      clearAuthState()
+    if (version !== sessionVersion.value)
+      return
+
+    clearAuthState()
+    await dispatchHooks(signOutHooks, 'sign-out hook error')
   }
 
   /**
@@ -449,6 +472,7 @@ export const useAuthStore = defineStore('auth', () => {
     needsLogin,
     onAuthenticated,
     onLogout,
+    onSignOut,
 
     // OIDC token refresh
     oidcClientId,

@@ -19,7 +19,7 @@ export const artistryConfigSchema = object({
 })
 
 export function createArtistryConfig() {
-  const config = createConfig('artistry', 'options.json', artistryConfigSchema)
+  const config = createConfig('artistry', 'options.json', artistryConfigSchema, { owner: 'account' })
   config.setup()
 
   return config

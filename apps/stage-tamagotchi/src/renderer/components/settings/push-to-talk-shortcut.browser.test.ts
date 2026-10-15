@@ -1,5 +1,6 @@
 import type { ShortcutAccelerator, ShortcutBinding } from '@proj-airi/stage-shared/global-shortcut'
 
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { createPinia, disposePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { render } from 'vitest-browser-vue'
@@ -43,7 +44,7 @@ async function renderRecorder() {
 }
 
 function storedAccelerator(): ShortcutAccelerator | undefined {
-  const raw = localStorage.getItem(STORAGE_KEY)
+  const raw = localStorage.getItem(accountStorageKey(STORAGE_KEY))
   return raw ? JSON.parse(raw) : undefined
 }
 

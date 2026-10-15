@@ -4,6 +4,7 @@ import type { App } from 'vue'
 import en from '@proj-airi/i18n/locales/en'
 
 import { PiniaColada } from '@pinia/colada'
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { createPinia, disposePinia } from 'pinia'
 import { createSyncedPiniaPlugin } from 'pinia-plugin-synced'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
@@ -157,7 +158,7 @@ it('persists configured credentials through the leader and loads the model list'
   await expect.poll(() => leader.providerConfigStore.providers[providerId]?.status).toBe('configured')
   await expect.poll(() => leader.providerConfigStore.addedProviders[providerId]).toBe(true)
 
-  await expect.poll(() => JSON.parse(localStorage.getItem('settings/providers/configured') ?? '{}')).toMatchObject({
+  await expect.poll(() => JSON.parse(localStorage.getItem(accountStorageKey('settings/providers/configured')) ?? '{}')).toMatchObject({
     [providerId]: { config: expectedConfig },
   })
 

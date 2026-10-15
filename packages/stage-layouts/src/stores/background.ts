@@ -1,9 +1,9 @@
 import type { BackgroundOption } from '@proj-airi/stage-ui/components'
 import type { Ref, ShallowRef } from 'vue'
 
-import localforage from 'localforage'
-
-import { useLocalStorage, useObjectUrl } from '@vueuse/core'
+import { accountDefaultLocalForage } from '@proj-airi/stage-shared/account-scope/localforage'
+import { useAccountLocalStorage } from '@proj-airi/stage-shared/composables'
+import { useObjectUrl } from '@vueuse/core'
 import { defineStore } from 'pinia'
 import { computed, markRaw, onScopeDispose, ref, shallowRef, watch } from 'vue'
 
@@ -47,11 +47,11 @@ export const useBackgroundStore = defineStore('background', () => {
   ]
 
   const loading = ref(false)
-  const galleryOptions = useLocalStorage<BackgroundPreferenceRecord>('settings/theme/background/gallery-options', {})
-  const galleryId = useLocalStorage<string>('settings/theme/background/gallery-active', presets[0]?.id)
+  const galleryOptions = useAccountLocalStorage<BackgroundPreferenceRecord>('settings/theme/background/gallery-options', {})
+  const galleryId = useAccountLocalStorage<string>('settings/theme/background/gallery-active', presets[0]?.id)
   const storedOptions = ref<BackgroundItem[]>([])
 
-  const sampledColor = useLocalStorage<string>('settings/theme/background/sampled-color', '')
+  const sampledColor = useAccountLocalStorage<string>('settings/theme/background/sampled-color', '')
   const selectedId = computed({
     get: () => galleryId.value,
     set: value => galleryId.value = value,
@@ -123,7 +123,7 @@ export const useBackgroundStore = defineStore('background', () => {
         file: blob,
       }
 
-      await localforage.setItem<PersistedBackgroundItem>(key, payload)
+      await accountDefaultLocalForage().setItem<PersistedBackgroundItem>(key, payload)
     }
     catch (error) {
       console.error('Failed to migrate background data URL to Blob', error)
@@ -178,7 +178,7 @@ export const useBackgroundStore = defineStore('background', () => {
 
     const stored: BackgroundItem[] = []
     try {
-      await localforage.iterate<PersistedBackgroundItem, void>((val, key) => {
+      await accountDefaultLocalForage().iterate<PersistedBackgroundItem, void>((val, key) => {
         if (!key.startsWith(STORAGE_PREFIX))
           return
 
@@ -270,7 +270,7 @@ export const useBackgroundStore = defineStore('background', () => {
         removable: true,
       }
       try {
-        await localforage.setItem<PersistedBackgroundItem>(payload.id, payload)
+        await accountDefaultLocalForage().setItem<PersistedBackgroundItem>(payload.id, payload)
       }
       catch (error) {
         console.error('Failed to persist background', error)
@@ -290,7 +290,7 @@ export const useBackgroundStore = defineStore('background', () => {
     // Remove from localforage
     try {
       if (option.id.startsWith(STORAGE_PREFIX)) {
-        await localforage.removeItem(option.id)
+        await accountDefaultLocalForage().removeItem(option.id)
       }
     }
     catch (error) {

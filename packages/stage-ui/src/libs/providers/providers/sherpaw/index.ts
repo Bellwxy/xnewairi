@@ -4,6 +4,7 @@ import workerURL from '@sherpaw/xsai-transcription/worker?worker&url'
 import { resolveSupportedLocale } from '@proj-airi/i18n'
 import { createSherpawTranscriptionDefinition } from '@proj-airi/provider-inference'
 import { isStageCapacitor } from '@proj-airi/stage-shared'
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 
 import { defineProvider } from '../registry'
 import { fetchSherpawModel } from './model-assets'
@@ -12,7 +13,7 @@ import { sherpawModelResources } from './model-resources'
 export { executeSherpawStream, SHERPAW_TRANSCRIPTION_PROVIDER_ID } from '@proj-airi/provider-inference'
 
 function getInterfaceLanguage(): string {
-  const language = globalThis.localStorage?.getItem('settings/language') || globalThis.navigator?.language || 'en'
+  const language = globalThis.localStorage?.getItem(accountStorageKey('settings/language')) || globalThis.navigator?.language || 'en'
   return resolveSupportedLocale(language, Object.keys(messages))
 }
 

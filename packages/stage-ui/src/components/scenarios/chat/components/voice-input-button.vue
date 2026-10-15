@@ -3,8 +3,9 @@ import type { HearingInputMode } from '../../../../stores/modules/hearing'
 import type { ChatToolReference } from '../../../../types/chat'
 import type { VoiceComposerMode } from '../composables/use-voice-composer'
 
+import { useAccountLocalStorage } from '@proj-airi/stage-shared/composables'
 import { BasicButton, DropdownMenu } from '@proj-airi/ui'
-import { useEventListener, useIntervalFn, useLocalStorage, useNow } from '@vueuse/core'
+import { useEventListener, useIntervalFn, useNow } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import {
   DropdownMenuCheckboxItem,
@@ -66,7 +67,7 @@ const draft = defineModel<string>({ required: true })
 const LEVEL_MONITOR_RENEW_MS = 1000
 
 const { t } = useI18n()
-const mode = useLocalStorage<VoiceComposerMode>('ui/chat/voice-mode', 'audio')
+const mode = useAccountLocalStorage<VoiceComposerMode>('ui/chat/voice-mode', 'audio')
 const { autoSendEnabled, inputMode } = storeToRefs(useHearingStore())
 const { stranded: pushToTalkStranded } = usePushToTalkTrigger()
 /** The menu switch turns the selected Hearing input mode on, so its label names that mode. */

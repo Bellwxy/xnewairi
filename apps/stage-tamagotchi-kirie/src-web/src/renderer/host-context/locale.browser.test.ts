@@ -1,3 +1,4 @@
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useHostLocale } from './locale'
@@ -6,12 +7,12 @@ const localeStorageKey = 'settings/language'
 
 describe('kirie host locale', () => {
   beforeEach(() => {
-    localStorage.removeItem(localeStorageKey)
+    localStorage.removeItem(accountStorageKey(localeStorageKey))
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
-    localStorage.removeItem(localeStorageKey)
+    localStorage.removeItem(accountStorageKey(localeStorageKey))
   })
 
   it('returns no locale when renderer storage is empty', async () => {
@@ -23,7 +24,7 @@ describe('kirie host locale', () => {
 
     await locale.set('ja')
 
-    expect(localStorage.getItem(localeStorageKey)).toBe('ja')
+    expect(localStorage.getItem(accountStorageKey(localeStorageKey))).toBe('ja')
     await expect(locale.get()).resolves.toBe('ja')
   })
 

@@ -14,7 +14,7 @@ import type {
 import type { ExtensionHostService, SetupExtensionHostOptions } from '../types'
 import type { SessionCleanupReport } from './managed-sessions'
 
-import { dirname, join } from 'node:path'
+import { dirname } from 'node:path'
 
 import { useLogg } from '@guiiai/logg'
 import { errorMessageFrom } from '@moeru/std'
@@ -22,6 +22,7 @@ import { ExtensionHost, planExtensionActivation } from '@proj-airi/plugin-sdk/pl
 import { Mutex } from 'async-mutex'
 import { app, session as electronSession } from 'electron'
 
+import { accountDataPath } from '../../../../libs/electron/account'
 import { createExtensionAutoReloadFeature } from '../features/auto-reload'
 import { createExtensionAssetService } from '../features/static-assets'
 import { createBuiltInExtensionKitRuntime } from '../kits'
@@ -274,7 +275,7 @@ export async function setupExtensionHostServiceInternal(
   options: SetupExtensionHostOptions,
 ): Promise<ExtensionHostServiceInternal> {
   const log = useLogg('main/extension-host').useGlobalConfig()
-  const extensionsRoot = join(app.getPath('userData'), 'extensions', 'v1')
+  const extensionsRoot = accountDataPath('extensions', 'v1')
 
   // Config
   const extensionConfig = createExtensionHostConfigStore()

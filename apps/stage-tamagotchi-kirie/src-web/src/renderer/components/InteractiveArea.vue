@@ -6,6 +6,7 @@ import type { ChatToolCallRerunEvent } from '@proj-airi/stage-ui/stores/tool-cal
 import type { ChatHistoryItem } from '@proj-airi/stage-ui/types/chat'
 
 import { useStopSpeakingButton } from '@proj-airi/stage-layouts/composables/useStopSpeakingButton'
+import { useAccountLocalStorage } from '@proj-airi/stage-shared/composables'
 import { ChatHistory, JournalPreviewModal } from '@proj-airi/stage-ui/components'
 import { ChatReplyPreview, useChatComposer } from '@proj-airi/stage-ui/components/scenarios/chat'
 import { useAnalytics } from '@proj-airi/stage-ui/composables/use-analytics'
@@ -16,7 +17,6 @@ import { useChatStreamStore } from '@proj-airi/stage-ui/stores/chat/stream-store
 import { useJournalPreviewStore } from '@proj-airi/stage-ui/stores/journal-preview'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { BasicTextarea } from '@proj-airi/ui'
-import { useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuRoot, DropdownMenuTrigger } from 'reka-ui'
 import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue'
@@ -84,7 +84,7 @@ const DOUBLE_ENTER_INTERVAL_MS = 300
 const TRAILING_NEWLINES_REGEX = /[\r\n]+$/
 const SEND_MODES = ['enter', 'ctrl-enter', 'double-enter'] as const
 type SendMode = (typeof SEND_MODES)[number]
-const sendMode = useLocalStorage<SendMode>('ui/chat/settings/send-mode', 'enter')
+const sendMode = useAccountLocalStorage<SendMode>('ui/chat/settings/send-mode', 'enter')
 const toolCallRenderers = {
   image_journal: JournalToolCallBlock,
   text_journal: JournalToolCallBlock,

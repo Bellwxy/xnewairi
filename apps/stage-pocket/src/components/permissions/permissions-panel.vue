@@ -4,8 +4,8 @@ import type { PluginListenerHandle } from '@capacitor/core'
 import { App } from '@capacitor/app'
 import { Capacitor } from '@capacitor/core'
 import { LocalNotifications } from '@capacitor/local-notifications'
+import { useAccountLocalStorage } from '@proj-airi/stage-shared/composables'
 import { useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
-import { useLocalStorage } from '@vueuse/core'
 import { AndroidSettings, IOSSettings, NativeSettings } from 'capacitor-native-settings'
 import { storeToRefs } from 'pinia'
 import { onMounted, onUnmounted, shallowRef } from 'vue'
@@ -26,7 +26,7 @@ const notificationPermissionGranted = shallowRef(false)
 const platformMicrophonePermissionGranted = shallowRef(false)
 const requestingNotificationPermission = shallowRef(false)
 const requestingMicrophonePermission = shallowRef(false)
-const microphonePermissionRequested = useLocalStorage('permissions/microphone/requested', false)
+const microphonePermissionRequested = useAccountLocalStorage('permissions/microphone/requested', false)
 
 let appStateListener: Promise<PluginListenerHandle> | undefined
 

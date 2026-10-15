@@ -2,6 +2,7 @@
 import type { ChatSessionMeta } from '../../../../types/chat-session'
 import type { SessionRow } from './sessions-list.vue'
 
+import { getAccountScope } from '@proj-airi/stage-shared/account-scope/runtime'
 import { useNow } from '@vueuse/core'
 import { intlFormatDistance } from 'date-fns'
 import { storeToRefs } from 'pinia'
@@ -13,7 +14,6 @@ import SessionsDialog from './sessions-dialog.vue'
 import { useAnalytics } from '../../../../composables/use-analytics'
 import { useBreakpoints } from '../../../../composables/use-breakpoints'
 import { extractMessageText } from '../../../../libs/chat-sync'
-import { useAuthStore } from '../../../../stores/auth'
 import { useChatStore } from '../../../../stores/chat'
 import { useChatSessionStore } from '../../../../stores/chat/session-store'
 import { useAiriCardStore } from '../../../../stores/modules/airi-card'
@@ -35,7 +35,6 @@ const chatSession = useChatSessionStore()
 const chat = useChatStore()
 const { sessionMetas, sessionMessages, activeSessionId } = storeToRefs(chatSession)
 const { activeCardId } = storeToRefs(useAiriCardStore())
-const { userId } = storeToRefs(useAuthStore())
 const { activeModel } = storeToRefs(useConsciousnessStore())
 const { trackChatSessionSelected, trackChatSessionStarted } = useAnalytics()
 
@@ -43,10 +42,10 @@ const { trackChatSessionSelected, trackChatSessionStarted } = useAnalytics()
 // second click from creating an orphan session while the first is pending.
 const isCreatingSession = ref(false)
 
-// Keep another account's sessions hidden while an account swap rehydrates.
+// The chat index belongs to the page account, also offline. Sessions of other owners stay hidden.
 const ownedSessions = computed(() => {
-  const effectiveUserId = userId.value || 'local'
-  return Object.values(sessionMetas.value).filter(meta => meta.userId === effectiveUserId)
+  const accountId = getAccountScope().accountId
+  return Object.values(sessionMetas.value).filter(meta => meta.userId === accountId)
 })
 
 /**

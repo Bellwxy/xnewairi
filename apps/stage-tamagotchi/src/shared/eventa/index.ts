@@ -505,6 +505,14 @@ export const electronGetWindowLifecycleState = defineInvokeEventa<ElectronWindow
 export const electronWindowSetAlwaysOnTop = defineInvokeEventa<void, boolean>('eventa:invoke:electron:window:set-always-on-top')
 export const electronAppOpenUserDataFolder = defineInvokeEventa<{ path: string }>('eventa:invoke:electron:app:open-user-data-folder')
 export const electronAppQuit = defineInvokeEventa<void>('eventa:invoke:electron:app:quit')
+/** The account that the main process fixed for this run. Each renderer adopts it before its stores load. */
+export const electronAccountCurrent = defineInvokeEventa<string>('eventa:invoke:electron:account:current')
+/** Stores the account for the next run and relaunches the app, so every window and main service restarts in it. */
+export const electronAccountSwitch = defineInvokeEventa<void, { accountId: string }>('eventa:invoke:electron:account:switch')
+/** IDs of the accounts that have main-process files on this device. */
+export const electronAccountListData = defineInvokeEventa<string[]>('eventa:invoke:electron:account:list-data')
+/** Deletes the main-process files of another account. It rejects the account of the running app. */
+export const electronAccountDeleteData = defineInvokeEventa<void, { accountId: string }>('eventa:invoke:electron:account:delete-data')
 /** Whether the app runs on the Wayland Ozone backend, where Electron cannot read the cursor position reliably. */
 export const electronAppIsWayland = defineInvokeEventa<boolean>('eventa:invoke:electron:app:is-wayland')
 export const electronAppIconGet = defineInvokeEventa<boolean>('eventa:invoke:electron:app-icon:get')

@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@moeru/std": "catalog:",
+    "@proj-airi/stage-shared": "workspace:^",
     "@vishot/source-electron": "catalog:",
     "playwright": "catalog:"
   }

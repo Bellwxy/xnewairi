@@ -54,6 +54,7 @@ export interface ExtensionHostConfigStore {
  */
 export function createExtensionHostConfigStore(): ExtensionHostConfigStore {
   const extensionConfig = createConfig('extensions', 'v1.json', extensionConfigSchema, {
+    owner: 'account',
     default: createDefaultExtensionConfig(),
     autoHeal: true,
   })

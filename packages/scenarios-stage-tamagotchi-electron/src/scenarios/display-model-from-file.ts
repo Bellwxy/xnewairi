@@ -2,6 +2,8 @@ import type { ElectronApplication, Page } from 'playwright'
 
 import { env } from 'node:process'
 
+import { AccountScope, CURRENT_ACCOUNT_STORAGE_KEY } from '@proj-airi/stage-shared/account-scope'
+
 import { defineStageTamagotchiScenario } from '../context'
 import { waitForStageWindow } from '../runtime/windows'
 
@@ -29,6 +31,7 @@ const localStorageKeys = [
   'settings/stage/model',
 ] as const
 
+/** The logical name. Each account has its own database, see `accountDefaultLocalForage`. */
 const localforageDatabaseName = 'localforage'
 const localforageStoreName = 'keyvaluepairs'
 const importedModelKeyPrefix = 'display-model-'
@@ -157,11 +160,20 @@ async function findMainRenderer(electronApp: ElectronApplication, timeout = 30_0
   throw new Error('Timed out waiting for the AIRI main renderer')
 }
 
+/**
+ * Reads the account that the page fixed at startup. Page code cannot import the account scope module,
+ * so callers compute account key and database names here and pass them to `page.evaluate`.
+ */
+async function pageAccountScope(page: Page): Promise<AccountScope> {
+  return AccountScope.fromPointer(await page.evaluate(key => globalThis.localStorage.getItem(key), CURRENT_ACCOUNT_STORAGE_KEY))
+}
+
 async function markOnboardingCompleted(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    globalThis.localStorage.setItem('onboarding/completed', 'true')
-    globalThis.localStorage.setItem('onboarding/skipped', 'false')
-  })
+  const scope = await pageAccountScope(page)
+  await page.evaluate(({ completedKey, skippedKey }) => {
+    globalThis.localStorage.setItem(completedKey, 'true')
+    globalThis.localStorage.setItem(skippedKey, 'false')
+  }, { completedKey: scope.storageKey('onboarding/completed'), skippedKey: scope.storageKey('onboarding/skipped') })
 }
 
 async function closeOnboardingWindows(electronApp: ElectronApplication): Promise<void> {
@@ -256,9 +268,10 @@ async function selectImportedModel(settingsPage: Page, modelFileName: string): P
 }
 
 async function waitForSelectedModel(page: Page, importedModelId: string): Promise<void> {
-  await page.waitForFunction((modelId) => {
-    return globalThis.localStorage.getItem('settings/stage/model') === modelId
-  }, importedModelId, { timeout: 30_000 })
+  const scope = await pageAccountScope(page)
+  await page.waitForFunction(({ key, modelId }) => {
+    return globalThis.localStorage.getItem(key) === modelId
+  }, { key: scope.storageKey('settings/stage/model'), modelId: importedModelId }, { timeout: 30_000 })
 }
 
 async function waitForNewImportedModelId(page: Page, existingModelIds: Set<string>, timeout = 60_000): Promise<string> {
@@ -277,6 +290,7 @@ async function waitForNewImportedModelId(page: Page, existingModelIds: Set<strin
 }
 
 async function readImportedModelIds(page: Page): Promise<Set<string>> {
+  const scope = await pageAccountScope(page)
   const keys = await page.evaluate(async ({ databaseName, storeName, keyPrefix }) => {
     return new Promise<string[]>((resolve, reject) => {
       const openRequest = globalThis.indexedDB.open(databaseName)
@@ -299,7 +313,7 @@ async function readImportedModelIds(page: Page): Promise<Set<string>> {
       }
     })
   }, {
-    databaseName: localforageDatabaseName,
+    databaseName: scope.databaseName(localforageDatabaseName),
     storeName: localforageStoreName,
     keyPrefix: importedModelKeyPrefix,
   })
@@ -308,6 +322,7 @@ async function readImportedModelIds(page: Page): Promise<Set<string>> {
 }
 
 async function removeImportedModel(page: Page, importedModelId: string): Promise<void> {
+  const scope = await pageAccountScope(page)
   await page.evaluate(async ({ databaseName, storeName, modelId }) => {
     await new Promise<void>((resolve, reject) => {
       const openRequest = globalThis.indexedDB.open(databaseName)
@@ -330,16 +345,18 @@ async function removeImportedModel(page: Page, importedModelId: string): Promise
       }
     })
   }, {
-    databaseName: localforageDatabaseName,
+    databaseName: scope.databaseName(localforageDatabaseName),
     storeName: localforageStoreName,
     modelId: importedModelId,
   })
 }
 
+/** Keys of the result are account keys, so `restorePersistedState` writes them back unchanged. */
 async function snapshotPersistedState(page: Page): Promise<Record<string, string | null>> {
+  const scope = await pageAccountScope(page)
   return page.evaluate((keys) => {
     return Object.fromEntries(keys.map(key => [key, globalThis.localStorage.getItem(key)]))
-  }, localStorageKeys)
+  }, localStorageKeys.map(key => scope.storageKey(key)))
 }
 
 async function restorePersistedState(page: Page, state: Record<string, string | null>): Promise<void> {

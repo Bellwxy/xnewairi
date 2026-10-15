@@ -1,6 +1,6 @@
 import type { createContext } from '@moeru/eventa/adapters/electron/main'
 
-import { join, sep } from 'node:path'
+import { sep } from 'node:path'
 
 import { binaryPath } from '@auv-js/cli/binary'
 import { defineInvokeHandler } from '@moeru/eventa'
@@ -8,6 +8,7 @@ import { app } from 'electron'
 
 import { computerUseReadImage, computerUseRun } from '../../../../shared/eventa/computer-use'
 import { onAppBeforeQuit } from '../../../libs/bootkit/lifecycle'
+import { accountDataPath } from '../../../libs/electron/account'
 import { createComputerUseRuntime } from './runtime'
 
 /** Registers host-owned computer use. The executable is resolved only on the first call. */
@@ -22,7 +23,7 @@ export function setupComputerUse(context: ReturnType<typeof createContext>['cont
       runtime = createComputerUseRuntime({
         // Native executables cannot run inside Electron's archive.
         binaryPath: app.isPackaged ? executable.replace(`${sep}app.asar${sep}`, `${sep}app.asar.unpacked${sep}`) : executable,
-        storeRoot: join(app.getPath('userData'), 'computer-use'),
+        storeRoot: accountDataPath('computer-use'),
       })
     }
     return runtime

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
@@ -104,7 +105,7 @@ describe('onboarding store', () => {
     expect(store.closeRequestId).toBe(1)
     expect(store.$state).not.toHaveProperty('closeRequestId')
     expect(store.$state).not.toHaveProperty('hasCompletedSetup')
-    expect(localStorage.getItem('onboarding/completed')).toBe('true')
-    expect(localStorage.getItem('onboarding/skipped')).toBe('false')
+    expect(localStorage.getItem(accountStorageKey('onboarding/completed'))).toBe('true')
+    expect(localStorage.getItem(accountStorageKey('onboarding/skipped'))).toBe('false')
   })
 })

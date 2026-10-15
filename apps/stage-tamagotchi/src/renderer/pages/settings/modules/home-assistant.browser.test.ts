@@ -1,5 +1,6 @@
 import type { Pinia } from 'pinia'
 
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { useHomeAssistantStore } from '@proj-airi/stage-ui/stores/modules/home-assistant'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
@@ -165,7 +166,7 @@ describe('homeAssistantSettings', () => {
     invokeMocks.request.mockResolvedValue([])
     // The mode is one shared value in local storage, so this test states the one it
     // needs before the page reads it.
-    localStorage.setItem(exposureModeKey, 'all')
+    localStorage.setItem(accountStorageKey(exposureModeKey), 'all')
 
     await renderPage()
     // The token placeholder proves the mount read landed.
@@ -317,7 +318,7 @@ describe('homeAssistantSettings', () => {
     invokeMocks.getConfig.mockResolvedValue(storedConfig)
     invokeMocks.request.mockResolvedValue([])
     invokeMocks.setConfig.mockRejectedValue(new Error('the main process refused the change'))
-    localStorage.setItem(exposureModeKey, 'all')
+    localStorage.setItem(accountStorageKey(exposureModeKey), 'all')
 
     const pinia = (await renderPage()).pinia
     vi.spyOn(useTamagotchiHomeAssistantStore(pinia), 'setPolicy').mockResolvedValue(undefined)

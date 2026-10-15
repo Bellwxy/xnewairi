@@ -1,6 +1,7 @@
 import type { Pinia } from 'pinia'
 
 import { PiniaColada } from '@pinia/colada'
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { createPinia } from 'pinia'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render } from 'vitest-browser-vue'
@@ -114,7 +115,7 @@ describe('speech provider settings save flow', () => {
     await expect.poll(() => useProviderConfigStore(pinia).getProviderConfig(providerId)?.baseUrl, { timeout: 5000 })
       .toBe('https://proxy.example.com')
     await expect.poll(() => {
-      const stored = localStorage.getItem('settings/providers/configured')
+      const stored = localStorage.getItem(accountStorageKey('settings/providers/configured'))
       if (!stored)
         return undefined
       return JSON.parse(stored)[providerId]?.config?.baseUrl

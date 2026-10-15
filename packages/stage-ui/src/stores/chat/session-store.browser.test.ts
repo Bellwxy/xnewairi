@@ -2,6 +2,7 @@ import type { LeadershipMode, SyncedPiniaRuntime } from 'pinia-plugin-synced'
 
 import type { ChatSessionMeta } from '../../types/chat-session'
 
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { createPinia, disposePinia, setActivePinia } from 'pinia'
 import { createSyncedPiniaPlugin } from 'pinia-plugin-synced'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -11,6 +12,19 @@ import { createI18n } from 'vue-i18n'
 import { chatSessionsRepo } from '../../database/repos/chat-sessions.repo'
 import { useAuthStore } from '../auth'
 import { useAiriCardStore } from '../modules/airi-card'
+
+// The host fixes the page account at startup. Tests of a signed-in user open the page of that user.
+// This file runs without the shared setup file, so no module loads the real runtime first.
+const page = vi.hoisted(() => ({ accountId: 'local' }))
+vi.mock('@proj-airi/stage-shared/account-scope/runtime', async () => {
+  const { AccountScope } = await import('@proj-airi/stage-shared/account-scope')
+  const getAccountScope = () => new AccountScope(page.accountId)
+  return {
+    initializeAccountScope: getAccountScope,
+    getAccountScope,
+    accountStorageKey: (key: string) => getAccountScope().storageKey(key),
+  }
+})
 
 vi.mock('../../database/repos/chat-sessions.repo', () => ({
   chatSessionsRepo: {
@@ -102,7 +116,7 @@ function createSyncedContext(namespace: string, leadership: LeadershipMode) {
       speech: { provider: '', model: '', voice_id: '' },
     } } },
   }
-  localStorage.setItem('airi-cards', JSON.stringify([['default', card], ['background-character', card]]))
+  localStorage.setItem(accountStorageKey('airi-cards'), JSON.stringify([['default', card], ['background-character', card]]))
   const app = createApp(defineComponent({ setup() {
     useAuthStore()
     useAiriCardStore()
@@ -124,6 +138,7 @@ afterEach(() => {
     disposePinia(context.pinia)
   }
   chatSyncMocks.clients.length = 0
+  page.accountId = 'local'
   localStorage.clear()
 })
 
@@ -339,6 +354,7 @@ describe('chat session synchronization', () => {
 
     setActivePinia(leaderContext.pinia)
     const leaderAuthStore = useAuthStore()
+    page.accountId = 'cloud-user'
     leaderAuthStore.user = { id: 'cloud-user', name: 'User', email: 'user@example.test', emailVerified: true, createdAt: new Date(0), updatedAt: new Date(0) }
     const leaderChatStore = useChatSessionStore()
 
@@ -450,6 +466,7 @@ describe('chat session synchronization', () => {
 
     setActivePinia(leaderContext.pinia)
     const leaderAuthStore = useAuthStore()
+    page.accountId = 'cloud-user'
     leaderAuthStore.user = { id: 'cloud-user', name: 'User', email: 'user@example.test', emailVerified: true, createdAt: new Date(0), updatedAt: new Date(0) }
     leaderAuthStore.token = 'cloud-token'
     const leaderChatStore = useChatSessionStore()

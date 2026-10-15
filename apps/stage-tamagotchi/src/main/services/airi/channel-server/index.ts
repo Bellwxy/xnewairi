@@ -27,6 +27,7 @@ import {
   electronGetServerChannelConfig,
   electronGetServerChannelQrPayload,
 } from '../../../../shared/eventa'
+import { accountDataPath } from '../../../libs/electron/account'
 import { createConfig } from '../../../libs/electron/persistence'
 import { ensureServerChannelConfigDefaults } from './config'
 
@@ -47,6 +48,7 @@ const channelServerInvokeConfigSchema = z.object({
 }).strict()
 
 const channelServerConfigStore = createConfig('server-channel', 'config.json', channelServerConfigSchema, {
+  owner: 'account',
   default: {
     hostname: '127.0.0.1',
     authToken: '',
@@ -183,14 +185,13 @@ function getCertificateDomains(): string[] {
   ]))
 }
 
+/** The certificates belong to the account, so another account on this device gets its own trust. */
 function getCertificatePaths() {
-  const userDataPath = app.getPath('userData')
-
   return {
-    certPath: join(userDataPath, 'websocket-cert.pem'),
-    keyPath: join(userDataPath, 'websocket-key.pem'),
-    caCertPath: join(userDataPath, 'websocket-ca-cert.pem'),
-    caKeyPath: join(userDataPath, 'websocket-ca-key.pem'),
+    certPath: accountDataPath('websocket-cert.pem'),
+    keyPath: accountDataPath('websocket-key.pem'),
+    caCertPath: accountDataPath('websocket-ca-cert.pem'),
+    caKeyPath: accountDataPath('websocket-ca-key.pem'),
   }
 }
 

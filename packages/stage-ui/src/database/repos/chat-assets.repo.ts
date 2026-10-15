@@ -1,4 +1,5 @@
-import localforage from 'localforage'
+import { createAccountLocalForage } from '@proj-airi/stage-shared/account-scope/localforage'
+import { getAccountScope } from '@proj-airi/stage-shared/account-scope/runtime'
 
 /** One stored asset. `owners` lists the chat sessions whose messages reference it. */
 export interface ChatAssetRecord {
@@ -10,7 +11,7 @@ export interface ChatAssetRecord {
 let instance: LocalForage | undefined
 /** The store opens on first use. Importing the chat session modules then opens no database. */
 function assets() {
-  instance ??= localforage.createInstance({ name: 'airi-chat-assets', storeName: 'assets' })
+  instance ??= createAccountLocalForage('airi-chat-assets', 'assets')
   return instance
 }
 
@@ -18,7 +19,9 @@ function assets() {
  * Every write runs under one Web Lock, so windows that share this origin cannot lose each other's owner changes.
  * Reads take no lock, because a record is replaced as a whole.
  */
-const WRITE_LOCK = 'airi:chat-assets-write'
+function writeLock() {
+  return getAccountScope().lockName('airi:chat-assets-write')
+}
 
 /**
  * Device-local media of chat messages, keyed by content hash.
@@ -32,7 +35,7 @@ export const chatAssetsRepo = {
 
   /** Stores the bytes once and adds `owner`. Storing the same bytes again only adds the owner. */
   async put(id: string, blob: Blob, mimeType: string, owner: string) {
-    await navigator.locks.request(WRITE_LOCK, async () => {
+    await navigator.locks.request(writeLock(), async () => {
       const existing = await assets().getItem<ChatAssetRecord>(id)
       if (existing?.owners.includes(owner))
         return
@@ -44,7 +47,7 @@ export const chatAssetsRepo = {
 
   /** Adds `owner` to assets that already exist. A missing asset is skipped, because its bytes are gone. */
   async retain(ids: Iterable<string>, owner: string) {
-    await navigator.locks.request(WRITE_LOCK, async () => {
+    await navigator.locks.request(writeLock(), async () => {
       for (const id of new Set(ids)) {
         const existing = await assets().getItem<ChatAssetRecord>(id)
         if (existing && !existing.owners.includes(owner))
@@ -55,7 +58,7 @@ export const chatAssetsRepo = {
 
   /** Removes `owner` from the listed assets, and deletes the ones that no session owns any more. */
   async release(ids: Iterable<string>, owner: string) {
-    await navigator.locks.request(WRITE_LOCK, async () => {
+    await navigator.locks.request(writeLock(), async () => {
       for (const id of new Set(ids)) {
         const existing = await assets().getItem<ChatAssetRecord>(id)
         if (!existing?.owners.includes(owner))
@@ -71,7 +74,7 @@ export const chatAssetsRepo = {
 
   /** Removes `owner` from every asset, and deletes the assets that no session owns any more. */
   async releaseOwner(owner: string) {
-    await navigator.locks.request(WRITE_LOCK, async () => {
+    await navigator.locks.request(writeLock(), async () => {
       const updates: [string, ChatAssetRecord | undefined][] = []
       await assets().iterate<ChatAssetRecord, void>((record, id) => {
         if (!record.owners.includes(owner))
@@ -89,6 +92,6 @@ export const chatAssetsRepo = {
   },
 
   async clear() {
-    await navigator.locks.request(WRITE_LOCK, () => assets().clear())
+    await navigator.locks.request(writeLock(), () => assets().clear())
   },
 }

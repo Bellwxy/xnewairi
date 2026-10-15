@@ -8,6 +8,16 @@ Shared character behavior belongs in `packages/stage-ui`. Use `stage-web` for br
 From the repository root, run `pnpm install`, then `pnpm dev:tamagotchi`.
 Run `pnpm -F @proj-airi/stage-tamagotchi build` to build the app.
 
+## Accounts
+
+The main process owns the account of the whole app. It reads `account-current.json` in the user data directory at startup.
+Each renderer page asks the main process for the account, then fixes it before its stores load.
+A sign-in or sign-out writes the new account and relaunches the app, so every window and main service restarts in it.
+
+Account files live in `accounts/<account>/`: settings, keys, MCP servers, extensions, imported Godot models, and computer-use records.
+Window layout, logs, IO traces, update settings, and downloaded model files stay shared at the root.
+Each `createConfig` call declares `owner: 'account'` or `owner: 'device'`. The first start after the upgrade moves old account files into `accounts/local/`.
+
 ## Local model files
 
 Sherpaw downloads remote model files into the app user data directory. The main

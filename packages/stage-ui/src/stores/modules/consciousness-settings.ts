@@ -1,5 +1,6 @@
 import type {} from 'pinia-plugin-synced'
 
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { defineStore } from 'pinia'
 import { shallowRef } from 'vue'
 
@@ -9,14 +10,14 @@ function loadEnabled(key: string) {
   if (typeof localStorage === 'undefined')
     return false
 
-  return localStorage.getItem(`settings/consciousness/${key}`) === 'true'
+  return localStorage.getItem(accountStorageKey(`settings/consciousness/${key}`)) === 'true'
 }
 
 function persistEnabled(key: string, value: boolean) {
   if (typeof localStorage === 'undefined')
     return
 
-  localStorage.setItem(`settings/consciousness/${key}`, String(value))
+  localStorage.setItem(accountStorageKey(`settings/consciousness/${key}`), String(value))
 }
 
 /**

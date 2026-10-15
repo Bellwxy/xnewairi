@@ -15,7 +15,7 @@ export const globalAppConfigSchema = object({
 })
 
 export function createGlobalAppConfig() {
-  const config = createConfig('app', 'options.json', globalAppConfigSchema)
+  const config = createConfig('app', 'options.json', globalAppConfigSchema, { owner: 'account' })
   config.setup()
 
   return config

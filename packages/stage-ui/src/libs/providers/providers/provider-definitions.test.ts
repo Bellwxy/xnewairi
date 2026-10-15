@@ -2,7 +2,8 @@ import type { ProviderTranslator } from '@proj-airi/provider-inference'
 
 import type { StageProviderId } from './registry'
 
-import { describe, expect, expectTypeOf, it } from 'vitest'
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
+import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { z } from 'zod'
 
 import { providerAliyunNlsTranscription } from './aliyun-nls'
@@ -166,6 +167,19 @@ describe('migrated provider definitions', () => {
       expect(z.parse(schema, { model })).toEqual({ model, modelLanguageFilter: 'en' })
     expect(z.safeParse(schema, { model: 'zipformer-zh-en' }).success).toBe(false)
     expect(z.safeParse(schema, { model: 'unknown-model' }).success).toBe(false)
+  })
+
+  it('reads the interface language of the page account for the Sherpaw defaults', async () => {
+    const languages = new Map([[accountStorageKey('settings/language'), 'zh-Hans'], ['settings/language', 'en']])
+    vi.stubGlobal('localStorage', { getItem: (key: string) => languages.get(key) ?? null })
+    try {
+      const schema = await getRequiredProvider('sherpaw-transcription').createProviderConfig({ t: translate })
+
+      expect(z.parse(schema, {})).toMatchObject({ modelLanguageFilter: 'zh' })
+    }
+    finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('describes Web Speech API streaming support without runtime state', async () => {

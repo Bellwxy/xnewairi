@@ -2,6 +2,7 @@ import type { PiniaPlugin } from 'pinia'
 import type { SyncedOptions } from 'pinia-plugin-synced'
 import type { Plugin } from 'vue'
 
+import { getAccountScope } from '@proj-airi/stage-shared/account-scope/runtime'
 import { createSyncedPiniaPlugin } from 'pinia-plugin-synced'
 
 import { injectKeyPiniaSynced } from './synced-context'
@@ -22,7 +23,8 @@ export type { LeadershipMode } from 'pinia-plugin-synced'
  */
 export function setupSynced(options: Pick<SyncedOptions, 'leadership'> = {}): { pinia: PiniaPlugin, vue: Plugin } {
   const runtime = createSyncedPiniaPlugin({
-    namespace: 'airi:stage:pinia',
+    // Windows of different accounts never share state, also while an account switch reloads them one by one.
+    namespace: getAccountScope().lockName('airi:stage:pinia'),
     // Chat and image-generation actions can outlive the plugin's 30-second
     // default. Keep the timeout aligned with the previous Electron coordinator.
     callTimeout: 5 * 60 * 1000,

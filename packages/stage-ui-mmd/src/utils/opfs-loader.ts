@@ -1,3 +1,5 @@
+import { getAccountOpfsRoot } from '@proj-airi/stage-shared/account-scope/opfs'
+
 interface OPFSCacheMeta {
   sourceUrl?: string
   version?: number
@@ -22,7 +24,7 @@ const sourceFileName = '__source.bin'
 export class OPFSCache {
   static async clearAll(): Promise<void> {
     try {
-      const root = await navigator.storage.getDirectory()
+      const root = await getAccountOpfsRoot()
       const entryNames: string[] = []
       for await (const entry of root.values())
         entryNames.push(entry.name)
@@ -62,7 +64,7 @@ export class OPFSCache {
    */
   static async get(key: string, sourceUrl: string): Promise<Blob | null> {
     try {
-      const root = await navigator.storage.getDirectory()
+      const root = await getAccountOpfsRoot()
       const dirHandle = await root.getDirectoryHandle(key, { create: false })
       const meta = await OPFSCache.readMeta(dirHandle)
 
@@ -101,7 +103,7 @@ export class OPFSCache {
    */
   static async save(key: string, source: Blob, sourceUrl?: string): Promise<void> {
     try {
-      const root = await navigator.storage.getDirectory()
+      const root = await getAccountOpfsRoot()
       const dirHandle = await root.getDirectoryHandle(key, { create: true })
       await OPFSCache.writeFile(dirHandle, sourceFileName, source)
       await OPFSCache.writeFile(dirHandle, '__meta.json', JSON.stringify({

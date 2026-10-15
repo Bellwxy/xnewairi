@@ -4,7 +4,8 @@ import type { InferenceServiceProvider, ProviderValidationStatus } from '../../l
 import type { ProviderReplicaRow } from '../../services/inference-service-providers'
 import type { ProviderSyncRow, ProviderSyncSnapshot } from './merge'
 
-import { useDebounceFn, useIntervalFn, useLocalStorage } from '@vueuse/core'
+import { useAccountLocalStorage } from '@proj-airi/stage-shared/composables'
+import { useDebounceFn, useIntervalFn } from '@vueuse/core'
 import { isEqual } from 'es-toolkit'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
@@ -47,10 +48,12 @@ function isUserProvider(provider: InferenceServiceProvider) {
  */
 export const useProviderConfigStore = defineStore('provider-config', () => {
   const authStore = useAuthStore()
-  const providers = useLocalStorage<Record<string, StoredProvider>>('settings/providers/configured', {}, providerStorageOptions)
-  const addedProviders = useLocalStorage<Record<string, boolean>>('settings/providers/added', {}, providerStorageOptions)
-  const pendingDeletes = useLocalStorage<Record<string, string | null>>('settings/providers/pending-deletes', {}, providerStorageOptions)
-  const legacyConfigs = useLocalStorage<Record<string, Record<string, unknown>>>('settings/credentials/providers', {}, providerStorageOptions)
+  // A signed-in user of another account only starts the account switch. Its cloud data must not meet this page's providers.
+  const canSync = () => authStore.isAuthenticated && authStore.userId !== 'local'
+  const providers = useAccountLocalStorage<Record<string, StoredProvider>>('settings/providers/configured', {}, providerStorageOptions)
+  const addedProviders = useAccountLocalStorage<Record<string, boolean>>('settings/providers/added', {}, providerStorageOptions)
+  const pendingDeletes = useAccountLocalStorage<Record<string, string | null>>('settings/providers/pending-deletes', {}, providerStorageOptions)
+  const legacyConfigs = useAccountLocalStorage<Record<string, Record<string, unknown>>>('settings/credentials/providers', {}, providerStorageOptions)
 
   const lastLiveRemote = shallowRef<Record<string, ProviderReplicaRow>>({})
   let replicaMerged = false
@@ -184,7 +187,7 @@ export const useProviderConfigStore = defineStore('provider-config', () => {
   ))
 
   const replicaSyncState = computed(() => {
-    if (!authStore.isAuthenticated)
+    if (!canSync())
       return emptyReplicaSyncState
 
     const states: Record<string, ProviderReplicaSyncState> = {}
@@ -366,7 +369,7 @@ export const useProviderConfigStore = defineStore('provider-config', () => {
   }
 
   async function syncProviders() {
-    if (!authStore.isAuthenticated)
+    if (!canSync())
       return
 
     if (syncInFlight) {
@@ -402,7 +405,7 @@ export const useProviderConfigStore = defineStore('provider-config', () => {
   }
 
   async function pushProviders() {
-    if (!authStore.isAuthenticated)
+    if (!canSync())
       return
 
     const toUpsert = Object.values(providers.value).filter(provider =>

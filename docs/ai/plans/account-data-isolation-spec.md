@@ -1,8 +1,35 @@
 # 账号数据隔离 SPEC
 
-日期：2026-10-14。源码基线：`8bb0b4a` 加当前工作区改动。状态：提案，尚未实施。版本：v1。
+日期：2026-10-14。源码基线：`8bb0b4a` 加当前工作区改动。状态：已实施，待真机与真实登录验证。版本：v1。
 
 本文定义客户端按账号隔离数据的规则。它是 [角色表现力与角色大脑 SPEC](./character-expressiveness-and-brain-spec.md) 的前置阶段。
+
+## 实施进度
+
+- 第一批已增加运行时中立的 `AccountScope` 命名模块与单元测试。
+- 第二批已实现浏览器数据迁移、失败恢复日志和启动作用域初始化服务。
+- 第三批已接入渲染进程。四个宿主入口先固定账号，再加载应用模块。
+- 第三批已让 localStorage、unstorage、localforage、OPFS 与 Web Lock 使用账号名称。
+- 浏览器冒烟测试确认：旧设置迁入 `local`，指针为 `alice` 时读不到 `local` 的设置。
+- 第四批已接入身份切换。登录得到其他用户时切换到该用户，主动退出时切换到 `local`。
+- 凭证被拒绝或离线启动不切换账号。新增的 `onSignOut` 钩子只在主动退出时运行。
+- 切换前等待已登记的写入。超过 5 秒后提示用户选择继续等待或强制切换。
+- 选择等待后，对话框保持打开，写入完成后自动切换。用户仍可选择强制切换，并承担未保存更改丢失的风险。
+- 其他页面通过 storage 事件重新加载。Pinia 同步的命名空间加账号后缀，不同账号的窗口不会交换状态。
+- 等待期间收到新的切换请求时，以最后一次请求为准。例如等待进入 B 时主动退出，最终进入 `local`。
+- 云同步只为页面账号的登录用户运行。登录用户属于其他账号时，认证 store 的 `userId` 为 `local`。
+- 因此在切换等待期间，供应商配置、角色卡与聊天的云同步都不运行，两个账号的数据不会互相上传或写入。
+- 聊天索引属于页面账号，不再跟随认证用户。离线启动时仍显示该账号的聊天。
+- 第五批已接入桌面主进程。主进程从 `account-current.json` 读取账号，旧的账号文件迁入 `accounts/local/`。
+- 每个 `createConfig` 必须声明 `owner`。设备作用域只有窗口布局、IO 跟踪与公共模型文件。
+- 桌面端切换账号时，主进程写入新账号，等待配置写入，再整体重启应用。渲染页面启动时采用主进程的账号。
+- 第六批已实现 3.6。数据设置页列出此设备上的账号，可以删除非当前账号的本地数据，包括主进程目录。
+- 已用构建后的桌面应用验证：旧文件迁入 `local`，指针改为 `bob` 后所有页面进入 `bob`，主进程文件按账号分开。
+- 认证页面 `apps/ui-server-auth` 与 Histoire 预览也先固定账号，再加载使用存储的模块。
+- [持久化清单](./account-data-isolation-inventory.md) 记录静态候选入口和主进程文件补充。
+- 已确认：颜色模式为设备作用域，语言为账号作用域。删除本地账号数据的入口放在数据设置页。
+- 已确认：桌面端切换账号时整体重启应用。浏览器与安卓重新加载页面。
+- 仍未验证：安卓真机、真实登录与退出、桌面端由界面触发的切换与重启。
 
 ## 一 目标与已确认的决定
 
@@ -16,6 +43,10 @@
 | 未登录数据 | `local` 是一个独立身份。登录后看不到它的数据，也不迁移 |
 | 供应商配置与密钥 | 按账号隔离 |
 | 跨设备 | 首版数据只保存在本设备。不新增服务端存储 |
+| 颜色模式与语言 | 深色与浅色模式为设备作用域。界面语言为账号作用域 |
+| 写入超时 | 超过 5 秒后，由用户选择继续等待或强制切换。强制切换有丢失未保存更改的风险 |
+| 删除入口 | 放在数据设置页，只能删除非当前账号在本机的数据 |
+| 桌面切换 | 整体重启应用，重新启动所有窗口和主进程服务 |
 
 **不在范围内**：
 
@@ -36,7 +67,7 @@
 | 模块设置 | 约 200 个 `useLocalStorage` 键，分布在 12 个工作区 | `stage-ui` 占 31 个文件 |
 | 统一入口 | 36 个文件使用 `useLocalStorageManualReset` | `packages/stage-shared/src/composables/use-local-storage-manual-reset/` |
 | 直接读写 | 部分代码直接调用 `localStorage`，例如认证、引导与意识模块设置 | `auth.ts:16-53`、`stores/onboarding.ts`、`stores/modules/consciousness-settings.ts` |
-| IndexedDB | `unstorage` 挂载 `airi-local` 与 `airi-sync-queue`。`localforage` 保存聊天资源、贴纸、显示模型与背景 | `database/storage.ts`、`chat-assets.repo.ts`、`stickers.repo.ts`、`stores/display-models.ts`、`stores/background.ts` |
+| IndexedDB | `unstorage` 的两个 base 是键前缀，实际共用 `keyval-store/keyval`。`localforage` 保存聊天资源、贴纸、显示模型与背景 | `database/storage.ts`、`unstorage/drivers/indexedb.mjs`、`chat-assets.repo.ts`、`stickers.repo.ts` |
 | 主进程配置 | `createConfig` 在 `userData` 下写 JSON 文件，共 10 个 | `apps/stage-tamagotchi/src/main/libs/electron/persistence.ts:36` |
 | 主进程密钥 | `artistry-options.json` 保存 Replicate 与 Nano Banana 密钥。`home-assistant-v1.json` 保存令牌 | `main/configs/artistry.ts`、`main/services/airi/home-assistant/index.ts` |
 | 跨窗口状态 | 桌面端多个渲染窗口通过同步的 Pinia 共享状态，由 leader 执行写入命令 | `stores/chat.ts:266`、`apps/stage-tamagotchi/src/renderer/App.vue:135` |
@@ -57,8 +88,9 @@
 | 下载的公共模型权重与推理缓存，例如 `model-assets` | 内容与账号无关，共享可节省空间 |
 | 日志、IO 跟踪与更新通道 | 用于诊断设备问题 |
 | 产品统计的设备标识 | 描述设备，不描述账号 |
+| 账号迁移完成标记 | 防止重复升级。完成后不保留账号 ID 或会话 ID |
 
-界面语言与主题暂定为账号作用域。实现时如果用户反馈切换不便，再调整。
+界面语言为账号作用域。颜色模式 `vueuse-color-scheme` 为设备作用域，因为 `@proj-airi/ui` 在模块加载时读取它，而且无账号的应用也使用这个包。
 
 ### 3.2 当前账号指针
 
@@ -91,6 +123,8 @@
 - 设备作用域的键在模块中集中声明。转换函数遇到这些键时不加前缀。
 - 主进程通过 eventa 合约接收当前账号。合约放在 `apps/stage-tamagotchi/src/shared`。
 - 主进程的 `createConfig` 增加作用域参数。设备作用域的配置文件保持原路径。
+- `unstorage` 必须显式设置 `dbName` 与 `storeName`。只修改 `base` 不能隔离数据库。
+- Live2D 与 MMD 的私有 OPFS 文件放到 `accounts/<account>/`，公共 `airi-model-assets` 保持共享。
 
 ### 3.4 `local` 身份与旧数据
 
@@ -107,14 +141,16 @@
 3. 等待本地写入队列完成。超过 5 秒仍未完成时，提示用户，并由用户选择等待或强制切换。
 4. 写入 `airi/account/current`。
 5. 通知主进程切换账号作用域。
-6. 重新加载全部渲染窗口。安卓重新加载 WebView 页面。
+6. 桌面端整体重启应用，重新启动所有窗口和主进程服务。浏览器和安卓重新加载页面。
 7. 新页面按新作用域启动。首次进入的账号显示引导流程。
 
 切换期间不允许发送消息。重新加载前的请求按现有取消逻辑处理。
+选择等待后，对话框保持打开，写入完成后自动切换。用户仍可改选强制切换。
+强制切换可以中断未完成的写入。界面必须明确提示未保存更改的丢失风险。
 
 ### 3.6 删除账号的本地数据
 
-账号设置页提供"删除此设备上的账号数据"。它删除该账号作用域下的全部本地数据，包括 IndexedDB、localStorage 前缀键和主进程目录。
+数据设置页提供"删除此设备上的账号数据"。它删除该账号作用域下的全部本地数据，包括 IndexedDB、localStorage 前缀键和主进程目录。
 它不删除服务端数据，不删除设备作用域的数据，也不能删除当前正在使用的账号。
 
 ## 四 改动边界
@@ -125,10 +161,10 @@
 | `packages/stage-ui/src/database/` | `storage.ts` 与各 repo 按作用域打开数据库 |
 | `packages/stage-ui/src/stores/` | 直接读写 `localStorage` 的 store 改用键名转换。`auth.ts` 维护账号指针 |
 | `packages/stage-ui-*` | 各渲染器设置使用统一入口，通常无需改动 |
-| `apps/stage-tamagotchi/src/main` | `createConfig` 增加作用域。切换账号时重新加载窗口 |
+| `apps/stage-tamagotchi/src/main` | `createConfig` 增加作用域。切换账号时整体重启应用 |
 | `apps/stage-tamagotchi/src/shared` | 新增账号作用域的 eventa 合约 |
 | `apps/stage-pocket` | 启动顺序与重新加载流程 |
-| `packages/stage-pages` | 账号设置页增加"删除此设备上的账号数据" |
+| `packages/stage-pages` | 数据设置页增加"删除此设备上的账号数据" |
 
 实施前必须完整列出现有的持久化位置，并逐项标记作用域。本文第二节的数字来自静态搜索，可能有遗漏。
 
@@ -147,9 +183,7 @@
 
 ## 六 待决策事项
 
-1. 界面语言与主题的作用域。本文暂定为账号作用域。
-2. 迁移是否保留。当前没有外部客户。如果确认没有需要保留的本地数据，可以跳过迁移，直接从空状态开始。
-3. 第 3.5 节第 3 步的等待时间。本文暂定 5 秒。
+1. 迁移是否保留。当前没有外部客户。如果确认没有需要保留的本地数据，可以跳过迁移，直接从空状态开始。
 
 ## 七 未验证内容
 

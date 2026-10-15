@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { LocalNotifications } from '@capacitor/local-notifications'
+import { useAccountLocalStorage } from '@proj-airi/stage-shared/composables'
 import { Button, FieldInput } from '@proj-airi/ui'
-import { useLocalStorage } from '@vueuse/core'
 import { toast } from 'vue-sonner'
 
-const title = useLocalStorage('devtools/notifications/title', '')
-const content = useLocalStorage('devtools/notifications/content', '')
+const title = useAccountLocalStorage('devtools/notifications/title', '')
+const content = useAccountLocalStorage('devtools/notifications/content', '')
 
 async function sendNotification() {
   const permission = await LocalNotifications.checkPermissions()

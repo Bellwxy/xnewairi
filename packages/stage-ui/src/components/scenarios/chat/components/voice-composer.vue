@@ -2,8 +2,9 @@
 import type { ChatToolReference } from '../../../../types/chat'
 import type { VoiceComposerMode } from '../composables/use-voice-composer'
 
+import { useAccountLocalStorage } from '@proj-airi/stage-shared/composables'
 import { BasicButton } from '@proj-airi/ui'
-import { onLongPress, useElementBounding, useEventListener, useLocalStorage, useNow, useWindowSize } from '@vueuse/core'
+import { onLongPress, useElementBounding, useEventListener, useNow, useWindowSize } from '@vueuse/core'
 import { computed, onBeforeUnmount, shallowRef, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
@@ -32,7 +33,7 @@ const emit = defineEmits<{
 }>()
 const draft = defineModel<string>({ required: true })
 const { t } = useI18n()
-const mode = useLocalStorage<VoiceComposerMode>('ui/chat/voice-mode', 'audio')
+const mode = useAccountLocalStorage<VoiceComposerMode>('ui/chat/voice-mode', 'audio')
 const button = useTemplateRef<InstanceType<typeof BasicButton>>('button')
 const locked = shallowRef(false)
 const cancelling = shallowRef(false)

@@ -13,6 +13,13 @@ import CardDetailDialog from './CardDetailDialog.vue'
 
 import 'virtual:uno.css'
 
+// The signed-in user owns the page account, as after the account switch reloads the page.
+// This file runs without the shared setup file. The hoisted call runs before the store modules load.
+await vi.hoisted(async () => {
+  const { initializeAccountScope } = await import('@proj-airi/stage-shared/account-scope/runtime')
+  initializeAccountScope('alice')
+})
+
 function signIn(auth: ReturnType<typeof useAuthStore>) {
   const user = { id: 'alice', name: 'Alice', email: 'alice@example.com', emailVerified: true, createdAt: new Date(0), updatedAt: new Date(0) }
   const session = { id: 'session-alice', userId: 'alice', token: 'test-token', expiresAt: new Date('2099-01-01'), createdAt: new Date(0), updatedAt: new Date(0) }

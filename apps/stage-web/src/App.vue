@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { OnboardingDialog, OnboardingStepAnalyticsNotice, StartupOverlay, ToasterRoot } from '@proj-airi/stage-ui/components'
+import { AccountSwitchDialog, OnboardingDialog, OnboardingStepAnalyticsNotice, StartupOverlay, ToasterRoot } from '@proj-airi/stage-ui/components'
 import { useInferencePreload } from '@proj-airi/stage-ui/composables'
 import { useStartupResourceTimeout } from '@proj-airi/stage-ui/composables/use-startup-resource-timeout'
 import { usePiniaSynced } from '@proj-airi/stage-ui/libs/pinia'
 import { initializeAnalytics, isAnalyticsAvailableInBuild } from '@proj-airi/stage-ui/libs/product-signals'
+import { bindAccountToAuthentication } from '@proj-airi/stage-ui/services/account-switch'
 import { useAuthStore } from '@proj-airi/stage-ui/stores/auth'
 import { useCharacterOrchestratorStore } from '@proj-airi/stage-ui/stores/character'
 import { useChatStore } from '@proj-airi/stage-ui/stores/chat'
@@ -128,6 +129,7 @@ watch(settings.themeColorsHueDynamic, () => {
 async function loadStartup() {
   try {
     initializeAnalytics()
+    bindAccountToAuthentication(authStore)
     await startup.run('auth', () => authStore.initialize())
     await startup.run('modelIndex', () => displayModelsStore.initialize())
     await startup.run('card', async () => {
@@ -185,6 +187,7 @@ function openOnboardingAfterStartup() {
 </script>
 
 <template>
+  <AccountSwitchDialog />
   <StartupOverlay logo-src="/favicon.svg" @finished="openOnboardingAfterStartup" @skip-model="continueWithoutModel">
     <StageTransitionGroup
       :primary-color="primaryColor"

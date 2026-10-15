@@ -265,6 +265,12 @@ pages:
     viewFluxDetails: 查看详情
     viewCapacitor: 查看
     signedInAs: 登录 为
+    switch:
+      title: 切换账号
+      description: 部分更改尚未保存。强制切换账号可能丢失这些更改。
+      wait: 继续等待
+      waiting: 正在等待更改写入完成。
+      force: 强制切换账号
     profile:
       tab: 个人资料
       title: 个人资料
@@ -565,6 +571,13 @@ pages:
         title: 服务来源
         description: 重置所有提供商设置和凭据。
         reset: 重置提供商设置
+      accounts:
+        title: 此设备上的账号
+        description: 每个账号在此设备上保存自己的角色、聊天、记忆、设置和密钥。不再使用此设备的账号，可以删除它的数据。服务器上的数据不受影响。
+        current: 当前账号
+        signed_out: 未登录时的数据
+        empty: 此设备上没有其他账号的数据。
+        delete: 删除数据
       danger:
         title: 危险区域
         description: 不可逆操作。继续之前，请导出您需要的内容。
@@ -595,6 +608,7 @@ pages:
       modules_reset: 重置模块设置。
       providers_reset: 服务端设置重置。
       all_deleted: 已删除所有本地数据。
+      account_data_deleted: 已从此设备删除该账号的数据。
       desktop_window_centered: 桌面窗口已移至屏幕中央。
       desktop_reset: 桌面数据重置。
     title: 数据

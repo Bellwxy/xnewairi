@@ -16,14 +16,15 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ locale: { value: 'en' }, t: (key: string) => key }),
 }))
 
-vi.mock('localforage', () => ({
-  default: {
+vi.mock('@proj-airi/stage-shared/account-scope/localforage', () => {
+  const store = {
     getItem: vi.fn(async () => undefined),
     iterate: vi.fn(async () => undefined),
     removeItem: vi.fn(async () => undefined),
     setItem: vi.fn(async <T>(_: string, value: T) => value),
-  },
-}))
+  }
+  return { accountDefaultLocalForage: () => store, createAccountLocalForage: () => store }
+})
 
 function card(provider = '', model = ''): AiriCard {
   return {

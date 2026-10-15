@@ -7,10 +7,11 @@ import type { ChatHistoryItem } from '../../types/chat'
 import type { ChatSessionMeta, ChatSessionRecord, ChatSessionsExport, ChatSessionsIndex, StoredVoiceInterruption } from '../../types/chat-session'
 
 import { errorMessageFrom } from '@moeru/std'
+import { getAccountScope } from '@proj-airi/stage-shared/account-scope/runtime'
 import { cloneDeep } from 'es-toolkit'
 import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
-import { computed, ref, watch } from 'vue'
+import { computed, onScopeDispose, ref, watch } from 'vue'
 
 import { chatSessionsRepo } from '../../database/repos/chat-sessions.repo'
 import { authedFetch } from '../../libs/auth-fetch'
@@ -26,6 +27,7 @@ import {
 } from '../../libs/chat-sync'
 import { captureAnalyticsEvent } from '../../libs/product-signals'
 import { SERVER_URL } from '../../libs/server'
+import { onBeforeAccountSwitch } from '../../services/account-switch'
 import { useAuthStore } from '../auth'
 import { useAiriCardStore } from '../modules/airi-card'
 import { mergeLoadedSessionMessages } from './session-message-merge'
@@ -134,8 +136,17 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     '- Do not use single dollar signs as math delimiters.',
   ].join('\n')}\n`
 
+  /**
+   * The owner of the chat index, which is the page account.
+   * It stays the same offline and while a sign-in of another user waits for the account switch.
+   */
   function getCurrentUserId() {
-    return userId.value || 'local'
+    return getAccountScope().accountId
+  }
+
+  /** Cloud sync runs only for the signed-in user of the page account. See `userId` of the auth store. */
+  function isCloudUser() {
+    return userId.value !== 'local'
   }
 
   function getCurrentCharacterId() {
@@ -172,6 +183,9 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     )
     return next
   }
+
+  // An account switch reloads the page. Queued saves finish first, so the last messages stay in this account.
+  onScopeDispose(onBeforeAccountSwitch(() => enqueuePersist(async () => {})))
 
   function snapshotMessages(messages: ChatHistoryItem[]) {
     return cloneDeep(messages)
@@ -597,14 +611,14 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       conversation_id: sessionId,
       source: options?.messages?.length ? 'fork' : 'new_session',
       character_id: characterId,
-      cloud_synced: currentUserId !== 'local',
+      cloud_synced: isCloudUser(),
     })
 
     // Fire-and-forget cloud reconcile so the freshly-minted session gets a
     // `cloudChatId` (POST /api/v1/chats) before the user types into it.
     // Reentrant: `reconcileCloudSessions` itself guards on `cloudReconcileTask`
     // so concurrent triggers collapse to a single in-flight task.
-    if (currentUserId !== 'local')
+    if (isCloudUser())
       void reconcileCloudSessions()
 
     return sessionId
@@ -642,7 +656,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     const characterId = meta.characterId
     const cloudChatId = meta.cloudChatId
     const currentUserId = getCurrentUserId()
-    const isCloudUser = currentUserId !== 'local'
+    const cloudUser = isCloudUser()
 
     // ROOT CAUSE:
     //
@@ -677,12 +691,12 @@ export const useChatSessionStore = defineStore('chat-session', () => {
     // Drop any pending outbox sends for this session — pushing messages
     // to a deleted chat is wasted work and may surface as a server-side
     // 404/410 next time we drain.
-    if (isCloudUser)
+    if (cloudUser)
       await enqueuePersist(() => chatSessionsRepo.dropOutboxForSession(currentUserId, sessionId))
     await persistIndex()
     await refreshOutboxPendingCount()
 
-    if (isCloudUser) {
+    if (cloudUser) {
       const remoteChatId = cloudChatId ?? sessionId
       // Tombstone first: even if the cloud DELETE never reaches the server
       // (offline, transient 5xx), the next reconcile will see the remote id
@@ -872,7 +886,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
 
     const reconcileTask = (async () => {
       const currentUserId = getCurrentUserId()
-      if (currentUserId === 'local') {
+      if (!isCloudUser()) {
         console.info('[chat-sync] reconcile skipped: anonymous user')
         return
       }
@@ -1053,7 +1067,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
    * from the auth `watch`.
    */
   function ensureCloudWsClient() {
-    if (getCurrentUserId() === 'local') {
+    if (!isCloudUser()) {
       console.info('[chat-sync] WS skipped: anonymous user')
       return
     }
@@ -1157,6 +1171,10 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       teardownCloudWsClient()
       clearInMemoryState()
     }
+    // The page keeps its account when the credentials end, so only the cloud consumer stops.
+    else if (!isCloudUser()) {
+      teardownCloudWsClient()
+    }
 
     await ensureCurrentSession()
   }
@@ -1207,7 +1225,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
    */
   async function refreshOutboxPendingCount() {
     const userId = getCurrentUserId()
-    if (userId === 'local') {
+    if (!isCloudUser()) {
       outboxPendingCount.value = 0
       return
     }
@@ -1243,7 +1261,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
    */
   async function pushMessageToCloud(sessionId: string, message: { id: string, role: CloudSyncableRole, content: string, replyToMessageId?: string }) {
     const userId = getCurrentUserId()
-    if (userId === 'local')
+    if (!isCloudUser())
       return
 
     const entry: ChatSendOutboxEntry = {
@@ -1305,7 +1323,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       return outboxDrainTask
     outboxDrainTask = (async () => {
       const userId = getCurrentUserId()
-      if (userId === 'local')
+      if (!isCloudUser())
         return
       if (!wsClient || wsClient.status() !== 'open')
         return
@@ -1379,7 +1397,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
    */
   async function drainTombstones(): Promise<void> {
     const userId = getCurrentUserId()
-    if (userId === 'local')
+    if (!isCloudUser())
       return
 
     const tombstones = await chatSessionsRepo.getTombstones(userId)

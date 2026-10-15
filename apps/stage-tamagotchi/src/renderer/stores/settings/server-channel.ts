@@ -2,7 +2,7 @@ import type { ElectronServerChannelConfig } from '../../../shared/eventa'
 
 import { errorMessageFrom } from '@moeru/std'
 import { useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
-import { useLocalStorage } from '@vueuse/core'
+import { useAccountLocalStorage } from '@proj-airi/stage-shared/composables'
 import { defineStore } from 'pinia'
 import { shallowRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
@@ -14,9 +14,9 @@ import {
 } from '../../../shared/eventa'
 
 export const useServerChannelSettingsStore = defineStore('tamagotchi-server-channel-settings', () => {
-  const tlsConfig = useLocalStorage<{ cert?: string, key?: string, passphrase?: string } | null | undefined>('settings/server-channel/websocket-tls-config', null)
-  const hostname = useLocalStorage<string>('settings/server-channel/hostname', '127.0.0.1')
-  const authToken = useLocalStorage<string>('settings/server-channel/auth-token', '')
+  const tlsConfig = useAccountLocalStorage<{ cert?: string, key?: string, passphrase?: string } | null | undefined>('settings/server-channel/websocket-tls-config', null)
+  const hostname = useAccountLocalStorage<string>('settings/server-channel/hostname', '127.0.0.1')
+  const authToken = useAccountLocalStorage<string>('settings/server-channel/auth-token', '')
   const lastApplyError = shallowRef<string | null>(null)
   const syncingWithServer = shallowRef(false)
   const appliedConfig = shallowRef<ElectronServerChannelConfig>()

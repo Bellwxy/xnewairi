@@ -2,9 +2,9 @@ import type { ShortcutAccelerator, ShortcutFailureReason } from '@proj-airi/stag
 
 import { errorMessageFrom } from '@moeru/std'
 import { getElectronEventaContext, useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
+import { useAccountLocalStorage } from '@proj-airi/stage-shared/composables'
 import { ShortcutFailureReasons } from '@proj-airi/stage-shared/global-shortcut'
 import { useVoicePushToTalk } from '@proj-airi/stage-ui/composables/voice-input-mode'
-import { useLocalStorage } from '@vueuse/core'
 import { onScopeDispose, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
@@ -38,8 +38,8 @@ export function isHoldableAccelerator(accelerator: ShortcutAccelerator) {
  */
 export function usePushToTalkShortcutSettings() {
   return {
-    accelerator: useLocalStorage<ShortcutAccelerator>('settings/hearing/push-to-talk-shortcut', defaultPushToTalkAccelerator()),
-    registrationError: useLocalStorage<ShortcutFailureReason | ''>('settings/hearing/push-to-talk-shortcut-error', ''),
+    accelerator: useAccountLocalStorage<ShortcutAccelerator>('settings/hearing/push-to-talk-shortcut', defaultPushToTalkAccelerator()),
+    registrationError: useAccountLocalStorage<ShortcutFailureReason | ''>('settings/hearing/push-to-talk-shortcut-error', ''),
   }
 }
 

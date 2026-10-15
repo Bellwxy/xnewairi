@@ -4,6 +4,8 @@ import type { MaybeRefOrGetter, Ref } from 'vue'
 import { defaultWindow, useStorage } from '@vueuse/core'
 import { ref, toValue, watch } from 'vue'
 
+import { accountStorageKey } from '../../account-scope/runtime'
+
 export interface Versioned<T> { version?: string, data?: T }
 export interface UseVersionedStorageOptions<T> {
   defaultVersion?: string
@@ -23,8 +25,9 @@ export function useVersionedLocalStorage<T>(
 ): Ref<T, T> {
   const defaultVersion = options?.defaultVersion || '1.0.0'
   const data = ref(toValue(initialValue)) as Ref<T, T>
+  // The key belongs to the account fixed at startup. Callers pass the logical key.
   const rawValue = useStorage<Versioned<T>>(
-    key,
+    () => accountStorageKey(toValue(key)),
     { version: defaultVersion, data: toValue(initialValue) },
     options?.storage ?? defaultWindow?.localStorage,
     options as unknown as UseStorageOptions<Versioned<T>>,

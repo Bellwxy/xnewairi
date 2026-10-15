@@ -289,6 +289,12 @@ pages:
     capacitorEntry: Capacitor
     viewCapacitor: View
     signedInAs: Signed in as
+    switch:
+      title: Switch accounts
+      description: Some changes are not saved yet. A forced account switch can lose these changes.
+      wait: Keep waiting
+      waiting: Waiting for changes to finish.
+      force: Force account switch
     profile:
       tab: Profile
       title: Profile
@@ -595,6 +601,13 @@ pages:
         title: Providers
         description: Reset all provider settings and credentials.
         reset: Reset provider settings
+      accounts:
+        title: Accounts on this device
+        description: Each account keeps its own characters, chats, memory, settings, and keys on this device. You can delete the data of an account that no longer uses this device. Data on the server stays.
+        current: Current account
+        signed_out: Signed-out data
+        empty: No other account keeps data on this device.
+        delete: Delete data
       danger:
         title: Danger zone
         description: Irreversible actions. Export what you need before continuing.
@@ -625,6 +638,7 @@ pages:
       modules_reset: Module settings reset.
       providers_reset: Provider settings reset.
       all_deleted: All local data deleted.
+      account_data_deleted: Account data deleted from this device.
       desktop_window_centered: Desktop window moved to screen center.
       desktop_reset: Desktop data reset.
   models:

@@ -12,6 +12,19 @@ import { useAuthStore } from '../auth'
 import { useFeatureFlagsStore } from '../feature-flags'
 import { useAiriCardStore } from './airi-card'
 
+// The host fixes the page account at startup. Each test opens the page of a new account and signs in its user.
+// This file runs without the shared setup file, so no module loads the real runtime first.
+const page = vi.hoisted(() => ({ accountId: 'local' }))
+vi.mock('@proj-airi/stage-shared/account-scope/runtime', async () => {
+  const { AccountScope } = await import('@proj-airi/stage-shared/account-scope')
+  const getAccountScope = () => new AccountScope(page.accountId)
+  return {
+    initializeAccountScope: getAccountScope,
+    getAccountScope,
+    accountStorageKey: (key: string) => getAccountScope().storageKey(key),
+  }
+})
+
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ locale: { value: 'en' }, t: (key: string) => key }),
 }))
@@ -147,7 +160,8 @@ function cardRequestsOf(fetchCards: { mock: { calls: unknown[][] } }) {
   return fetchCards.mock.calls.filter(call => String(call[0]).includes('/character-cards'))
 }
 
-const accountId = () => `account-${crypto.randomUUID()}`
+/** The user that owns the page account, as after the account switch reloads the page. */
+const accountId = () => page.accountId
 
 function signIn(auth: ReturnType<typeof useAuthStore>, id: string) {
   const user: User = { id, name: 'Alice', email: 'alice@example.com', emailVerified: true, createdAt: new Date(0), updatedAt: new Date(0) }
@@ -159,6 +173,7 @@ describe('card synchronization across windows', () => {
   let server: ReturnType<typeof createFakeCardServer>
 
   beforeEach(() => {
+    page.accountId = `account-${crypto.randomUUID()}`
     localStorage.clear()
     server = createFakeCardServer()
     vi.stubGlobal('fetch', server.fetchCards)

@@ -22,6 +22,11 @@ Keep application-specific pages in the owning application. Put reusable business
 
 Put primitive UI components in `@proj-airi/ui`. Put shared layouts in `@proj-airi/stage-layouts`.
 
+## Data settings
+
+The Data page lists the accounts that keep data on this device. A user can delete the data of an account other than the current one.
+Desktop hosts compose the same section in their own Data page.
+
 ## Provider settings
 
 Provider catalogs expose only custom API endpoints for chat, vision, speech, and transcription.

@@ -6,6 +6,8 @@ import type { BeatSyncController } from './beat-sync'
 import type { useExpressionController } from './expression-controller'
 import type { Live2DMotionSpringController } from './motion-control-spring'
 
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
+
 import { sampleLive2DBreath } from '../../stores/motion-control'
 import { useLive2DIdleEyeFocus } from './animation'
 
@@ -133,7 +135,7 @@ export function useLive2DMotionManagerUpdate(options: UseLive2DMotionManagerUpda
 
   function hookUpdate(model: CubismModel, now: number, hookedUpdate?: (model: CubismModel, now: number) => boolean) {
     const timeDelta = lastUpdateTime.value ? now - lastUpdateTime.value : 0
-    const selectedMotionGroup = localStorage.getItem('selected-runtime-motion-group')
+    const selectedMotionGroup = localStorage.getItem(accountStorageKey('selected-runtime-motion-group'))
     const isIdleMotion = !motionManager.state.currentGroup
       || motionManager.state.currentGroup === motionManager.groups.idle
       || (!!selectedMotionGroup && motionManager.state.currentGroup === selectedMotionGroup)

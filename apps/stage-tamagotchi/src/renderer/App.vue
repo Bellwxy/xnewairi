@@ -5,11 +5,13 @@ import { defineInvokeHandler } from '@moeru/eventa'
 import { useElectronEventaContext, useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { themeColorFromValue, useThemeColor } from '@proj-airi/stage-layouts/composables/theme-color'
 import { artistrySyncConfig } from '@proj-airi/stage-shared'
-import { ToasterRoot } from '@proj-airi/stage-ui/components'
+import { AccountSwitchDialog, ToasterRoot } from '@proj-airi/stage-ui/components'
 import { updateModelAssetStatus, useInferencePreload } from '@proj-airi/stage-ui/composables'
 import { usePiniaSynced } from '@proj-airi/stage-ui/libs/pinia'
 import { initializeAnalytics } from '@proj-airi/stage-ui/libs/product-signals'
 import { isSherpawModelBundled, setSherpawModelAssetHost } from '@proj-airi/stage-ui/libs/providers/providers/sherpaw/model-assets'
+import { registerAccountHostData } from '@proj-airi/stage-ui/services/account-device-data'
+import { bindAccountToAuthentication } from '@proj-airi/stage-ui/services/account-switch'
 import { useAuthStore } from '@proj-airi/stage-ui/stores/auth'
 import { useCharacterOrchestratorStore } from '@proj-airi/stage-ui/stores/character'
 import { useChatStore } from '@proj-airi/stage-ui/stores/chat'
@@ -37,6 +39,9 @@ import { toast, Toaster } from 'vue-sonner'
 import ResizeHandler from './components/ResizeHandler.vue'
 
 import {
+  electronAccountDeleteData,
+  electronAccountListData,
+  electronAccountSwitch,
   electronGetServerChannelConfig,
   electronGodotStageGetStatus,
   electronGodotStageStatusChanged,
@@ -84,6 +89,15 @@ const router = useRouter()
 const route = useRoute()
 const context = useElectronEventaContext()
 const listModelAssets = useElectronEventaInvoke(electronModelAssetsList)
+// The main process stores the account and relaunches the app, so every window and service restarts in it.
+const switchMainAccount = useElectronEventaInvoke(electronAccountSwitch)
+// Deleting another account on this device also deletes its main-process files.
+const listMainAccountData = useElectronEventaInvoke(electronAccountListData)
+const deleteMainAccountData = useElectronEventaInvoke(electronAccountDeleteData)
+registerAccountHostData({
+  list: () => listMainAccountData(),
+  delete: accountId => deleteMainAccountData({ accountId }),
+})
 const ensureModelAsset = useElectronEventaInvoke(electronModelAssetEnsure)
 const cancelModelAsset = useElectronEventaInvoke(electronModelAssetCancel)
 const removeModelAsset = useElectronEventaInvoke(electronModelAssetRemove)
@@ -271,6 +285,7 @@ function createFullStageRuntime() {
   return {
     async initialize() {
       initializeAnalytics()
+      bindAccountToAuthentication(authStore, accountId => switchMainAccount({ accountId }))
       await authStore.initialize()
       await displayModelsStore.initialize()
       await cardStore.initialize()
@@ -385,6 +400,7 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <AccountSwitchDialog />
   <ToasterRoot @close="id => toast.dismiss(id)">
     <Toaster />
   </ToasterRoot>

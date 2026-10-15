@@ -2,9 +2,10 @@
 import type { ChatFloatingState } from '../../shared/eventa'
 
 import { getElectronEventaContext, useElectronEventaInvoke, useElectronMouseInElement } from '@proj-airi/electron-vueuse'
+import { useAccountLocalStorage } from '@proj-airi/stage-shared/composables'
 import { ChatSessionsDrawer } from '@proj-airi/stage-ui/components'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
-import { useEventListener, useLocalStorage } from '@vueuse/core'
+import { useEventListener } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onScopeDispose, shallowRef, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -58,7 +59,7 @@ useChatDraftHandover(interactiveArea)
 const freePlacement = computed(() => state.value.placement !== 'attached')
 const danmaku = computed(() => state.value.placement === 'danmaku')
 // The danmaku feed starts with its composer folded, because it is mostly read.
-const composerFolded = useLocalStorage('chat-window/danmaku/composer-folded', true)
+const composerFolded = useAccountLocalStorage('chat-window/danmaku/composer-folded', true)
 // Fade on hover, which the main window's controls island switches, turns the
 // folded danmaku feed passive: the history only follows new messages, and it
 // fades out and passes clicks through under the cursor. The header and the

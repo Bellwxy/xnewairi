@@ -10,6 +10,13 @@ import { useAuthStore } from '../auth'
 import { useProviderConfigStore } from './config'
 import { useProviderStore } from './provider'
 
+// The signed-in user owns the page account, as after the account switch reloads the page.
+vi.mock('@proj-airi/stage-shared/account-scope/runtime', async (importOriginal) => {
+  const runtime = await importOriginal<typeof import('@proj-airi/stage-shared/account-scope/runtime')>()
+  const { AccountScope } = await import('@proj-airi/stage-shared/account-scope')
+  return { ...runtime, getAccountScope: () => new AccountScope('user-1') }
+})
+
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
     t: (_key: string, fallback?: string) => fallback ?? _key,

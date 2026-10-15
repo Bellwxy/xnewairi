@@ -1,8 +1,7 @@
 import type { Emotion } from '../constants/emotions'
 import type { MorphSlot } from '../constants/morphs'
 
-import localforage from 'localforage'
-
+import { accountDefaultLocalForage } from '@proj-airi/stage-shared/account-scope/localforage'
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { useBroadcastChannel } from '@vueuse/core'
 import { nanoid } from 'nanoid/non-secure'
@@ -172,7 +171,7 @@ export const useMMD = defineStore('mmd', () => {
     const existing = availableMotions.value.find(motion => motion.name === name)
     const id = existing?.id ?? `${MOTION_STORAGE_PREFIX}${nanoid()}`
 
-    await localforage.setItem<PersistedMMDMotion>(id, { id, name, file })
+    await accountDefaultLocalForage().setItem<PersistedMMDMotion>(id, { id, name, file })
     if (!existing)
       availableMotions.value = [...availableMotions.value, { id, name }]
 
@@ -181,7 +180,7 @@ export const useMMD = defineStore('mmd', () => {
 
   /** Loads a persisted VMD file by id so a window can build its own object URL. */
   async function getMotionFile(id: string): Promise<File | undefined> {
-    const persisted = await localforage.getItem<PersistedMMDMotion>(id)
+    const persisted = await accountDefaultLocalForage().getItem<PersistedMMDMotion>(id)
     return persisted?.file
   }
 
@@ -189,7 +188,7 @@ export const useMMD = defineStore('mmd', () => {
   async function clearMotions(): Promise<void> {
     const motions = availableMotions.value
     availableMotions.value = []
-    await Promise.all(motions.map(motion => localforage.removeItem(motion.id)))
+    await Promise.all(motions.map(motion => accountDefaultLocalForage().removeItem(motion.id)))
   }
 
   /** Removes a single imported motion (from the synced list and IndexedDB). */
@@ -199,7 +198,7 @@ export const useMMD = defineStore('mmd', () => {
     // Drop the idle selection if it pointed at the removed motion.
     if (motion && idleMotionName.value === motion.name)
       idleMotionName.value = ''
-    await localforage.removeItem(id)
+    await accountDefaultLocalForage().removeItem(id)
   }
   /** Per-emotion gesture motion overrides; falls back to EMOTION_ACTION_NAME. */
   const emotionActionMap = useLocalStorageManualReset<Record<Emotion, string>>(

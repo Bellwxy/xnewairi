@@ -1,5 +1,6 @@
-// @vitest-environment jsdom
 import { streamFrom } from '@proj-airi/core-agent'
+// @vitest-environment jsdom
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
@@ -34,8 +35,8 @@ describe('consciousness store provider selection', () => {
   })
 
   it('does not treat previously saved sampling values as opt-in (Issue #2628)', () => {
-    localStorage.setItem('settings/consciousness/active-temperature', '0.3')
-    localStorage.setItem('settings/consciousness/active-top-p', '0.8')
+    localStorage.setItem(accountStorageKey('settings/consciousness/active-temperature'), '0.3')
+    localStorage.setItem(accountStorageKey('settings/consciousness/active-top-p'), '0.8')
     const store = useConsciousnessStore()
 
     expect(store.activeTemperature).toBeUndefined()
@@ -87,10 +88,10 @@ describe('consciousness store provider selection', () => {
   })
 
   it('restores explicit sampling opt-in and clears it when reset', async () => {
-    localStorage.setItem('settings/consciousness/temperature-enabled', 'true')
-    localStorage.setItem('settings/consciousness/top-p-enabled', 'true')
-    localStorage.setItem('settings/consciousness/active-temperature', '0')
-    localStorage.setItem('settings/consciousness/active-top-p', '0.8')
+    localStorage.setItem(accountStorageKey('settings/consciousness/temperature-enabled'), 'true')
+    localStorage.setItem(accountStorageKey('settings/consciousness/top-p-enabled'), 'true')
+    localStorage.setItem(accountStorageKey('settings/consciousness/active-temperature'), '0')
+    localStorage.setItem(accountStorageKey('settings/consciousness/active-top-p'), '0.8')
     const store = useConsciousnessStore()
 
     expect(store.activeTemperature).toBe(0)
@@ -100,8 +101,8 @@ describe('consciousness store provider selection', () => {
 
     expect(store.activeTemperature).toBeUndefined()
     expect(store.activeTopP).toBeUndefined()
-    expect(localStorage.getItem('settings/consciousness/temperature-enabled')).toBe('false')
-    expect(localStorage.getItem('settings/consciousness/top-p-enabled')).toBe('false')
+    expect(localStorage.getItem(accountStorageKey('settings/consciousness/temperature-enabled'))).toBe('false')
+    expect(localStorage.getItem(accountStorageKey('settings/consciousness/top-p-enabled'))).toBe('false')
   })
 
   // ROOT CAUSE:

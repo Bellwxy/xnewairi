@@ -37,6 +37,8 @@ class MemoryStorage implements Storage {
 const { authState, authHooks, mocks } = vi.hoisted(() => ({
   authState: {
     isAuthenticated: false,
+    // The auth store reports `local` for a signed-in user of another account.
+    userId: 'user-1',
   },
   authHooks: {
     logout: undefined as (() => void) | undefined,
@@ -59,6 +61,9 @@ vi.mock('../auth', () => ({
   useAuthStore: () => ({
     get isAuthenticated() {
       return authState.isAuthenticated
+    },
+    get userId() {
+      return authState.isAuthenticated ? authState.userId : 'local'
     },
     onAuthenticated: (hook: () => void) => {
       if (authState.isAuthenticated)
@@ -110,6 +115,7 @@ describe('provider config store', () => {
       removeEventListener: vi.fn(),
     })
     authState.isAuthenticated = false
+    authState.userId = 'user-1'
     mocks.service.listRemote.mockResolvedValue([])
     mocks.service.upsertRemote.mockImplementation(async (_client, provider) => ({
       id: provider.id,
@@ -149,6 +155,19 @@ describe('provider config store', () => {
     expect(store.listedProviders['remote-provider']?.config).toEqual({ apiKey: 'sk-remote' })
     expect(mocks.service.upsertRemote).not.toHaveBeenCalled()
     expect(afterSync).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not sync while a user of another account waits for the account switch', async () => {
+    const store = installStore()
+    store.providers[localProvider.id] = { ...localProvider, status: 'configured' }
+    authState.isAuthenticated = true
+    authState.userId = 'local'
+
+    await store.syncProviders()
+    await store.pushProviders()
+
+    expect(mocks.service.listRemote).not.toHaveBeenCalled()
+    expect(mocks.service.upsertRemote).not.toHaveBeenCalled()
   })
 
   // https://github.com/moeru-ai/airi/pull/2471#discussion_r3970904545

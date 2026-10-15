@@ -14,6 +14,7 @@ export default defineConfig({
             'src-web/src/renderer/host-context/**/*.test.ts',
             'src-web/src/renderer/window-context.test.ts',
           ],
+          setupFiles: ['@proj-airi/stage-shared/account-scope/testing'],
           exclude: ['src-web/src/renderer/host-context/**/*.browser.test.ts'],
         },
       },
@@ -22,6 +23,7 @@ export default defineConfig({
         test: {
           name: 'browser',
           include: ['src-web/src/renderer/host-context/**/*.browser.test.ts'],
+          setupFiles: ['@proj-airi/stage-shared/account-scope/testing'],
           browser: {
             enabled: true,
             headless: true,

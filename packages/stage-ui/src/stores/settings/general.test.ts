@@ -1,4 +1,5 @@
 import { createTestingPinia } from '@pinia/testing'
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -50,12 +51,12 @@ describe('store settings-general', () => {
 
     // navigator.language 'zh-CN' gets remapped to 'zh-Hans'
     expect(resolvedLanguage).toBe('zh-Hans')
-    expect(localStorageMock.getItem).toHaveBeenCalledWith('settings/language')
+    expect(localStorageMock.getItem).toHaveBeenCalledWith(accountStorageKey('settings/language'))
   })
 
   it('issue #1658: returns persisted language when localStorage has a value', () => {
     // User previously selected Traditional Chinese
-    store['settings/language'] = 'zh-Hant'
+    store[accountStorageKey('settings/language')] = 'zh-Hant'
     vi.stubGlobal('navigator', { language: 'zh-CN' })
 
     const settingsStore = useSettingsGeneral()

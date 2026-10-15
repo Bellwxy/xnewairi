@@ -1,4 +1,5 @@
-import { createGlobalState, useLocalStorage } from '@vueuse/core'
+import { useAccountLocalStorage } from '@proj-airi/stage-shared/composables'
+import { createGlobalState } from '@vueuse/core'
 import { clamp } from 'es-toolkit'
 import { computed } from 'vue'
 
@@ -20,7 +21,7 @@ export const danmakuFeedTiming = {
 
 /** A stored timing setting that always reads inside its slider range, even after a manual edit of the storage. */
 function useTimingSetting(key: string, setting: TimingSetting) {
-  const stored = useLocalStorage(key, setting.default)
+  const stored = useAccountLocalStorage(key, setting.default)
   return computed({
     get: () => Number.isFinite(stored.value) ? clamp(stored.value, setting.min, setting.max) : setting.default,
     set: (value) => {
@@ -36,7 +37,7 @@ function useTimingSetting(key: string, setting: TimingSetting) {
  */
 export const useDanmakuFeedSettings = createGlobalState(() => ({
   /** On by default, because the feed is mostly read. */
-  hideReadMessages: useLocalStorage('chat-window/danmaku/hide-read-messages', true),
+  hideReadMessages: useAccountLocalStorage('chat-window/danmaku/hide-read-messages', true),
   /** Every language counts characters the same way, so the reader sets the speed. */
   charactersPerSecond: useTimingSetting('chat-window/danmaku/characters-per-second', danmakuFeedTiming.charactersPerSecond),
   minimumSeconds: useTimingSetting('chat-window/danmaku/minimum-seconds', danmakuFeedTiming.minimumSeconds),

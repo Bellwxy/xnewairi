@@ -1,5 +1,4 @@
-import localforage from 'localforage'
-
+import { accountDefaultLocalForage } from '@proj-airi/stage-shared/account-scope/localforage'
 import { until } from '@vueuse/core'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
@@ -73,7 +72,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     const models = [...displayModelsPresets]
 
     try {
-      await localforage.iterate<{ format: DisplayModelFormat, file: File, importedAt: number, previewImage?: string }, void>((val, key) => {
+      await accountDefaultLocalForage().iterate<{ format: DisplayModelFormat, file: File, importedAt: number, previewImage?: string }, void>((val, key) => {
         if (key.startsWith('display-model-')) {
           models.push({ id: key, format: val.format, type: 'file', file: val.file, name: val.file.name, importedAt: val.importedAt, previewImage: val.previewImage })
         }
@@ -99,7 +98,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     if (modelFromMemory)
       return modelFromMemory
 
-    const modelFromFile = await localforage.getItem<DisplayModelFile>(id)
+    const modelFromFile = await accountDefaultLocalForage().getItem<DisplayModelFile>(id)
     if (modelFromFile) {
       return modelFromFile
     }
@@ -160,8 +159,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
     // Source/context: model-selector import flow -> settings-stage-model.updateStageModel().
     // Removal condition: imported display models are persisted through a transactional queue
     // that blocks pick/navigation until the write is durably complete.
-    await localforage.setItem<DisplayModelFile>(newDisplayModel.id, newDisplayModel)
-      .catch(err => console.error(err))
+    await accountDefaultLocalForage().setItem<DisplayModelFile>(newDisplayModel.id, newDisplayModel).catch(err => console.error(err))
 
     return newDisplayModel
   }
@@ -169,7 +167,7 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
   async function renameDisplayModel(id: string, name: string) {
     await until(displayModelsFromIndexedDBLoading).toBe(false)
     const displayModel = id.startsWith('display-model-')
-      ? await localforage.getItem<DisplayModelFile>(id)
+      ? await accountDefaultLocalForage().getItem<DisplayModelFile>(id)
       : displayModels.value.find(m => m.id === id)
 
     if (!displayModel)
@@ -185,13 +183,13 @@ export const useDisplayModelsStore = defineStore('display-models', () => {
 
     // Persist if it's a file-based model
     if (id.startsWith('display-model-')) {
-      await localforage.setItem(id, displayModel)
+      await accountDefaultLocalForage().setItem(id, displayModel)
     }
   }
 
   async function removeDisplayModel(id: string) {
     await until(displayModelsFromIndexedDBLoading).toBe(false)
-    await localforage.removeItem(id)
+    await accountDefaultLocalForage().removeItem(id)
     displayModels.value = displayModels.value.filter(model => model.id !== id)
   }
 

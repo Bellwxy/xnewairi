@@ -9,6 +9,7 @@ export default defineConfig({
         test: {
           name: 'node',
           include: ['src/**/*.test.ts'],
+          setupFiles: ['@proj-airi/stage-shared/account-scope/testing'],
           exclude: ['src/**/*.browser.test.ts'],
         },
       },
@@ -16,6 +17,7 @@ export default defineConfig({
         test: {
           name: 'browser',
           include: ['src/**/*.browser.test.ts'],
+          setupFiles: ['@proj-airi/stage-shared/account-scope/testing'],
           browser: {
             enabled: true,
             headless: true,

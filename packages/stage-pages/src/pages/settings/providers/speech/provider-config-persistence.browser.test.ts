@@ -1,6 +1,7 @@
 import en from '@proj-airi/i18n/locales/en'
 
 import { PiniaColada } from '@pinia/colada'
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { useProviderConfigStore } from '@proj-airi/stage-ui/stores/providers/config'
 import { createPinia, disposePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -74,7 +75,7 @@ describe('speech provider configuration persistence', () => {
     await page.getByPlaceholder('sk-...').fill('issue-2449-test-key')
 
     await expect.poll(() => {
-      const stored = localStorage.getItem('settings/providers/configured')
+      const stored = localStorage.getItem(accountStorageKey('settings/providers/configured'))
       if (!stored)
         return undefined
       return JSON.parse(stored)[providerId]?.config?.apiKey
@@ -83,7 +84,7 @@ describe('speech provider configuration persistence', () => {
 
   // https://github.com/moeru-ai/airi/issues/2449#issuecomment-5586964144
   it('accepts the reported workaround with a persisted provider (Issue #2449)', async () => {
-    localStorage.setItem('settings/providers/configured', JSON.stringify({
+    localStorage.setItem(accountStorageKey('settings/providers/configured'), JSON.stringify({
       [providerId]: {
         id: providerId,
         definitionId: providerId,
@@ -113,7 +114,7 @@ describe('speech provider configuration persistence', () => {
     await page.getByPlaceholder('API Key').fill('issue-2449-comet-key')
 
     await expect.poll(() => {
-      const stored = localStorage.getItem('settings/providers/configured')
+      const stored = localStorage.getItem(accountStorageKey('settings/providers/configured'))
       if (!stored)
         return undefined
       return JSON.parse(stored)['comet-api-speech']?.config?.apiKey

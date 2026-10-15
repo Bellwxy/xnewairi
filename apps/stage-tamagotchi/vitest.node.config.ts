@@ -13,6 +13,7 @@ export default defineProject({
     name: 'stage-tamagotchi:node',
     env: loadEnv('test', cwd(), ''),
     include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
+    setupFiles: ['@proj-airi/stage-shared/account-scope/testing'],
     exclude: ['src/**/*.browser.test.ts', '**/node_modules/**', '**/.git/**'],
     fileParallelism: false,
     maxWorkers: 1,

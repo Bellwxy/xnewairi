@@ -16,6 +16,11 @@
   },
   "exports": {
     ".": "./src/index.ts",
+    "./account-scope": "./src/account-scope/index.ts",
+    "./account-scope/localforage": "./src/account-scope/localforage.ts",
+    "./account-scope/opfs": "./src/account-scope/opfs.ts",
+    "./account-scope/runtime": "./src/account-scope/runtime.ts",
+    "./account-scope/testing": "./src/account-scope/testing.ts",
     "./auth": "./src/auth/index.ts",
     "./analytics/openpanel": "./src/analytics/openpanel.ts",
     "./beat-sync": "./src/beat-sync/index.ts",
@@ -40,6 +45,7 @@
     "@moeru/std": "catalog:",
     "@vueuse/core": "catalog:",
     "gpuu": "catalog:",
+    "localforage": "catalog:",
     "pinia": "catalog:",
     "valibot": "catalog:",
     "vue": "catalog:"

@@ -10,11 +10,31 @@ import { useAiriCardStore } from '../modules/airi-card'
 
 let pinia: ReturnType<typeof createPinia>
 
+// The host fixes the page account at startup. Each test chooses the account of its page.
+// This file runs without the shared setup file, so no module loads the real runtime first.
+const page = vi.hoisted(() => ({ accountId: 'local' }))
+vi.mock('@proj-airi/stage-shared/account-scope/runtime', async () => {
+  const { AccountScope } = await import('@proj-airi/stage-shared/account-scope')
+  const getAccountScope = () => new AccountScope(page.accountId)
+  return {
+    initializeAccountScope: getAccountScope,
+    getAccountScope,
+    accountStorageKey: (key: string) => getAccountScope().storageKey(key),
+  }
+})
+
+function testUser(id: string) {
+  return { id, name: id, email: `${id}@example.test`, emailVerified: true, createdAt: new Date(0), updatedAt: new Date(0) }
+}
+
 // Change real store state while storage and network calls remain external test boundaries.
+// A signed-in user owns the page account, as after the account switch reloads the page.
 const userIdRef = computed({
   get: () => useAuthStore(pinia).userId,
   set: (id: string) => {
-    useAuthStore(pinia).user = id === 'local' ? null : { id, name: id, email: `${id}@example.test`, emailVerified: true, createdAt: new Date(0), updatedAt: new Date(0) }
+    if (id !== 'local')
+      page.accountId = id
+    useAuthStore(pinia).user = id === 'local' ? null : testUser(id)
   },
 })
 const activeCardIdRef = computed({
@@ -129,6 +149,7 @@ beforeEach(() => {
   container = document.createElement('div')
   document.body.append(container)
   app.mount(container)
+  page.accountId = 'local'
   userIdRef.value = 'local'
   activeCardIdRef.value = 'default'
   systemPromptRef.value = ''
@@ -164,93 +185,60 @@ async function flushMicrotasks(rounds = 8) {
     await Promise.resolve()
 }
 
-describe('chat-session-store · user swap during in-flight ensureActiveSessionForCharacter', () => {
-  // ROOT CAUSE: Account changes could reuse stale hydration work. The request now checks its account epoch after each await. Session loading also checks deletion before writeback.
-  it('runs a fresh hydrate for the new user and discards the stale write from the old user', async () => {
-    const aSessionMeta: ChatSessionMeta = {
-      sessionId: 'sess-A',
-      userId: 'A',
-      characterId: 'default',
-      createdAt: 1,
-      updatedAt: 1,
-    }
-    const aIndex: ChatSessionsIndex = {
-      userId: 'A',
-      characters: {
-        default: {
-          activeSessionId: 'sess-A',
-          sessions: { 'sess-A': aSessionMeta },
-        },
+describe('chat-session-store · page account ownership', () => {
+  const aSessionMeta: ChatSessionMeta = {
+    sessionId: 'sess-A',
+    userId: 'A',
+    characterId: 'default',
+    createdAt: 1,
+    updatedAt: 1,
+  }
+  const aIndex: ChatSessionsIndex = {
+    userId: 'A',
+    characters: {
+      default: {
+        activeSessionId: 'sess-A',
+        sessions: { 'sess-A': aSessionMeta },
       },
-    }
-    const bSessionMeta: ChatSessionMeta = {
-      sessionId: 'sess-B',
-      userId: 'B',
-      characterId: 'default',
-      createdAt: 2,
-      updatedAt: 2,
-    }
-    const bIndex: ChatSessionsIndex = {
-      userId: 'B',
-      characters: {
-        default: {
-          activeSessionId: 'sess-B',
-          sessions: { 'sess-B': bSessionMeta },
-        },
-      },
-    }
+    },
+  }
 
-    let resolveASessionGet: ((rec: ChatSessionRecord | null) => void) | undefined
-    getIndexMock.mockImplementation((uid: string) => {
-      if (uid === 'A')
-        return Promise.resolve(aIndex)
-      if (uid === 'B')
-        return Promise.resolve(bIndex)
-      return Promise.resolve(null)
-    })
-    getSessionMock.mockImplementation((id: string) => {
-      // A's session getSession is the slow await we use to hold the IIFE open
-      // until after the user swap fires.
-      if (id === 'sess-A') {
-        return new Promise<ChatSessionRecord | null>((resolve) => {
-          resolveASessionGet = resolve
-        })
-      }
-      if (id === 'sess-B')
-        return Promise.resolve({ meta: bSessionMeta, messages: [] })
-      return Promise.resolve(null)
-    })
+  beforeEach(() => {
+    getIndexMock.mockImplementation(async uid => uid === 'A' ? aIndex : null)
+    getSessionMock.mockImplementation(async id => id === 'sess-A' ? { meta: aSessionMeta, messages: [] } : null)
+  })
 
-    userIdRef.value = 'A'
+  // ROOT CAUSE: The chat index followed the auth user. Offline startup has no user, so the page of account A read the `local` index.
+  it('loads the index of the page account when startup has no signed-in user', async () => {
+    page.accountId = 'A'
     const store = useChatSessionStore()
 
-    // Kick off initialize; it will await ensureActiveSessionForCharacter, which
-    // will await loadSession('sess-A') → getSession('sess-A') (deferred).
-    const initPromise = store.initialize()
-    await flushMicrotasks()
+    await store.initialize()
 
-    // Sanity: A's getSession was reached and is parked.
-    expect(getSessionMock).toHaveBeenCalledWith('sess-A')
-    expect(resolveASessionGet).toBeDefined()
+    expect(getIndexMock).toHaveBeenCalledWith('A')
+    expect(getIndexMock).not.toHaveBeenCalledWith('local')
+    expect(store.index?.userId).toBe('A')
+    expect(store.sessionMetas['sess-A']).toBeDefined()
+  })
 
-    // The synchronized auth state changes while A's session read is in flight.
-    userIdRef.value = 'B'
+  // ROOT CAUSE: A sign-in of another user started cloud sync before the account switch reloaded the page.
+  it('keeps the page account and stops cloud sync while a user of another account waits for the switch', async () => {
+    userIdRef.value = 'A'
+    const store = useChatSessionStore()
+    await store.initialize()
+    expect(cloudStatusListener).toBeDefined()
+
+    useAuthStore(pinia).user = testUser('B')
     await nextTick()
     await flushMicrotasks()
-
-    // Resolve A's IDB read AFTER the swap. With the bug, A's IIFE writes
-    // sess-A back into the cleared sessionMetas.
-    resolveASessionGet!({ meta: aSessionMeta, messages: [] })
-    await initPromise.catch(() => {})
+    cloudStatusListener?.('open')
     await flushMicrotasks()
 
-    // B's hydrate must have fired. Without the fix, the stale A promise blocks
-    // the identity action and B never loads.
-    expect(getIndexMock).toHaveBeenCalledWith('B')
-    expect(store.sessionMetas['sess-B']).toBeDefined()
-
-    // A's data must NOT have leaked into B's state.
-    expect(store.sessionMetas['sess-A']).toBeUndefined()
+    expect(userIdRef.value).toBe('local')
+    expect(getIndexMock).not.toHaveBeenCalledWith('B')
+    expect(store.index?.userId).toBe('A')
+    expect(store.sessionMetas['sess-A']).toBeDefined()
+    expect(listChatsMock).not.toHaveBeenCalled()
   })
 })
 

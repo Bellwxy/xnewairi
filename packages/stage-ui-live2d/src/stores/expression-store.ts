@@ -1,3 +1,4 @@
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
@@ -110,7 +111,7 @@ function persistenceKey(modelId: string): string {
 
 function loadPersistedDefaults(modelId: string): Record<string, number> | null {
   try {
-    const raw = localStorage.getItem(persistenceKey(modelId))
+    const raw = localStorage.getItem(accountStorageKey(persistenceKey(modelId)))
     if (!raw)
       return null
     return JSON.parse(raw) as Record<string, number>
@@ -122,7 +123,7 @@ function loadPersistedDefaults(modelId: string): Record<string, number> | null {
 
 function savePersistedDefaults(modelId: string, defaults: Record<string, number>): void {
   try {
-    localStorage.setItem(persistenceKey(modelId), JSON.stringify(defaults))
+    localStorage.setItem(accountStorageKey(persistenceKey(modelId)), JSON.stringify(defaults))
   }
   catch (err) {
     console.warn('[expression-store] Failed to persist defaults:', err)

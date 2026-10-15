@@ -1,6 +1,7 @@
 import type { SyncedPiniaRuntime } from 'pinia-plugin-synced'
 
 import { PiniaColada } from '@pinia/colada'
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { createPinia, disposePinia, setActivePinia } from 'pinia'
 import { createSyncedPiniaPlugin } from 'pinia-plugin-synced'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -51,7 +52,7 @@ describe('persisted and replicated card defaults', () => {
   // A null storage default selects VueUse's string serializer. After reload,
   // the editor received text instead of module settings. Specify JSON storage.
   it('reads saved defaults as settings after a reload', async () => {
-    localStorage.setItem('airi-card-module-defaults', JSON.stringify({
+    localStorage.setItem(accountStorageKey('airi-card-module-defaults'), JSON.stringify({
       consciousness: { provider: 'ollama', model: 'global-model' },
       vision: { provider: '', model: '' },
       speech: { provider: 'speech-noop', model: '', voice_id: '' },

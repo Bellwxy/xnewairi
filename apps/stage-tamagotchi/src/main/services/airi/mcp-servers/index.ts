@@ -15,7 +15,7 @@ import type {
 } from '../../../../shared/eventa'
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { dirname } from 'node:path'
 
 import { useLogg } from '@guiiai/logg'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
@@ -36,6 +36,7 @@ import {
 } from '../../../../shared/eventa'
 import { isHttpServerConfig, parseElectronMcpConfigText } from '../../../../shared/mcp-config'
 import { onAppBeforeQuit } from '../../../libs/bootkit/lifecycle'
+import { accountDataPath } from '../../../libs/electron/account'
 
 /** A transport that the MCP client can drive. Both kinds expose `close`. */
 type McpTransport = StdioClientTransport | StreamableHTTPClientTransport
@@ -76,7 +77,7 @@ function stringifyError(error: unknown) {
 }
 
 function getConfigPath() {
-  return join(app.getPath('userData'), 'mcp.json')
+  return accountDataPath('mcp.json')
 }
 
 function parseQualifiedToolName(name: string) {
@@ -194,7 +195,7 @@ export function createMcpManager(): McpManager {
 
   const ensureConfigFile = async () => {
     const path = getConfigPath()
-    await mkdir(app.getPath('userData'), { recursive: true })
+    await mkdir(dirname(path), { recursive: true })
 
     try {
       await readFile(path, 'utf-8')

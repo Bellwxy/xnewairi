@@ -503,7 +503,8 @@ describe('setupExtensionHost', () => {
     lifecycleMock.beforeQuitHooks.length = 0
     extensionManagementWebContentsId = 42
     userDataDir = await mkdtemp(join(tmpdir(), 'airi-plugins-'))
-    pluginsDir = join(userDataDir, 'extensions', 'v1')
+    // Extensions belong to the account. The shared test setup fixes the `local` account.
+    pluginsDir = join(userDataDir, 'accounts', 'local', 'extensions', 'v1')
     await mkdir(pluginsDir, { recursive: true })
     appMock.getPath.mockReturnValue(userDataDir)
     appMock.startAccessingSecurityScopedResource.mockReturnValue(vi.fn())

@@ -1,5 +1,6 @@
 import type {} from 'pinia-plugin-synced'
 
+import { accountStorageKey } from '@proj-airi/stage-shared/account-scope/runtime'
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 
@@ -19,10 +20,10 @@ function createLocalStorageForOnboarding() {
   } as const
 
   return {
-    getCompleted: () => localStorage.getItem(keys.completed) === 'true',
-    getSkipped: () => localStorage.getItem(keys.skipped) === 'true',
-    setCompleted: (value: boolean) => localStorage.setItem(keys.completed, String(value)),
-    setSkipped: (value: boolean) => localStorage.setItem(keys.skipped, String(value)),
+    getCompleted: () => localStorage.getItem(accountStorageKey(keys.completed)) === 'true',
+    getSkipped: () => localStorage.getItem(accountStorageKey(keys.skipped)) === 'true',
+    setCompleted: (value: boolean) => localStorage.setItem(accountStorageKey(keys.completed), String(value)),
+    setSkipped: (value: boolean) => localStorage.setItem(accountStorageKey(keys.skipped), String(value)),
   }
 }
 
