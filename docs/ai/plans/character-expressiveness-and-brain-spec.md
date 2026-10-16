@@ -6,6 +6,14 @@
 记忆方案的外部调研见 [长期记忆方案调研](../research/llm-memory-approaches.md)。
 本文依赖 [账号数据隔离 SPEC](./account-data-isolation-spec.md)，它是阶段 0。
 
+## 当前范围
+
+范围确认日期：2026-10-15。
+
+- 专注本地应用和 APP 开发。目标宿主为桌面端 `apps/stage-tamagotchi` 与安卓 APK `apps/stage-pocket`。
+- 不考虑 ESP32 等端侧硬件联动。不规划设备固件、硬件通信和配套硬件服务。
+- 透明展示盒摆件规划及其软硬件协议调研已停止，仅供历史参考，不作为本文的实施依据。
+
 ## 版本变更
 
 v3.1 相对 v3 的变化：
