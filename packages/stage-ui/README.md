@@ -236,6 +236,18 @@ Existing `speech-noop` selections are preserved because they may represent
 intentional silence. Users can explicitly choose **Inherit global settings**
 in the editor; importing or saving an unrelated card field does not change it.
 
+## Generated characters
+
+The last onboarding step creates the first character from a name, a one-sentence summary, and a display model.
+The user can skip the step. The built-in `default` card then stays active.
+
+- `generateCharacterFields` in `services/character-card-generation` sends one request and validates the JSON reply. It owns the prompt and the 20-second timeout.
+- `useCharacterCardGeneration` sends that request through the chat model that it receives, with tools disabled.
+- If generation fails or times out, onboarding uses the personality template of the last chosen preset. The step always finishes.
+- The new card inherits every module selection, except the display model that the user chose. `extensions.airi.generation.summary` keeps the summary.
+
+Use `generateCharacterFields` when a flow writes card text from a summary. Do not use it to edit a card that the user wrote, because it replaces the description, personality, scenario, and greeting.
+
 ## Character sessions
 
 Each chat session belongs to one character. A send reads the provider, model, and system prompt of that character, not the selected card.

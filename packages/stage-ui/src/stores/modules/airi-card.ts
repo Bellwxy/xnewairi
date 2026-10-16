@@ -174,10 +174,11 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   /**
    * `source` feeds the `card_created` analytics event: `scratch` = built in
    * the creation dialog, `import` = ccv3 JSON upload, `duplicate` = cloned
-   * from an existing card (profile switcher). Required so a new call site
-   * can't silently degrade creation attribution.
+   * from an existing card (profile switcher), `generated` = written by a
+   * model from the one-sentence summary in onboarding. Required so a new call
+   * site can't silently degrade creation attribution.
    */
-  const addCard = async (card: AiriCard | Card | ccv3.CharacterCardV3, source: 'scratch' | 'import' | 'duplicate') => {
+  const addCard = async (card: AiriCard | Card | ccv3.CharacterCardV3, source: 'scratch' | 'import' | 'duplicate' | 'generated') => {
     const newCardId = nanoid()
     cards.value.set(newCardId, newAiriCard(card))
     captureAnalyticsEvent('card_created', { card_id: newCardId, source })

@@ -10,6 +10,7 @@ import type {
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref } from 'vue'
 
+import StepCharacter from './step-character.vue'
 import StepModelSelection from './step-model-selection.vue'
 import StepProviderConfiguration from './step-provider-configuration.vue'
 import StepWelcome from './step-welcome.vue'
@@ -125,6 +126,11 @@ const allSteps = computed<OnboardingStep[]>(() => {
     {
       id: 'model-selection',
       component: StepModelSelection,
+    },
+    // Generation needs the chat model of the previous step, so this step comes last.
+    {
+      id: 'character',
+      component: StepCharacter,
     },
   ]
 

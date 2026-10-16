@@ -11,6 +11,13 @@ import type { WakeWord } from '../libs/voice/wake-words'
  */
 export interface AiriExtension {
   wakeWords?: WakeWord[]
+  /**
+   * Present on a card that onboarding generated from one sentence.
+   * The card page shows `summary` and sends it again when the user regenerates the card.
+   */
+  generation?: {
+    summary: string
+  }
   modules: {
     consciousness: {
       provider: string

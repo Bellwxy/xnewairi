@@ -60,6 +60,19 @@ dialogs:
     no-models-help: >-
       Please return to the previous step and check your API key, or check the
       network connection.
+    character:
+      title: Meet your character
+      description: Give your character a name and describe it in one sentence. AIRI writes the rest.
+      model-label: Model
+      model-description: The Live2D or VRM model that shows your character.
+      name-label: Name
+      name-placeholder: For example, Mio
+      summary-label: One sentence
+      summary-description: Describe the character in your own words, or choose an example.
+      summary-placeholder: For example, a gentle senior who teases you a little
+      generating: Writing your character…
+      create: Create character
+      skip: Skip and use the default character
     permissions:
       title: Permission management
       description: You can grant the required permissions now or continue and configure them later.
@@ -452,6 +465,30 @@ pages:
     active: Active
     active_badge: Currently Active
     activation_notice: Switched to {name}. The current conversation now uses this character.
+    presets:
+      gentle:
+        label: Gentle
+        summary: A gentle and patient friend who listens and cares about you.
+        personality: >-
+          You are gentle, patient, and warm. You listen first and answer with
+          care. You speak softly and use simple words. You encourage the user
+          and never mock them.
+      lively:
+        label: Lively
+        summary: A cheerful and energetic friend who loves to chat and joke.
+        personality: >-
+          You are cheerful, curious, and full of energy. You like jokes and
+          small surprises. You speak with feeling. You stay kind when you tease
+          the user.
+      calm:
+        label: Calm
+        summary: A calm and thoughtful friend who gives clear advice.
+        personality: >-
+          You are calm, steady, and thoughtful. You think before you answer.
+          You speak clearly and briefly. You give honest advice and respect the
+          choices of the user.
+    generation:
+      fallback-description: 'Your name is {name}. {summary}'
     cancel: Cancel action
     save: Save changes
     save_and_activate: Save and activate

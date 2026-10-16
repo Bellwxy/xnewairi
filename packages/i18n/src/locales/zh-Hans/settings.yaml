@@ -51,6 +51,19 @@ dialogs:
     no-models: 找不到可用模型
     no-models-help: >-
       请返回上一步并检查您的 API Key，或检查网络连接。
+    character:
+      title: 认识你的角色
+      description: 给角色起个名字，再用一句话描述它。其余内容由 AIRI 自动生成。
+      model-label: 模型
+      model-description: 用来显示角色的 Live2D 或 VRM 模型。
+      name-label: 名字
+      name-placeholder: 例如：澪
+      summary-label: 一句话描述
+      summary-description: 用你自己的话描述角色，也可以选一个示例。
+      summary-placeholder: 例如：温柔的学姐，有点爱捉弄人
+      generating: 正在生成角色…
+      create: 创建角色
+      skip: 跳过，使用默认角色
     permissions:
       title: 权限管理
       description: 您现在可以授予所需权限，或继续并稍后在系统设置中配置。
@@ -427,6 +440,24 @@ pages:
     active: 已激活
     active_badge: 当前使用中
     activation_notice: 已切换到 {name}，当前会话将使用该角色。
+    presets:
+      gentle:
+        label: 温和
+        summary: 一个温和、有耐心的朋友，愿意倾听，也关心你。
+        personality: >-
+          你温和、耐心、温暖。你先倾听，再用心回答。你说话轻柔，用词简单。你会鼓励用户，从不嘲笑用户。
+      lively:
+        label: 活泼
+        summary: 一个开朗、有活力的朋友，喜欢聊天和开玩笑。
+        personality: >-
+          你开朗、好奇、充满活力。你喜欢开玩笑和小惊喜。你说话轻快，带着情绪。你捉弄用户时也保持善意。
+      calm:
+        label: 冷静
+        summary: 一个冷静、有想法的朋友，会给出清楚的建议。
+        personality: >-
+          你冷静、沉稳、善于思考。你先想清楚再回答。你说话清楚、简短。你给出诚实的建议，并尊重用户的选择。
+    generation:
+      fallback-description: '你的名字是{name}。{summary}'
     cancel: 取消操作
     save: 保存更改
     save_and_activate: 保存并激活

@@ -141,7 +141,8 @@ v3.2 新增以下源码事实，核对于 `2ed931c`：
 | 引导宿主 | 安卓附加分析提示与权限步骤，权限步骤已包含通知权限。桌面只附加分析提示 | `stage-pocket/src/App.vue:150-160`、`stage-pocket/src/components/permissions/permissions-panel.vue:33`、`stage-tamagotchi/src/renderer/pages/onboarding.vue:35-39` |
 | 角色卡创建 | `addCard` 的来源只有 `scratch`、`import` 与 `duplicate`。内置角色卡 ID 为 `default`，不能删除 | `stores/modules/airi-card.ts:180-190` |
 | 上下文长度 | 只有端点的模型列表返回 `context_length` 时才有值。自定义端点不补充目录元数据，缺失时归一为 0 | `provider-inference/src/model-catalog.ts:26-47`、`stores/providers/provider.ts:613` |
-| 文本生成 | `@xsai/generate-text` 已是 `stage-ui` 的依赖 | `packages/stage-ui/package.json:128` |
+| 一次性模型调用 | 现有写法是 `useLLM().stream`，传入 `supportsTools: false` 并收集 `text-delta`。它处理两种协议与兼容性降级 | `composables/voice-end-judge.ts:49-70`、`composables/vision/use-vision-inference.ts:56-110` |
+| 请求重试 | 核心层对 408、429 与 5xx 最多重试 3 次，间隔 3、6、12 秒。其他 4xx 不重试 | `core-agent/src/runtime/llm-service.ts:19-47` |
 | 内置背景 | 只有 2 张内置背景，不分时段 | `stores/background.ts:24-35` |
 | 记忆入口 | 模块列表有短期与长期两个记忆入口，`configured` 固定为 `false` | `composables/use-modules-list.ts:119-136` |
 
@@ -693,6 +694,8 @@ interface ProactivePolicy {
 
 ### 2.5 一句话生成角色卡与引导步骤
 
+**实施进度**：引导步骤、生成与兜底已实现，并有单元测试与浏览器测试。角色页的重新生成尚未实现。
+
 **目标**：用户写一句话就得到完整角色卡，不需要理解角色卡字段。
 
 **引导步骤**：
@@ -701,7 +704,7 @@ interface ProactivePolicy {
 - 步骤内容：形象、名字、一句话描述。
 - 形象从现有显示模型列表中选择，默认为当前显示模型。
 - 一句话描述下方显示预设标签。点击标签时，把该预设的示例句填入输入框，用户可以继续修改。
-- 名字必填。一句话描述为空时，使用"温和"预设的示例句。
+- 名字必填。一句话描述为空时，使用用户最后点击的预设的示例句。用户没有点标签时，使用"温和"预设。
 - 这一步可以跳过。跳过时保留内置 `default` 角色卡，引导照常标记为完成。
 - 跳过整个引导的现有行为不变。
 - 桌面与安卓共用 `stage-ui` 中的这一步。宿主附加步骤的位置不变。
@@ -710,23 +713,26 @@ interface ProactivePolicy {
 
 **生成**：
 
-1. 用引导中选择的对话模型调用一次 `@xsai/generate-text`，要求输出 JSON。重新生成时，使用该角色卡的对话模型。
+1. 用引导中选择的对话模型，通过 `useLLM().stream` 发送一次请求，关闭工具，要求输出 JSON。重新生成时，使用该角色卡的对话模型。
 2. 输出字段：描述、性格、场景与开场白。名字使用用户输入，模型不能改写。
 3. 用 Valibot 检查字段与长度。性格最多 2000 个 Unicode 码点，与 2.4 相同。
 4. 校验通过后，通过 `addCard` 写入新角色卡，并设为当前角色。`addCard` 的来源类型新增 `generated`。
 5. 所选形象写入新角色卡的 `displayModelId`。
 6. 一句话描述保存在 `AiriExtension` 的新字段中，供"重新生成"使用。
 
-- 生成的提示词放入 `packages/i18n`，只改英文与简体中文。生成内容使用界面语言。
+- 给模型的指令是英文代码常量，与 `voice-end-judge.ts` 相同。指令要求模型使用界面语言的 BCP 47 标签写出全部字段。
+- 用户可见的文字放入 `packages/i18n`，包括步骤文案、预设与兜底模板。只改英文与简体中文。
 - 生成期间显示进度。超过 20 秒、请求失败或校验失败时，使用兜底结果。
 - 兜底结果由用户最后点击的预设的性格模板，加上用户的一句话组成。用户没有点标签时，使用"温和"预设。
-- 使用兜底结果时，引导照常完成，角色页提示可以稍后重新生成。
+- 使用兜底结果时，引导照常完成。用户之后可以在角色页重新生成。
+- 核心层对 5xx 的重试最长约 21 秒。这时 20 秒超时先到，引导使用兜底结果。
 
 **重新生成**：
 
 - 角色设置页显示一句话描述与"重新生成"按钮。用户可以修改这句话后再生成。
 - 生成后先展示新旧内容对比。用户确认后才写入，取消时角色卡不变。
 - 写入时只把生成字段合并到 store 中最新的角色卡，不使用编辑器草稿。因此本节不依赖 2.4 的基线冲突处理，可以先交付。
+- 重新生成失败或超时时，角色卡不变，页面显示错误。重新生成不使用兜底结果。
 - 重新生成只改描述、性格、场景与开场白。不改名字、记忆、情绪、好感度、显示模型与模块设置。
 
 **边界**：
@@ -738,7 +744,9 @@ interface ProactivePolicy {
 **改动边界**：
 
 - `packages/stage-ui/src/components/scenarios/dialogs/onboarding/`：新增 `step-character.vue`，并在 `onboarding.vue` 中加入核心步骤。
-- `packages/stage-ui/src/services/airi-card-generator.ts`：提示词组装、模型调用、Valibot 校验与兜底。模型调用作为参数传入，便于测试。
+- `packages/stage-ui/src/services/character-card-generation.ts`：预设 ID、模型指令、Valibot 校验与超时。模型调用作为参数传入，便于测试。
+- `packages/stage-ui/src/composables/use-character-card-generation.ts`：通过 `useLLM().stream` 调用指定的对话模型。
+- 兜底结果在引导步骤中组装，因为它使用 i18n 文案。
 - `packages/stage-ui/src/stores/modules/airi-card.ts`：`addCard` 的来源新增 `generated`。
 - `packages/stage-ui/src/types/airiCard.ts`：`AiriExtension` 新增一句话描述字段。
 - `packages/stage-pages/src/pages/settings/airi-card/`：一句话描述、重新生成与对比预览。
@@ -931,6 +939,6 @@ v3.2 已由用户确认：
 - 用户端点的模型列表是否包含嵌入模型、是否返回 `context_length`，取决于各端点，未实测。
 - 一句话生成角色卡的质量与耗时未实测。
 - Live2D 动作组名常常没有语义，例如 `F01`。模型推断的命中率未用真实模型测试。
-- 生成字段写入内置 `default` 角色卡时，与 `joinCard`、`builtInVariants` 的关系未核实。实施 2.5 的重新生成前需要先核实。
+- 已静态核实：`updateCard` 对 `default` 角色卡只写入角色卡映射。同步时 `splitCard` 与 `builtInVariants` 比较，生成字段按用户修改处理。未运行同步验证。
 - 时段色调叠加与现有背景渲染、Live2D 画面的配合未验证。
 - 详细的外部依据与其他未核实项见 [长期记忆方案调研](../research/llm-memory-approaches.md) 第 7 节。
