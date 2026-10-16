@@ -19,8 +19,6 @@ on:
         description: Specific tag for the release upload
         required: false
         type: string
-  schedule:
-    - cron: '0 1 * * *'
 
 jobs:
   build:

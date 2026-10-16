@@ -1,7 +1,6 @@
 name: i18n locale check
 
-# Checks a pull request that edits a translated locale. The Crowdin pull request does not
-# start this workflow; crowdin-cron-sync.yml checks its export instead.
+# Checks a pull request that edits locale files.
 on:
   pull_request:
     branches:
@@ -31,6 +30,5 @@ jobs:
           cache: true
           install: false
       - run: pnpm install --frozen-lockfile --filter @proj-airi/root --ignore-scripts
-      # An English change can make translations outdated. Crowdin owns those locales and the
-      # next sync clears them, so here that is a warning, not a reason to edit other locales.
+      # An English change can make translations outdated. Report source changes as warnings without changing other locales.
       - run: node .github/scripts/check-locales.ts --root packages/i18n/src/locales --base base/packages/i18n/src/locales --source-changes warning

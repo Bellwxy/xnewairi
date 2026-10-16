@@ -24,8 +24,6 @@ concurrency:
 
 permissions:
   contents: read
-  # Starts the "Cloudflare Workers (server-dev)" workflow.
-  actions: write
 
 jobs:
   deploy:
@@ -106,11 +104,6 @@ jobs:
               sleep 15
             done
           done
-
-      # Railway follows later pushes to the branch. The frontend does not, so
-      # each run builds it from the same branch.
-      - name: Deploy the frontend
-        run: gh workflow run deploy-cloudflare-workers-dev-server.yml --repo "$GITHUB_REPOSITORY" --ref "$DEPLOY_BRANCH"
 
       - name: Summary
         env:
