@@ -208,10 +208,12 @@ export function useVoiceComposer(options: UseVoiceComposerOptions) {
 
     try {
       const result = await controls.command({ type: 'end', requestId: recording.id })
+      // Switching to Text can cancel dictation while the host finishes its transcript.
+      if (active.value?.id !== recording.id)
+        return
       if (result.text)
         options.onTranscript(result.text)
-      if (active.value?.id === recording.id)
-        active.value = undefined
+      active.value = undefined
     }
     catch (cause) {
       fail(cause, 'Could not finish dictation')

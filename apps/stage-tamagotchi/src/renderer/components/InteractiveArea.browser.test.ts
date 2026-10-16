@@ -39,7 +39,7 @@ function createTestI18n() {
     locale: 'en',
     missingWarn: false,
     fallbackWarn: false,
-    messages: { en: {} },
+    messages: { en: { stage: { chat: { 'input-mode': { label: 'Input mode', text: 'Text', voice: 'Voice' } } } } },
   })
 }
 
@@ -151,7 +151,7 @@ async function expectElectronReplyBubble(screen: Awaited<ReturnType<typeof rende
   })
 
   const input = screen.getByRole('textbox').element() as HTMLTextAreaElement
-  const bubble = input.parentElement
+  const bubble = input.closest('[data-testid="chat-input"]')?.parentElement
   const swipeSurface = screen.container.querySelector<HTMLElement>('[data-swipeable]')
   expect(bubble).not.toBeNull()
   expect(swipeSurface).not.toBeNull()
@@ -197,18 +197,42 @@ describe('interactive area synchronized state', () => {
     await page.viewport(1280, 720)
   })
 
-  it('centers the mobile textarea when no reply preview is visible', async () => {
+  it.each([
+    ['desktop', InteractiveArea, 1280],
+    ['web', SharedInteractiveArea, 1280],
+    ['mobile', MobileInteractiveArea, 390],
+  ] as const)('switches between Text and Voice in %s and preserves the draft', async (_name, component, width) => {
+    await page.viewport(width, 844)
+    const { screen } = await renderArea(component)
+    const input = screen.getByRole('textbox')
+    await input.fill('Unsent draft')
+
+    await screen.getByTestId('chat-input-mode-voice').click()
+    await expect.element(screen.getByTestId('chat-text-input')).not.toBeVisible()
+    await expect.element(screen.getByTestId('voice-input-button')).toBeVisible()
+
+    for (const mode of ['text', 'voice']) {
+      const bounds = screen.getByTestId(`chat-input-mode-${mode}`).element().getBoundingClientRect()
+      expect(bounds.width).toBeGreaterThanOrEqual(44)
+      expect(bounds.height).toBeGreaterThanOrEqual(44)
+      expect(bounds.left).toBeGreaterThanOrEqual(0)
+      expect(bounds.right).toBeLessThanOrEqual(width)
+    }
+
+    await screen.getByTestId('chat-input-mode-text').click()
+    await expect.element(input).toBeVisible()
+    await expect.element(input).toHaveFocus()
+    await expect.element(input).toHaveValue('Unsent draft')
+  })
+
+  it('centers the mobile textarea in its text surface when no reply preview is visible', async () => {
     // ROOT CAUSE:
     //
-    // Without a reply preview, the 40px bubble has spare height around its
-    // 32px textarea and borders. Before the fix, justify-end put all spare
-    // height above the textarea: 6px above and 2px below.
-    //
-    // We fixed this with justify-center. The empty and single-line textarea
-    // now has 4px on each side, and multiline input stays centered.
+    // The input bubble now includes the mode switch. Check textarea centering
+    // inside its text surface, independently of the controls above it.
     await page.viewport(390, 844)
     const { screen } = await renderArea(MobileInteractiveArea)
-    const bubble = screen.getByTestId('mobile-input-bubble').element()
+    const bubble = screen.getByTestId('chat-text-input').element()
     const input = screen.getByRole('textbox')
 
     for (const draft of ['', 'Hello', 'First line\nSecond line', '']) {
@@ -433,7 +457,7 @@ describe('interactive area synchronized state', () => {
     expect(bubble.getBoundingClientRect().width).toBe(emptyWidth)
     expect(send.getBoundingClientRect().height).toBe(40)
     expect(bubble.getBoundingClientRect().bottom).toBe(send.getBoundingClientRect().bottom)
-    const bubbleBounds = bubble.getBoundingClientRect()
+    const bubbleBounds = screen.getByTestId('chat-text-input').element().getBoundingClientRect()
     const inputBounds = input.getBoundingClientRect()
     expect(inputBounds.top - bubbleBounds.top).toBe(bubbleBounds.bottom - inputBounds.bottom)
   })

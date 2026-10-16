@@ -19,6 +19,10 @@ mobile-tools:
   close-view: 保存并关闭视图调节
   hearing: 听觉
 chat:
+  input-mode:
+    label: 输入模式
+    text: 文字
+    voice: 语音
   provider-configuration:
     title: 尚未正确配置聊天 Provider
     description: 请先前往设置页面选择并验证一个 Provider，再发送消息。
@@ -31,6 +35,7 @@ chat:
     position: 播放位置
     no-speech: 没有识别到说话，语音消息没有发送。
   voice-composer:
+    start: 开始录音
     audio: 语音消息
     transcription: 语音转文字
     hold-hint: 按住录音。单击在语音消息和语音转文字之间切换。按 Enter 可以免按住录音。

@@ -4,7 +4,7 @@ import type { ChatHistoryItem } from '@proj-airi/stage-ui/types/chat'
 
 import { useThreeViewControl } from '@proj-airi/stage-ui-three'
 import { CharacterSwitcherDrawer, ChatHistory, HearingConfig, HearingStatus, VoiceDrafts } from '@proj-airi/stage-ui/components'
-import { ChatImageAttachmentPreview, ChatProviderSetupCallout, ChatReplyPreview, ChatSessionsDrawer, useChatComposer, useChatImages, VoiceComposer } from '@proj-airi/stage-ui/components/scenarios/chat'
+import { ChatImageAttachmentPreview, ChatInput, ChatProviderSetupCallout, ChatReplyPreview, ChatSessionsDrawer, useChatComposer, useChatImages } from '@proj-airi/stage-ui/components/scenarios/chat'
 import { useAnalytics, useAudioAnalyzer } from '@proj-airi/stage-ui/composables'
 import { useAudioContext } from '@proj-airi/stage-ui/stores/audio'
 import { useChatStore } from '@proj-airi/stage-ui/stores/chat'
@@ -71,10 +71,13 @@ const {
 } = composer
 const { addFiles, selectFiles, error: imageError, pending: pendingImages } = useChatImages(composer, () => activeSessionId.value)
 const imageInput = useTemplateRef<HTMLInputElement>('imageInput')
-/** Recording UI covers the input bubble. Text, attachments, and send stay hidden and inactive until it closes. */
+const voiceButton = useTemplateRef<InstanceType<typeof ChatInput>>('voice-button')
+const voiceAttachment = useTemplateRef<HTMLDivElement>('voice-attachment')
+const voicePending = shallowRef(false)
+/** Sending waits until the active recording closes. Switching to Text cancels that recording. */
 const voiceActive = shallowRef(false)
 const router = useRouter()
-const hasSubmission = computed(() => !!messageInput.value.trim() || attachments.value.length > 0)
+const hasSubmission = computed(() => !!messageInput.value.trim() || attachments.value.length > 0 || voicePending.value)
 const { showStopAction, stopActiveResponse, submitInterruptingResponse } = useChatInterruption({
   sessionId: activeSessionId,
   generating: isActiveSessionSending,
@@ -250,13 +253,13 @@ const characterVoiceEnabled = computed({
 async function handleReplyMessage(payload: ChatHistoryReplyPayload) {
   selectReply(payload)
   await nextTick()
-  inputBubble.value?.querySelector<HTMLTextAreaElement>('textarea')?.focus()
+  voiceButton.value?.focusText()
 }
 
 async function handleCancelReply() {
   composer.clearReply()
   await nextTick()
-  inputBubble.value?.querySelector<HTMLTextAreaElement>('textarea')?.focus()
+  voiceButton.value?.focusText()
 }
 
 async function handleSubmit() {
@@ -267,8 +270,16 @@ async function handleSubmit() {
 
 async function handleSend() {
   // The draft stays in the composer while the setup callout is shown.
-  if (!voiceActive.value && !pendingImages.value && chatReady.value)
-    await submitInterruptingResponse()
+  if (voiceActive.value || pendingImages.value || !chatReady.value)
+    return
+
+  const voice = await voiceButton.value?.sendPending(messageInput.value)
+  if (voice === 'sent')
+    messageInput.value = ''
+  if (voice === 'sent' || voice === 'failed')
+    return
+
+  await submitInterruptingResponse()
 }
 
 function teardownAnalyzer() {
@@ -465,10 +476,10 @@ onUnmounted(() => {
         >
           <ChatReplyPreview
             :target="replyTarget"
-            :class="['w-full', voiceActive && 'invisible']"
+            :class="['w-full']"
             @cancel="handleCancelReply"
           />
-          <div v-if="attachments.length" :class="['flex gap-2 overflow-x-auto p-2', voiceActive && 'invisible']">
+          <div v-if="attachments.length" :class="['flex gap-2 overflow-x-auto p-2']">
             <ChatImageAttachmentPreview v-for="(attachment, index) in attachments" :key="attachment.previewId" :file="attachment.file" @remove="removeAttachment(index)" />
           </div>
           <p v-if="imageError" role="alert" :class="['px-3 py-1 text-xs text-red-600 dark:text-red-400']">
@@ -477,30 +488,43 @@ onUnmounted(() => {
           <p v-if="pendingImages" role="status" :class="['px-3 py-1 text-xs text-neutral-500']">
             {{ t('stage.chat.images.reading') }}
           </p>
-          <BasicTextarea
+          <div ref="voice-attachment" :class="['px-2 pt-1 empty:hidden']" />
+          <ChatInput
+            ref="voice-button"
             v-model="messageInput"
-            autocomplete="off"
-            autocapitalize="off"
-            autocorrect="off"
-            :spellcheck="false"
-            :placeholder="t('stage.message')"
-            :class="[
-              'font-cute',
-              'max-h-[10lh] min-h-[calc(1lh+4px+4px)] w-full resize-none overflow-y-scroll scrollbar-none',
-              'border-2 border-solid border-transparent bg-transparent px-4 py-0.5 outline-none',
-              'text-neutral-500 dark:text-neutral-100',
-              'transition-colors duration-250 ease-in-out hover:text-neutral-600 dark:hover:text-neutral-200',
-              'placeholder:text-[14px] placeholder:vertical-middle placeholder:leading-6 placeholder:text-neutral-400',
-              'placeholder:transition-all placeholder:duration-250 placeholder:ease-in-out placeholder:hover:text-neutral-500 dark:placeholder:text-neutral-500 dark:placeholder:hover:text-neutral-400',
-              themeColorsHueDynamic ? 'transition-colors-none placeholder:transition-colors-none' : undefined,
-              voiceActive && 'invisible',
-            ]"
-            default-height="1lh"
-            @submit="handleSubmit"
-            @paste-file="addFiles"
-            @compositionstart="isComposing = true"
-            @compositionend="isComposing = false"
-          />
+            :attachment-element="voiceAttachment"
+            :session-id="activeSessionId"
+            :reply-to-message-id="replyTarget?.message.id"
+            @recording-change="voiceActive = $event"
+            @pending-change="voicePending = $event"
+            @sent="composer.clearReply()"
+            @submit="handleSend"
+            @configure="route => router.push(route)"
+          >
+            <BasicTextarea
+              v-model="messageInput"
+              autocomplete="off"
+              autocapitalize="off"
+              autocorrect="off"
+              :spellcheck="false"
+              :placeholder="t('stage.message')"
+              :class="[
+                'font-cute',
+                'max-h-[10lh] min-h-[calc(1lh+4px+4px)] w-full resize-none overflow-y-scroll scrollbar-none',
+                'border-2 border-solid border-transparent bg-transparent px-4 py-0.5 outline-none',
+                'text-neutral-500 dark:text-neutral-100',
+                'transition-colors duration-250 ease-in-out hover:text-neutral-600 dark:hover:text-neutral-200',
+                'placeholder:text-[14px] placeholder:vertical-middle placeholder:leading-6 placeholder:text-neutral-400',
+                'placeholder:transition-all placeholder:duration-250 placeholder:ease-in-out placeholder:hover:text-neutral-500 dark:placeholder:text-neutral-500 dark:placeholder:hover:text-neutral-400',
+                themeColorsHueDynamic ? 'transition-colors-none placeholder:transition-colors-none' : undefined,
+              ]"
+              default-height="1lh"
+              @submit="handleSubmit"
+              @paste-file="addFiles"
+              @compositionstart="isComposing = true"
+              @compositionend="isComposing = false"
+            />
+          </ChatInput>
         </div>
         <div :class="['min-w-10 shrink-0 flex items-end justify-end gap-1']">
           <button
@@ -531,17 +555,6 @@ onUnmounted(() => {
           >
             <div :class="['i-solar:arrow-up-outline size-5']" />
           </button>
-          <VoiceComposer
-            v-else
-            v-model="messageInput"
-            size="large"
-            :input-element="inputBubble"
-            :session-id="activeSessionId"
-            :reply-to-message-id="replyTarget?.message.id"
-            @recording-change="voiceActive = $event"
-            @sent="composer.clearReply()"
-            @configure="router.push('/settings/modules/hearing/transcriber')"
-          />
         </div>
       </div>
     </div>

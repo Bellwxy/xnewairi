@@ -9,6 +9,7 @@ import { render } from 'vitest-browser-vue'
 import { defineComponent, h, ref, shallowRef } from 'vue'
 import { createI18n } from 'vue-i18n'
 
+import ChatInput from './chat-input.vue'
 import VoiceInputButton from './voice-input-button.vue'
 
 import { pushToTalkTriggerKey } from '../../../../composables/push-to-talk-trigger'
@@ -22,7 +23,7 @@ afterEach(() => {
 })
 
 /** Mounts the button against a scripted voice host. `afterFinish` is the message state the host reports after `finish`. */
-async function mountButton(options: { afterFinish?: Partial<VoiceMessageSnapshot>, dictation?: string, queued?: boolean, pushToTalkTrigger?: boolean } = {}) {
+async function mountButton(options: { afterFinish?: Partial<VoiceMessageSnapshot>, dictation?: string | Promise<string>, queued?: boolean, pushToTalkTrigger?: boolean, inputModes?: boolean } = {}) {
   const commands: Array<VoiceInputCommand | VoiceMessageCommand> = []
   const context = getSpeechBusContext()
   const connected: VoiceHostSnapshot = { connected: true, drafts: [] }
@@ -39,12 +40,12 @@ async function mountButton(options: { afterFinish?: Partial<VoiceMessageSnapshot
       context.emit(voiceMessagesChanged, [])
     return { status: 'accepted' }
   }))
-  cleanups.push(defineInvokeHandler(context, voiceInputCommand, (command) => {
+  cleanups.push(defineInvokeHandler(context, voiceInputCommand, async (command) => {
     commands.push(command)
     if (command.type === 'begin')
       context.emit(voiceSnapshotChanged, { ...connected, input: { requestId: command.requestId, sessionId: command.sessionId, phase: 'capturing', text: 'how are', segments: [] } })
     if (command.type === 'end')
-      return { status: 'accepted', text: options.dictation }
+      return { status: 'accepted', text: await options.dictation }
     return { status: 'accepted' }
   }))
 
@@ -57,19 +58,27 @@ async function mountButton(options: { afterFinish?: Partial<VoiceMessageSnapshot
   cleanups.push(() => status.remove(), () => attachment.remove())
   const button = shallowRef<{ sendPending: (text: string) => Promise<'none' | 'sent' | 'failed'> }>()
   const component = defineComponent({ setup() {
-    return () => h(VoiceInputButton, {
+    const props = () => ({
       'modelValue': draft.value,
       'onUpdate:modelValue': (value: string) => draft.value = value,
       'ref': button,
-      'statusElement': status,
       'attachmentElement': attachment,
       'sessionId': 'alice',
       'onSubmit': () => submitted.push(true),
     })
+    return () => options.inputModes
+      ? h(ChatInput, props(), { default: () => h('textarea', { value: draft.value }) })
+      : h(VoiceInputButton, { ...props(), statusElement: status })
   } })
   const screen = await render(component, {
     global: {
-      plugins: [pinia, createI18n({ legacy: false, locale: 'en', missingWarn: false, fallbackWarn: false })],
+      plugins: [pinia, createI18n({
+        legacy: false,
+        locale: 'en',
+        missingWarn: false,
+        fallbackWarn: false,
+        messages: { en: { stage: { chat: { 'input-mode': { label: 'Input mode', text: 'Text', voice: 'Voice' } } } } },
+      })],
       provide: options.pushToTalkTrigger === undefined ? {} : { [pushToTalkTriggerKey as symbol]: options.pushToTalkTrigger },
     },
   })
@@ -128,12 +137,14 @@ describe('voiceInputButton', () => {
     await expect.element(screen.getByTestId('voice-pending-card')).not.toBeInTheDocument()
   })
 
-  it('hides the cancel button when Auto send is off, because stopping does not send', async () => {
-    const { screen } = await mountButton()
+  it('can cancel a recording when Auto send is off', async () => {
+    const { screen, commands } = await mountButton()
     await screen.getByTestId('voice-input-button').click()
     await expect.element(screen.getByTestId('voice-status-bar')).toBeInTheDocument()
 
-    expect(screen.getByTestId('voice-status-cancel').query()).toBeNull()
+    await screen.getByTestId('voice-status-cancel').click()
+    await expect.poll(() => commands.at(-1)).toMatchObject({ type: 'discard' })
+    await expect.element(screen.getByTestId('voice-status-bar')).not.toBeInTheDocument()
   })
 
   // The chat queues a voice message behind a running reply. The control used to spin until that reply ended.
@@ -173,5 +184,55 @@ describe('voiceInputButton', () => {
 
     await expect.poll(() => draft.value).toBe('Hello how are you')
     expect(submitted).toEqual([])
+  })
+
+  it('switches input modes without recording or changing the text draft', async () => {
+    const { screen, commands, draft } = await mountButton({ inputModes: true })
+    await expect.element(screen.getByRole('textbox')).toBeVisible()
+
+    await screen.getByTestId('chat-input-mode-voice').click()
+    await expect.element(screen.getByTestId('chat-text-input')).not.toBeVisible()
+    await expect.element(screen.getByTestId('voice-input-button')).toBeVisible()
+    await expect.element(screen.getByTestId('chat-input-mode-voice')).toHaveAttribute('aria-pressed', 'true')
+    expect(commands).toEqual([])
+
+    await screen.getByTestId('chat-input-mode-text').click()
+    await expect.element(screen.getByRole('textbox')).toBeVisible()
+    await expect.element(screen.getByRole('textbox')).toHaveFocus()
+    expect(draft.value).toBe('Hello')
+  })
+
+  it('discards the active recording when switching to Text with Auto send on', async () => {
+    localStorage.setItem(accountStorageKey('settings/hearing/auto-send-enabled'), 'true')
+    const { screen, commands, draft } = await mountButton({ inputModes: true })
+    await screen.getByTestId('chat-input-mode-voice').click()
+    await screen.getByTestId('voice-input-button').click()
+    await expect.element(screen.getByTestId('voice-status-bar')).toBeVisible()
+
+    await screen.getByTestId('chat-input-mode-text').click()
+
+    await expect.poll(() => commands.map(command => command.type)).toEqual(['record', 'discard'])
+    await expect.element(screen.getByRole('textbox')).toHaveFocus()
+    expect(draft.value).toBe('Hello')
+  })
+
+  it('keeps the original draft when a cancelled dictation finishes after switching to Text', async () => {
+    localStorage.setItem(accountStorageKey('ui/chat/voice-mode'), 'transcription')
+    localStorage.setItem(accountStorageKey('settings/hearing/active-provider'), 'browser-web-speech-api')
+    const result = Promise.withResolvers<string>()
+    const { screen, commands, draft } = await mountButton({ inputModes: true, dictation: result.promise })
+    await screen.getByTestId('chat-input-mode-voice').click()
+    await screen.getByTestId('voice-input-button').click()
+    await expect.poll(() => draft.value).toBe('Hello how are')
+    await screen.getByTestId('voice-input-button').click()
+    await expect.element(screen.getByTestId('voice-status-bar')).toHaveAttribute('data-phase', 'processing')
+
+    await screen.getByTestId('chat-input-mode-text').click()
+    await expect.poll(() => commands.map(command => command.type)).toEqual(['begin', 'end', 'cancel'])
+    result.resolve('late transcript')
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    await expect.element(screen.getByRole('textbox')).toHaveFocus()
+    expect(draft.value).toBe('Hello')
   })
 })

@@ -19,6 +19,10 @@ mobile-tools:
   close-view: Save and close view controls
   hearing: Hearing
 chat:
+  input-mode:
+    label: Input mode
+    text: Text
+    voice: Voice
   provider-configuration:
     title: Chat provider isn't configured
     description: Choose and validate a provider in Settings before sending a message.
@@ -31,6 +35,7 @@ chat:
     position: Playback position
     no-speech: No speech was recognized, so the voice message was not sent.
   voice-composer:
+    start: Start recording
     audio: Voice message
     transcription: Dictation
     hold-hint: Hold to record. Click to switch between voice message and dictation. Press Enter to record without holding.

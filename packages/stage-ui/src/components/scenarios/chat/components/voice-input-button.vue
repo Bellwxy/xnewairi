@@ -225,7 +225,7 @@ async function sendPending(text: string): Promise<'none' | 'sent' | 'failed'> {
   return await voice.send(message.id, text) ? 'sent' : 'failed'
 }
 
-defineExpose({ sendPending })
+defineExpose({ cancel, sendPending })
 const iconClass = computed(() => {
   if (phase.value === 'starting' || phase.value === 'processing')
     return 'i-svg-spinners:ring-resize'
@@ -236,7 +236,7 @@ const iconClass = computed(() => {
 
 const buttonLabel = computed(() => {
   if (!active.value)
-    return t(`stage.chat.voice-composer.${mode.value}`)
+    return t(mode.value === 'audio' ? 'stage.chat.voice-composer.start' : 'stage.chat.voice-composer.transcription')
   return t(autoSendEnabled.value ? 'stage.chat.voice-composer.stop-send' : 'stage.chat.voice-composer.stop')
 })
 
@@ -267,7 +267,8 @@ function switchThumbClasses(on: boolean) {
 }
 /** Buttons in the status row share one size, so the row lines up. */
 const statusButtonClasses = [
-  'size-8 shrink-0 flex items-center justify-center rounded-full outline-none',
+  'size-11 shrink-0 flex items-center justify-center rounded-full',
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500',
   'text-neutral-500 hover:bg-neutral-900/10 dark:text-neutral-400 dark:hover:bg-white/10',
   'transition-colors duration-150 motion-reduce:transition-none',
 ]
@@ -275,7 +276,7 @@ const separatorClasses = ['mx-2 my-1 h-px bg-neutral-200/80 dark:bg-neutral-700/
 </script>
 
 <template>
-  <div :class="['relative shrink-0']" @pointerenter="menu.enter()" @pointerleave="menu.leave()">
+  <div :class="['relative min-w-0 w-full']" @pointerenter="menu.enter()" @pointerleave="menu.leave()">
     <BasicButton
       size="unset"
       type="button"
@@ -285,8 +286,9 @@ const separatorClasses = ['mx-2 my-1 h-px bg-neutral-200/80 dark:bg-neutral-700/
       :aria-label="buttonLabel"
       :title="active ? buttonLabel : `${buttonLabel} · ${t('stage.chat.voice-composer.options-hint')}`"
       :class="[
-        'size-9 flex items-center justify-center rounded-full outline-none',
-        'focus:outline-none focus-visible:outline-none transition-colors duration-200 motion-reduce:transition-none',
+        'min-h-12 w-full flex items-center justify-center rounded-lg px-3 py-2 text-sm',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500',
+        'transition-colors duration-200 motion-reduce:transition-none',
         active
           ? 'bg-red-500 text-white hover:bg-red-600'
           : 'bg-primary-100/90 text-primary-600 hover:bg-primary-200/90 dark:bg-primary-900/90 dark:text-primary-200 dark:hover:bg-primary-800/90',
@@ -296,6 +298,7 @@ const separatorClasses = ['mx-2 my-1 h-px bg-neutral-200/80 dark:bg-neutral-700/
       @keydown.up.prevent="menu.openNow()"
     >
       <span :class="[iconClass, 'size-5']" aria-hidden="true" />
+      <span :class="['whitespace-normal break-words']">{{ buttonLabel }}</span>
     </BasicButton>
     <DropdownMenu v-model:open="menuOpen" :modal="false" side="top" align="end" variant="blurry" :content-class="['min-w-[240px]']">
       <template #trigger>
@@ -415,19 +418,14 @@ const separatorClasses = ['mx-2 my-1 h-px bg-neutral-200/80 dark:bg-neutral-700/
       role="status"
       :aria-label="t(phase === 'processing' ? 'stage.chat.voice-composer.processing' : activeMode === 'audio' ? 'stage.chat.voice-composer.recording' : 'stage.chat.voice-composer.listening')"
       :data-phase="phase"
-      :class="['h-8 min-w-0 flex flex-1 items-center gap-2 px-1 text-neutral-600 dark:text-neutral-300', 'animate-fadeIn motion-reduce:animate-none']"
+      :class="['min-h-11 min-w-0 flex flex-1 items-center gap-2 px-1 text-neutral-600 dark:text-neutral-300', 'animate-fadeIn motion-reduce:animate-none']"
     >
       <span v-if="phase === 'processing'" :class="['min-w-0 flex-1 truncate text-xs text-neutral-500 dark:text-neutral-400']">
         {{ t('stage.chat.voice-composer.processing') }}
       </span>
       <VoiceWaveform v-else :level="level" :active="phase === 'recording'" :class="['text-primary-500 dark:text-primary-300']" />
       <span data-testid="voice-status-time" :class="['shrink-0 text-xs tabular-nums']">{{ elapsed }}</span>
-      <!--
-        Discard is needed only with Auto send, where stopping sends at once. Without it, a voice message waits in the
-        pending bar with its own discard, and dictated text stays editable. Escape always discards.
-      -->
       <BasicButton
-        v-if="autoSendEnabled"
         size="unset"
         type="button"
         data-testid="voice-status-cancel"

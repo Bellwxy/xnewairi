@@ -2,7 +2,7 @@
 import type { ChatComposerController, ChatImageAttachment } from '@proj-airi/stage-ui/components/scenarios/chat'
 
 import { useAccountLocalStorage } from '@proj-airi/stage-shared/composables'
-import { ChatImageAttachmentPreview, ChatProviderSetupCallout, ChatReplyPreview, ChatSendButton, useChatImages, VoiceDrafts, VoiceInputButton } from '@proj-airi/stage-ui/components/scenarios/chat'
+import { ChatImageAttachmentPreview, ChatInput, ChatProviderSetupCallout, ChatReplyPreview, ChatSendButton, useChatImages, VoiceDrafts } from '@proj-airi/stage-ui/components/scenarios/chat'
 import { useChatSessionStore } from '@proj-airi/stage-ui/stores/chat/session-store'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
@@ -19,10 +19,8 @@ const props = defineProps<{
   generating: boolean
 }>()
 
-const composerRoot = useTemplateRef<HTMLDivElement>('composer')
-const voiceStatus = useTemplateRef<HTMLDivElement>('voiceStatus')
 const voiceAttachment = useTemplateRef<HTMLDivElement>('voiceAttachment')
-const voiceButton = useTemplateRef<InstanceType<typeof VoiceInputButton>>('voiceButton')
+const voiceButton = useTemplateRef<InstanceType<typeof ChatInput>>('voiceButton')
 /** A recorded voice message waits for the send button. It can be sent without text. */
 const voicePending = shallowRef(false)
 /** A recording is open. Dictation writes into the text, so the text stays read-only and send waits until it closes. */
@@ -90,7 +88,7 @@ async function handleSend() {
 async function handleCancelReply() {
   props.composer.clearReply()
   await nextTick()
-  composerRoot.value?.querySelector('textarea')?.focus()
+  voiceButton.value?.focusText()
 }
 
 function sendFromKeyboard() {
@@ -142,7 +140,7 @@ watch(replyTarget, async (target) => {
     return
 
   await nextTick()
-  composerRoot.value?.querySelector('textarea')?.focus()
+  voiceButton.value?.focusText()
 })
 </script>
 
@@ -157,7 +155,7 @@ watch(replyTarget, async (target) => {
     ]"
     @configure="router.push('/settings/providers')"
   />
-  <div ref="composer" :class="['flex gap-2 <md:h-full', 'ph-no-capture']">
+  <div :class="['flex gap-2 <md:h-full', 'ph-no-capture']">
     <div
       :class="[
         'relative w-full overflow-hidden rounded-t-xl',
@@ -182,23 +180,37 @@ watch(replyTarget, async (target) => {
       <div ref="voiceAttachment" :class="['px-2 pt-2 empty:hidden']" />
 
       <input ref="imageInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple :class="['hidden']" @change="selectFiles">
-      <BasicTextarea
+      <ChatInput
+        ref="voiceButton"
         v-model="messageInput"
-        :submit-on-enter="false"
-        :readonly="voiceActive"
-        :placeholder="t('stage.message')"
-        :class="[
-          'max-h-[300px] min-h-[82px] w-full px-3 pb-12 pt-2.5 font-medium outline-none',
-          'bg-transparent text-primary-600 dark:text-primary-100',
-          'placeholder:text-primary-500 dark:placeholder:text-primary-200',
-          'transition-all duration-250 ease-in-out placeholder:transition-all placeholder:duration-250 placeholder:ease-in-out',
-          themeColorsHueDynamic && 'transition-colors-none placeholder:transition-colors-none',
-        ]"
-        @keydown="handleMessageInputKeydown"
-        @paste-file="addFiles"
-        @compositionstart="isComposing = true"
-        @compositionend="isComposing = false"
-      />
+        :attachment-element="voiceAttachment"
+        :session-id="chatSession.activeSessionId"
+        :reply-to-message-id="replyTarget?.message.id"
+        :class="['pb-12']"
+        @recording-change="voiceActive = $event"
+        @pending-change="voicePending = $event"
+        @sent="props.composer.clearReply()"
+        @submit="handleSend"
+        @configure="route => router.push(route)"
+      >
+        <BasicTextarea
+          v-model="messageInput"
+          :submit-on-enter="false"
+          :readonly="voiceActive"
+          :placeholder="t('stage.message')"
+          :class="[
+            'max-h-[300px] min-h-[34px] w-full px-3 pt-2.5 font-medium outline-none',
+            'bg-transparent text-primary-600 dark:text-primary-100',
+            'placeholder:text-primary-500 dark:placeholder:text-primary-200',
+            'transition-all duration-250 ease-in-out placeholder:transition-all placeholder:duration-250 placeholder:ease-in-out',
+            themeColorsHueDynamic && 'transition-colors-none placeholder:transition-colors-none',
+          ]"
+          @keydown="handleMessageInputKeydown"
+          @paste-file="addFiles"
+          @compositionstart="isComposing = true"
+          @compositionend="isComposing = false"
+        />
+      </ChatInput>
 
       <div :class="['absolute inset-x-1.5 bottom-1.5 z-10 flex items-center gap-2']">
         <button
@@ -209,22 +221,8 @@ watch(replyTarget, async (target) => {
         >
           <span :class="['i-solar:gallery-outline size-5']" />
         </button>
-        <!-- The voice control shows its recording status here, so the composer keeps its height. -->
-        <div ref="voiceStatus" :class="['min-w-0 flex flex-1 items-center']" />
+        <div :class="['flex-1']" />
         <div :class="['flex shrink-0 items-center gap-1']">
-          <VoiceInputButton
-            ref="voiceButton"
-            v-model="messageInput"
-            :status-element="voiceStatus"
-            :attachment-element="voiceAttachment"
-            :session-id="chatSession.activeSessionId"
-            :reply-to-message-id="replyTarget?.message.id"
-            @recording-change="voiceActive = $event"
-            @pending-change="voicePending = $event"
-            @sent="props.composer.clearReply()"
-            @submit="handleSend"
-            @configure="route => router.push(route)"
-          />
           <button
             v-if="showStopAction"
             data-testid="stop-speaking-button"

@@ -91,8 +91,13 @@ Consumers subscribe to the microphone input with their own abort signal. The las
 - `useVoiceStore` owns application routing, drafts, responses, and host command registration.
 - `useVoiceController` binds public controller state to Vue and moves the controller to the input of the selected device.
 - `useVoiceInput` maps hold and release controls to host commands.
-- `VoiceInputButton` is the voice control of desktop and web composers. Click it to start, and click again to stop. Hover or right-click it for the mode, Auto send, the microphone, and continuous listening. Its status bar shows the waveform and time, and keeps a voice message that waits to be sent. Dictation writes its live transcript into the composer text and creates no voice draft.
-- `VoiceComposer` is the touch voice control of mobile composers. Hold it to record, slide left to cancel, and slide up to lock. A voice message is sent on release.
+- `ChatInput` supplies Text and Voice modes for desktop, web, and mobile composers. Its default slot holds the host's text input.
+  Selecting Voice does not start recording. Selecting Text cancels the active recording, restores the original dictation draft, and focuses the text input.
+  Pending recordings remain available in either mode. The host sends them through `sendPending`.
+- `VoiceInputButton` records voice messages or dictation inside Voice mode. Click it to start, and click again to stop.
+  Hover or right-click it for recording settings. Its status bar shows the waveform, duration, and Cancel action.
+  Dictation writes into the draft. A cancelled dictation cannot insert a late transcript.
+- `VoiceComposer` supplies a separate hold-to-record interaction. Use it for surfaces that require hold, slide-to-cancel, and slide-to-lock gestures.
 - `useVoiceMessagesStore` owns voice message recordings and their attachment submission.
 - Hearing selects providers and converts captured PCM to each provider's upload format. It does not open the microphone.
 - Speech preserves existing chunked synthesis and bidirectional provider output.
