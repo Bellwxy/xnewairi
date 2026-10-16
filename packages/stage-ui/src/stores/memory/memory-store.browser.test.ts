@@ -189,6 +189,41 @@ it('does not write memory back when all data is deleted during an extraction', a
   expect(await characterMemoryRepo.get('default')).toBeNull()
 })
 
+it('discards the old extraction after leadership stops and starts again', async () => {
+  const oldReply = Promise.withResolvers<Response>()
+  const freshReply = Promise.withResolvers<Response>()
+  let requests = 0
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input: RequestInfo | URL) => {
+    const url = String(input instanceof Request ? input.url : input)
+    if (url.includes('/chat/completions')) {
+      requests++
+      return requests === 1 ? oldReply.promise : freshReply.promise
+    }
+    return Response.json({ object: 'list', data: [] })
+  }))
+  const { memory, sessions } = await createContext()
+  await saveSessionA(sessions)
+
+  try {
+    await memory.start()
+    await expect.poll(() => requests).toBe(1)
+    await memory.stop()
+    await memory.start()
+    oldReply.resolve(streamOf(JSON.stringify(extractionReply)))
+
+    await expect.poll(() => requests).toBe(2)
+    expect((await characterMemoryRepo.get('default'))?.episodes).toEqual([])
+
+    freshReply.resolve(streamOf(JSON.stringify(extractionReply)))
+    await expect.poll(async () => (await characterMemoryRepo.get('default'))?.episodes.length).toBe(1)
+  }
+  finally {
+    oldReply.resolve(streamOf(JSON.stringify(extractionReply)))
+    freshReply.resolve(streamOf(JSON.stringify(extractionReply)))
+    await memory.stop()
+  }
+})
+
 it('applies affection that a crash left after the memory commit', async () => {
   vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => Response.json({ object: 'list', data: [] })))
   const { memory, state } = await createContext()
@@ -229,7 +264,7 @@ it('leaves out an entry that the user deleted while recall waited for the embedd
       { id: 'secret', text: '用户的生日愿望是去北海道。', importance: 0.9, keywords: ['生日'], createdAt: at, sourceMessageIds: [], extractionBatchId: 'b1' },
     ],
   }))
-  await characterMemoryRepo.putVectors('default', vectorVersion, { birthday: [1, 0], secret: [1, 0] })
+  await characterMemoryRepo.putVectors('default', vectorVersion, { birthday: [1, 0], secret: [1, 0] }, 0)
 
   const recall = memory.recallContext('default', '生日', { newSession: false })
   await expect.poll(() => embeddingCalls, { timeout: 10_000 }).toBe(2)

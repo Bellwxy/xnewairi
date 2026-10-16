@@ -3,7 +3,7 @@ import type { CharacterMemoryDocument } from '../../stores/memory/memory-documen
 import { createAccountLocalForage } from '@proj-airi/stage-shared/account-scope/localforage'
 import { getAccountScope } from '@proj-airi/stage-shared/account-scope/runtime'
 
-import { createMemoryDocument } from '../../stores/memory/memory-document'
+import { createMemoryDocument, validEpisodes } from '../../stores/memory/memory-document'
 
 /** The embedding vectors of one character. All vectors come from `model`. A model change replaces the whole record. */
 export interface CharacterMemoryVectors {
@@ -136,15 +136,20 @@ export const characterMemoryRepo = {
 
   /**
    * Merges vectors into the record of `model`. Vectors of another model are replaced, never mixed.
-   * Without a memory record, nothing is written, so late vectors cannot outlive a deletion.
+   * The generation must still match, and only valid episodes receive vectors. Cleared or deleted entries cannot return.
    */
-  async putVectors(characterId: string, model: string, entries: Record<string, number[]>) {
+  async putVectors(characterId: string, model: string, entries: Record<string, number[]>, generation: number) {
     await withWriteLock(characterId, async () => {
-      if (!await documents().getItem(characterId))
+      const document = await documents().getItem<CharacterMemoryDocument>(characterId)
+      if (!document || document.generation !== generation)
+        return
+      const validIds = new Set(validEpisodes(document).map(episode => episode.id))
+      const accepted = Object.entries(entries).filter(([id]) => validIds.has(id))
+      if (!accepted.length)
         return
       const current = await vectors().getItem<CharacterMemoryVectors>(characterId)
       const kept = current?.model === model ? current.vectors : {}
-      await vectors().setItem<CharacterMemoryVectors>(characterId, { model, vectors: { ...kept, ...entries } })
+      await vectors().setItem<CharacterMemoryVectors>(characterId, { model, vectors: { ...kept, ...Object.fromEntries(accepted) } })
     })
   },
 

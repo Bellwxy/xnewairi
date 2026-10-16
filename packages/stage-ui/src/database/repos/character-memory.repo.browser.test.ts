@@ -1,13 +1,38 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { createMemoryDocument, editCoreBlock } from '../../stores/memory/memory-document'
+import { clearMemory, createMemoryDocument, editCoreBlock } from '../../stores/memory/memory-document'
 import { characterMemoryRepo } from './character-memory.repo'
 
 afterEach(async () => {
   await characterMemoryRepo.clearAll()
 })
 
+async function seedEpisodes(ids: string[]) {
+  return characterMemoryRepo.update('mio', current => ({
+    ...current,
+    episodes: ids.map(id => ({
+      id,
+      text: `Fact ${id}.`,
+      importance: 0.5,
+      keywords: [],
+      createdAt: Date.now(),
+      sourceMessageIds: [],
+      extractionBatchId: 'seed',
+    })),
+  }))
+}
+
 describe('character memory repository', () => {
+  it('rejects vectors computed before the character memory was cleared', async () => {
+    const original = await seedEpisodes(['old'])
+    await characterMemoryRepo.update('mio', current => clearMemory(current, Date.now()))
+    await characterMemoryRepo.clearVectors('mio')
+
+    await characterMemoryRepo.putVectors('mio', 'model-a', { old: [1, 0] }, original.generation)
+
+    expect(await characterMemoryRepo.getVectors('mio')).toBeNull()
+  })
+
   it('keeps every change of concurrent writers', async () => {
     // Each writer reads, then writes after an await. Without the lock, a later write would drop an earlier one.
     await Promise.all(Array.from({ length: 10 }, (_, index) => characterMemoryRepo.update('mio', current => ({
@@ -39,17 +64,17 @@ describe('character memory repository', () => {
   })
 
   it('keeps vectors of one model apart from another', async () => {
-    await characterMemoryRepo.getOrCreate('mio')
-    await characterMemoryRepo.putVectors('mio', 'model-a', { e1: [1, 0] })
-    await characterMemoryRepo.putVectors('mio', 'model-a', { e2: [0, 1] })
+    const document = await seedEpisodes(['e1', 'e2', 'e3'])
+    await characterMemoryRepo.putVectors('mio', 'model-a', { e1: [1, 0] }, document.generation)
+    await characterMemoryRepo.putVectors('mio', 'model-a', { e2: [0, 1] }, document.generation)
     expect(Object.keys((await characterMemoryRepo.getVectors('mio'))!.vectors)).toEqual(['e1', 'e2'])
 
-    await characterMemoryRepo.putVectors('mio', 'model-b', { e3: [1, 1] })
+    await characterMemoryRepo.putVectors('mio', 'model-b', { e3: [1, 1] }, document.generation)
     expect(await characterMemoryRepo.getVectors('mio')).toEqual({ model: 'model-b', vectors: { e3: [1, 1] } })
   })
 
   it('writes no vectors for a character without memory', async () => {
-    await characterMemoryRepo.putVectors('ghost', 'model-a', { e1: [1] })
+    await characterMemoryRepo.putVectors('ghost', 'model-a', { e1: [1] }, 0)
 
     expect(await characterMemoryRepo.getVectors('ghost')).toBeNull()
   })
@@ -75,12 +100,25 @@ describe('character memory repository', () => {
   })
 
   it('removes the memory of a deleted character', async () => {
-    await characterMemoryRepo.getOrCreate('mio')
-    await characterMemoryRepo.putVectors('mio', 'model-a', { e1: [1] })
+    const document = await seedEpisodes(['e1'])
+    await characterMemoryRepo.putVectors('mio', 'model-a', { e1: [1] }, document.generation)
 
     await characterMemoryRepo.remove('mio')
 
     expect(await characterMemoryRepo.get('mio')).toBeNull()
     expect(await characterMemoryRepo.getVectors('mio')).toBeNull()
+  })
+
+  it('rejects vectors of a deleted episode even after the character is recreated', async () => {
+    const original = await seedEpisodes(['old'])
+    await characterMemoryRepo.remove('mio')
+    const recreated = await seedEpisodes(['new'])
+
+    await characterMemoryRepo.putVectors('mio', 'model-a', { old: [1, 0] }, original.generation)
+    expect(await characterMemoryRepo.getVectors('mio')).toBeNull()
+
+    await characterMemoryRepo.putVectors('mio', 'model-a', { new: [0, 1] }, recreated.generation)
+
+    expect(await characterMemoryRepo.getVectors('mio')).toEqual({ model: 'model-a', vectors: { new: [0, 1] } })
   })
 })

@@ -70,7 +70,7 @@ const scheduleRules = {
  * Writes from the memory page also run in the leader, so they share its queue with extraction.
  *
  * Lifecycle: the chat store calls `start` when its window becomes the leader and `stop` when it stops being one.
- * Work that runs during `stop` finishes its model request, but it does not commit.
+ * Stopping aborts model requests and invalidates queued work before another leader epoch can start.
  */
 export const useCharacterMemoryStore = defineStore('character-memory', () => {
   /** Synchronized: the status of each character, written by the leader. */
@@ -81,10 +81,10 @@ export const useCharacterMemoryStore = defineStore('character-memory', () => {
   // The rest is runtime state of the leader. It is not synchronized and starts empty in every window.
   let running = false
   /**
-   * Increments when all memory is deleted. Work that started in an older epoch does not commit,
-   * even when it finishes after the deletion.
+   * Increments when leadership ends or all memory is deleted. Work from an older epoch never commits.
    */
   let epoch = 0
+  let extractionAbort = new AbortController()
   /** One promise chain per character, so the extractions and edits of one character never overlap. */
   const queues = new Map<string, Promise<void>>()
   const busyCharacters = new Set<string>()
@@ -184,6 +184,7 @@ export const useCharacterMemoryStore = defineStore('character-memory', () => {
    */
   async function extractSession(characterId: string, sessionId: string, scheduledIn: number) {
     const startedIn = scheduledIn
+    const leadershipSignal = extractionAbort.signal
     for (;;) {
       // `stop`, "Delete all data", and the settings change between batches, so each batch checks them again.
       if (!running || epoch !== startedIn || !settings.enabled)
@@ -229,13 +230,18 @@ export const useCharacterMemoryStore = defineStore('character-memory', () => {
       const readAt = Date.now()
       const request = buildExtractionRequest(document, batch, readAt)
       await settings.spendCall()
+      if (!running || epoch !== startedIn)
+        return
 
       let commit: ReturnType<typeof parseExtractionReply>
       try {
-        const reply = await requestReply(selection, request.conversation, AbortSignal.timeout(scheduleRules.extractionTimeoutMs))
+        const signal = AbortSignal.any([leadershipSignal, AbortSignal.timeout(scheduleRules.extractionTimeoutMs)])
+        const reply = await requestReply(selection, request.conversation, signal)
         commit = parseExtractionReply(reply, document, batch, request.candidates, readAt)
       }
       catch (error) {
+        if (!running || epoch !== startedIn)
+          return
         scheduleRetry(characterId, sessionId, error)
         return
       }
@@ -246,8 +252,11 @@ export const useCharacterMemoryStore = defineStore('character-memory', () => {
         return
 
       // The commit never creates a record. A record that a deletion removed during the request stays removed.
-      const next = await characterMemoryRepo.updateExisting(characterId, current => commitExtraction(current, commit, Date.now()).document)
-      if (!next)
+      const next = await characterMemoryRepo.updateExisting(characterId, (current) => {
+        // Leadership can end while this writer waits for its lock.
+        return running && epoch === startedIn ? commitExtraction(current, commit, Date.now()).document : current
+      })
+      if (!next || !running || epoch !== startedIn)
         return
       noteRevision(characterId, next.revision)
       retries.delete(JSON.stringify([characterId, sessionId]))
@@ -288,7 +297,7 @@ export const useCharacterMemoryStore = defineStore('character-memory', () => {
     for (let index = 0; index < missing.length; index += scheduleRules.embeddingBatchSize) {
       const chunk = missing.slice(index, index + scheduleRules.embeddingBatchSize)
       const vectors = await embedding.embedTexts(target, chunk.map(episode => episode.text))
-      await characterMemoryRepo.putVectors(characterId, target.version, Object.fromEntries(chunk.map((episode, offset) => [episode.id, vectors[offset]!])))
+      await characterMemoryRepo.putVectors(characterId, target.version, Object.fromEntries(chunk.map((episode, offset) => [episode.id, vectors[offset]!])), document.generation)
     }
   }
 
@@ -319,12 +328,18 @@ export const useCharacterMemoryStore = defineStore('character-memory', () => {
     if (running)
       return
     running = true
+    const startedIn = epoch
     await chatSession.initialize()
-    if (!running)
+    if (!running || epoch !== startedIn)
       return
     // A crash after a commit can leave affection events in the records. They apply before any new work.
-    for (const characterId of await characterMemoryRepo.listCharacterIds())
+    for (const characterId of await characterMemoryRepo.listCharacterIds()) {
+      if (!running || epoch !== startedIn)
+        return
       await applyPendingAffection(characterId)
+    }
+    if (!running || epoch !== startedIn)
+      return
     // Android stops background timers. Returning to the foreground recovers the work they missed.
     stopVisibilityListener = watch(visibility, (state) => {
       if (state === 'visible')
@@ -333,17 +348,24 @@ export const useCharacterMemoryStore = defineStore('character-memory', () => {
     await scan()
   }
 
-  /** Stops extraction in this window. Running model requests finish, but their results are not committed. */
-  async function stop() {
-    running = false
-    stopVisibilityListener?.()
-    stopVisibilityListener = undefined
+  function cancelPendingWork() {
+    epoch++
+    extractionAbort.abort()
+    extractionAbort = new AbortController()
     for (const timer of idleTimers.values())
       clearTimeout(timer)
     idleTimers.clear()
     for (const retry of retries.values())
       clearTimeout(retry.timer)
     retries.clear()
+  }
+
+  /** Stops this leader's timers and model requests. Results from its ended epoch never commit. */
+  async function stop() {
+    running = false
+    stopVisibilityListener?.()
+    stopVisibilityListener = undefined
+    cancelPendingWork()
   }
 
   /** Called by the chat leader after a completed round. Starts at 20 waiting rounds, or after 10 idle minutes. */
@@ -483,13 +505,7 @@ export const useCharacterMemoryStore = defineStore('character-memory', () => {
    * Running work ends without a commit, timers stop, and records that work writes later are not created again.
    */
   async function clearAll() {
-    epoch++
-    for (const timer of idleTimers.values())
-      clearTimeout(timer)
-    idleTimers.clear()
-    for (const retry of retries.values())
-      clearTimeout(retry.timer)
-    retries.clear()
+    cancelPendingWork()
     await characterMemoryRepo.clearAll()
     statuses.value = {}
     revisions.value = {}

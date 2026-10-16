@@ -21,7 +21,7 @@ const scheduleRules = {
 
 const minutesPerDay = 24 * 60
 
-/** The first and last activity of one local day, in minutes after midnight. */
+/** One activity day starts at the earliest greeting time. Minutes after the next midnight exceed 1440. */
 export interface DayActivity {
   day: string
   first: number
@@ -66,8 +66,14 @@ export function minuteOfDay(at: number) {
 
 /** Records one interaction in the activity log. The log keeps the last 14 days. */
 export function recordActivity(log: readonly DayActivity[], at: number): DayActivity[] {
-  const day = localDay(at)
-  const minute = minuteOfDay(at)
+  const date = new Date(at)
+  let minute = minuteOfDay(at)
+  // Activity before the earliest morning greeting belongs to the previous night, not to the next morning.
+  if (minute < scheduleRules.morningRange[0]) {
+    date.setDate(date.getDate() - 1)
+    minute += minutesPerDay
+  }
+  const day = localDay(date.getTime())
   const today = log.find(entry => entry.day === day)
   const others = log.filter(entry => entry.day !== day)
   const updated = today

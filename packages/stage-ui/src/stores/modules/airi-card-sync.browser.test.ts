@@ -7,8 +7,10 @@ import { createSyncedPiniaPlugin } from 'pinia-plugin-synced'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from 'vue'
 
+import { characterMemoryRepo } from '../../database/repos/character-memory.repo'
 import { CHARACTER_CARD_SYNC_FLAG } from '../../libs/feature-flags'
 import { useAuthStore } from '../auth'
+import { useCharacterStateStore } from '../character/state'
 import { useFeatureFlagsStore } from '../feature-flags'
 import { useAiriCardStore } from './airi-card'
 
@@ -179,11 +181,12 @@ describe('card synchronization across windows', () => {
     vi.stubGlobal('fetch', server.fetchCards)
   })
 
-  afterEach(() => {
+  afterEach(async () => {
     for (const runtime of runtimes.splice(0))
       runtime.dispose()
     for (const pinia of piniaInstances.splice(0))
       disposePinia(pinia)
+    await characterMemoryRepo.clearAll()
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
     localStorage.clear()
@@ -387,6 +390,29 @@ describe('card synchronization across windows', () => {
 
     expect(restored).toBe(true)
     expect(leader.cards.cards.get('remote')?.name).toBe('Remote')
+    expect(onError).not.toHaveBeenCalled()
+  })
+
+  it('clears character data after a remote deletion and keeps it empty after restoration', async () => {
+    const { leader, follower, onError } = await createWindows()
+    server.seed('remote', { '/name': 'Remote', '/version': '1.0.0' })
+    signIn(leader.auth, accountId())
+    await expect.poll(() => leader.cards.cards.has('remote')).toBe(true)
+    const state = useCharacterStateStore(leader.pinia)
+    await state.recordEmotion('remote', 'happy', 1)
+    await state.recordRound('remote')
+    await characterMemoryRepo.getOrCreate('remote')
+
+    server.seedDeleted('remote', { '/name': 'Remote', '/version': '1.0.0' })
+    await follower.cards.synchronizeCards()
+
+    expect(leader.cards.cards.has('remote')).toBe(false)
+    expect(await characterMemoryRepo.get('remote')).toBeNull()
+    expect(state.moods.remote).toBeUndefined()
+    expect(state.affections.remote).toBeUndefined()
+    expect(await leader.cards.restoreDeletedCard('remote')).toBe(true)
+    await leader.cards.synchronizeCards()
+    expect(await characterMemoryRepo.get('remote')).toBeNull()
     expect(onError).not.toHaveBeenCalled()
   })
 

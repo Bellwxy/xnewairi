@@ -54,6 +54,28 @@ describe('quiet hours', () => {
 })
 
 describe('recordActivity', () => {
+  it('keeps morning and night times when conversations cross midnight', () => {
+    let log: DayActivity[] = []
+    for (let day = 1; day <= 8; day++) {
+      log = recordActivity(log, at(day, 9))
+      log = recordActivity(log, at(day, 23, 30))
+      log = recordActivity(log, at(day + 1, 0, 40))
+    }
+
+    expect(automaticTimes(log)).toEqual({ morning: 9 * 60, night: 40 })
+  })
+
+  it('starts a new activity day at the earliest morning greeting time', () => {
+    let log = recordActivity([], at(16, 23, 50))
+    log = recordActivity(log, at(17, 0, 40))
+    log = recordActivity(log, at(17, 6))
+
+    expect(log).toEqual([
+      { day: '2026-10-16', first: 23 * 60 + 50, last: 24 * 60 + 40 },
+      { day: '2026-10-17', first: 6 * 60, last: 6 * 60 },
+    ])
+  })
+
   it('keeps the first and last minute of each day', () => {
     let log = recordActivity([], at(16, 9))
     log = recordActivity(log, at(16, 21, 30))

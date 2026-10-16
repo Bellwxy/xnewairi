@@ -206,6 +206,11 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     return newCardId
   }
 
+  async function forgetCharacterData(id: string) {
+    await useCharacterStateStore().forgetCharacter(id)
+    await characterMemoryRepo.remove(id)
+  }
+
   const removeCard = async (id: string) => {
     // The built-in card is the guaranteed fallback for every runtime profile.
     if (id === 'default')
@@ -216,8 +221,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       return false
 
     // Mood, affection, and memory belong to the deleted character. A restored card starts again without them.
-    await useCharacterStateStore().forgetCharacter(id)
-    await characterMemoryRepo.remove(id)
+    await forgetCharacterData(id)
 
     // The active id is persisted independently from the card map. Reset it
     // before consumers observe a dangling runtime profile after deletion.
@@ -669,6 +673,11 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       readLocal: () => Object.fromEntries([...toRaw(cards.value)].map(([id, card]) => [id, splitCard(toRaw(card), id === 'default' ? builtInVariants.value : [])])),
       async applyLocal(changes) {
         const { activeCardChanged, rejected } = applySynchronizedCards(changes)
+        // Keep the in-memory comparison and write synchronous, then finish deletion before publishing the sync result.
+        for (const id of changes.removals) {
+          if (id !== 'default')
+            await forgetCharacterData(id)
+        }
         if (changes.conflictCopies.length > 0)
           toast.warning(t('settings.pages.card.sync.conflict_notice'))
         if (activeCardChanged)
