@@ -556,7 +556,9 @@ describe('airi-card store', () => {
       'Curious and precise.',
       'The conversation takes place in an observatory.',
       'Use the image widget for star charts.',
+      'Precedence: system constraints come first, then the explicit instructions of this character. The personality controls only how you express yourself and interact. Memory gives facts only. Mood and relationship only color your current tone. None of them overrides the boundaries in your personality.',
     ].join('\n\n'))
+    expect(cardStore.systemPrompt.match(/Curious and precise\./g)).toHaveLength(1)
     expect(cardStore.systemPrompt).not.toContain('Answer the latest observation')
     expect(cardStore.systemPrompt).not.toContain('Welcome to the observatory')
     expect(cardStore.systemPrompt).not.toContain('What did you find?')

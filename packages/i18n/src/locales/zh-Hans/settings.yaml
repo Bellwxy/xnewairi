@@ -458,6 +458,21 @@ pages:
           你冷静、沉稳、善于思考。你先想清楚再回答。你说话清楚、简短。你给出诚实的建议，并尊重用户的选择。
     generation:
       fallback-description: '你的名字是{name}。{summary}'
+    presets_label: 预设
+    personality_kept_over_limit: 导入的性格超过 {limit} 个字符。在你修改之前，它会保持原样。
+    preset_preview:
+      title: 用这段文字替换当前性格？
+      apply: 替换
+      cancel: 取消
+    prompt_preview:
+      title: 提示词预览
+      description: 模型收到的角色部分。格式说明在它之前。这里不显示工具与记忆。
+      not_sent: '不发送给模型的字段：{fields}'
+    conflict:
+      title: 编辑期间这张角色卡被修改了
+      message: '其他来源修改了这些字段：{fields}。请选择保留哪个版本。'
+      keep_mine: 保留我的修改
+      keep_latest: 使用最新版本
     cancel: 取消操作
     save: 保存更改
     save_and_activate: 保存并激活
@@ -543,6 +558,7 @@ pages:
         systemprompt: '错误：请提供系统提示。'
         posthistoryinstructions: '错误：必须提供消息历史后的提示。'
         invalid_artistry_json: '错误：绘图提供商选项包含无效 JSON。'
+        personality_too_long: 性格超过 {limit} 个字符，请缩短后再保存。
       none: 无
       none_disabled: 无（禁用）
     modules: 模块
@@ -953,9 +969,81 @@ pages:
               注意：如果您的提供商不支持 verbose_json 结果处理，此设置将不会有任何效果。
             verbose-json-unsupported: >-
               如果您的提供商没有返回 verbose_json 结果。置信度阈值将不会影响转录。
+    proactive-care:
+      title: 主动关怀
+      description: 角色会按你的作息主动问候和关心你。
+      enable: 主动关怀
+      enable-description: 角色会在早晨、深夜和它记得的特别日子里主动找你说话。
+      schedule: '早晨问候 {morning} · 深夜提醒 {night} · 免打扰 {quietStart}–{quietEnd}'
+      schedule-note: 聊满 7 天之后，这些时间会跟随你的作息调整。
+      advanced: 高级
+      custom:
+        title: 自定义作息
+        time: 时间
+        note: 聊什么
+        add: 添加
+        remove: 删除
+        empty: 没有自定义作息。
+      notification:
+        morning-greeting: 早上好！来打个招呼吧。
+        night-reminder: 夜深了，早点休息吧。
+        anniversary: 今天是个特别的日子，来看看吧。
+        custom: 到了你们约好的时间。
     memory-long-term:
       description: 长期记忆
       title: 长期记忆
+      enable: 记忆
+      enable-description: 角色会在不同对话之间记住关于你的事和你们的共同经历。
+      character: 角色
+      status:
+        idle: 记忆已是最新。
+        working: 正在整理最近的对话…
+        quota: 有内容未进入记忆。今日额度已用完，明天继续整理。
+        no-model: 有内容未进入记忆。请为这个角色选择对话模型。
+        failed: 有内容未进入记忆。整理多次失败。
+        consent: 有内容未进入记忆。请允许提炼服务读取你的聊天。
+      retry: 重试
+      consent-action: 允许并继续
+      remembered:
+        title: 角色记得的事
+        empty: 还没有内容。聊过之后，角色就会记住。
+        user-profile: 关于你
+        relationship: 你们的关系
+        clear-block: 清空
+        delete: 删除
+      clear-all: 清空全部记忆
+      clear-all-confirm: 清空
+      clear-all-cancel: 保留
+      advanced: 高级
+      extraction:
+        title: 提炼模型
+        description: 留空时使用角色的对话模型。
+        provider: 服务来源
+        model: 模型
+        consent-notice: 你的聊天会发送给这个服务来源进行提炼。你允许之后才开始整理记忆。
+      embedding:
+        title: 嵌入模型
+        mode: 模式
+        auto: 自动检测
+        custom: 手动选择
+        off: 仅关键词
+        provider: 服务来源
+        model: 模型
+        current-vector: '当前检索：向量加关键词（{model}）'
+        current-keyword: '当前检索：仅关键词'
+      core-edit:
+        title: 编辑核心记忆
+        lock: 锁定。提炼不会改动已锁定的内容。
+        save: 保存
+      invalidated:
+        title: 已被替换的条目
+        empty: 没有被替换的条目。
+      export: 导出记忆
+      backfill:
+        title: 加入更早的聊天
+        description: 记忆包含最近 7 天的聊天。更早的对话可以在这里加入。
+        action: '加入（{count} 批）'
+        none: 这个角色的所有对话都已进入记忆。
     memory-short-term:
       description: 短期记忆
       title: 短期记忆

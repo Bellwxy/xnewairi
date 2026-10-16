@@ -5,7 +5,9 @@ import { initializeAnalytics, isAnalyticsAvailableInBuild } from '@proj-airi/sta
 import { bindAccountToAuthentication } from '@proj-airi/stage-ui/services/account-switch'
 import { useAuthStore } from '@proj-airi/stage-ui/stores/auth'
 import { useCharacterOrchestratorStore } from '@proj-airi/stage-ui/stores/character'
+import { useProactiveCareStore } from '@proj-airi/stage-ui/stores/character/proactive'
 import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
+import { useCharacterMemoryStore } from '@proj-airi/stage-ui/stores/memory/memory-store'
 import { useModsServerChannelStore } from '@proj-airi/stage-ui/stores/mods/api/channel-server'
 import { useContextBridgeStore } from '@proj-airi/stage-ui/stores/mods/api/context-bridge'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
@@ -28,6 +30,7 @@ import { toast, Toaster } from 'vue-sonner'
 
 import OnboardingPermissionsStep from './components/onboarding/step-permissions.vue'
 
+import { useProactiveNotifications } from './composables/proactive-notifications'
 import { getHostWebSocketConnector } from './modules/websocket-bridge'
 
 const contextBridgeStore = useContextBridgeStore()
@@ -40,6 +43,8 @@ const settings = storeToRefs(settingsStore)
 const onboardingStore = useOnboardingStore()
 const serverChannelStore = useModsServerChannelStore()
 const characterOrchestratorStore = useCharacterOrchestratorStore()
+const characterMemoryStore = useCharacterMemoryStore()
+const proactiveCareStore = useProactiveCareStore()
 const settingsAudioDeviceStore = useSettingsAudioDevice()
 const { showingSetup } = storeToRefs(onboardingStore)
 const { isDark } = useTheme()
@@ -107,6 +112,9 @@ async function loadStartup() {
       void serverChannelStore.initialize({ possibleEvents: ['ui:configure'], connector: getHostWebSocketConnector }).catch(error => console.error('Mods server initialization failed:', error))
       contextBridgeStore.initialize()
       characterOrchestratorStore.initialize()
+      // Pocket has one WebView, so it always leads. Desktop and web start these in the chat leader instead.
+      void characterMemoryStore.start().catch(error => console.error('Memory extraction failed to start:', error))
+      proactiveCareStore.start()
     })
     await startup.run('modelData', () => displayModelsStore.loadDisplayModelsFromIndexedDB())
     await startup.run('modelSelection', () => settingsStore.initializeStageModel())
@@ -116,6 +124,8 @@ async function loadStartup() {
     console.error('Startup failed:', error)
   }
 }
+
+useProactiveNotifications()
 
 onMounted(() => {
   void startup.run('route', () => router.isReady()).catch(error => console.error('Initial route failed:', error))

@@ -248,6 +248,27 @@ The user can skip the step. The built-in `default` card then stays active.
 
 Use `generateCharacterFields` when a flow writes card text from a summary. Do not use it to edit a card that the user wrote, because it replaces the description, personality, scenario, and greeting.
 
+## History window
+
+A chat request sends only the most recent rounds of its session. `historyRoundLimitFor` derives the limit from the context length of the model: half of the context divided by 800 tokens, kept between 10 and 60 rounds. Without a context length, the limit is 30.
+Stored messages do not change. Long-term memory carries what leaves the window.
+
+## Character state and memory
+
+These states belong to one character card in one account. Deleting the card deletes them.
+
+- `useCharacterStateStore` keeps mood and affection. ACT tokens of a reply move the mood of the session character. Each completed round adds affection.
+- `useCharacterMemoryStore` keeps long-term memory. The chat leader extracts complete rounds from persisted messages and commits one record per character under a Web Lock.
+- Each request reads both after it leaves the session queue, through the `resolveContexts` send option. They reach the model as data in the new user message, never as instructions.
+- `useMemorySettingsStore` holds the memory switch and the advanced overrides. Without overrides, the chat model of the character extracts, and an embedding model is detected at the chat endpoint.
+
+Use the memory store actions for every edit, so edits and extraction share one queue. Do not write `characterMemoryRepo` from a page.
+
+## Proactive care
+
+`useProactiveCareStore` lets the selected character speak first: a morning greeting, a night reminder, an anniversary from memory, and custom routines. The times follow the activity of the last 7 days. Quiet hours and a limit of 3 messages a day apply.
+The chat leader runs the checks and writes each message to the active session with `source: 'proactive'`. On Android, the Pocket app schedules system notifications, because the WebView cannot run timers in the background.
+
 ## Character sessions
 
 Each chat session belongs to one character. A send reads the provider, model, and system prompt of that character, not the selected card.

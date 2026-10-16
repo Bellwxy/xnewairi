@@ -489,6 +489,21 @@ pages:
           choices of the user.
     generation:
       fallback-description: 'Your name is {name}. {summary}'
+    presets_label: Presets
+    personality_kept_over_limit: This imported personality is longer than {limit} characters. It stays as it is until you edit it.
+    preset_preview:
+      title: Replace the current personality with this text?
+      apply: Replace
+      cancel: Cancel
+    prompt_preview:
+      title: Prompt preview
+      description: The character part of the prompt that the model receives. Format instructions come before it. Tools and memory are not shown.
+      not_sent: 'Not sent to the model: {fields}'
+    conflict:
+      title: This card changed while you edited it
+      message: 'Another source changed these fields: {fields}. Choose which version to keep.'
+      keep_mine: Keep my edits
+      keep_latest: Keep the latest version
     cancel: Cancel action
     save: Save changes
     save_and_activate: Save and activate
@@ -578,6 +593,7 @@ pages:
         systemprompt: 'Error: Please, provide a system prompt.'
         posthistoryinstructions: 'Error: Post history prompt is required.'
         invalid_artistry_json: 'Error: Artistry provider options contains invalid JSON.'
+        personality_too_long: The personality is longer than {limit} characters. Shorten it before you save.
       none: None
       none_disabled: None (Disabled)
     modules: Modules
@@ -1005,9 +1021,81 @@ pages:
             verbose-json-unsupported: >-
               Your provider did not return verbose_json segments. Confidence
               filtering had no effect on the last transcription.
+    proactive-care:
+      title: Proactive Care
+      description: The character greets you and checks in at times that follow your day.
+      enable: Proactive care
+      enable-description: The character speaks first in the morning, late at night, and on days that it remembers.
+      schedule: 'Morning greeting {morning} · Night reminder {night} · Quiet hours {quietStart}–{quietEnd}'
+      schedule-note: After 7 days of chat, these times follow your activity.
+      advanced: Advanced
+      custom:
+        title: Custom routines
+        time: Time
+        note: What to talk about
+        add: Add
+        remove: Remove
+        empty: No custom routines.
+      notification:
+        morning-greeting: Good morning! Come and say hi.
+        night-reminder: It is getting late. Time to rest soon.
+        anniversary: Today is a special day. Come and take a look.
+        custom: It is time for your check-in.
     memory-long-term:
       description: Long-term memory specific settings and management
       title: Long-Term Memory
+      enable: Memory
+      enable-description: The character remembers facts about you and shared moments across conversations.
+      character: Character
+      status:
+        idle: Memory is up to date.
+        working: Organizing recent conversations…
+        quota: Some chats are not in memory yet. Today's limit is used up, so memory continues tomorrow.
+        no-model: Some chats are not in memory yet. Choose a chat model for this character.
+        failed: Some chats are not in memory yet. Organizing failed several times.
+        consent: Some chats are not in memory yet. Allow the extraction provider to read your chats.
+      retry: Try again
+      consent-action: Allow and continue
+      remembered:
+        title: What the character remembers
+        empty: Nothing yet. The character remembers things after you chat.
+        user-profile: About you
+        relationship: Your relationship
+        clear-block: Clear
+        delete: Delete
+      clear-all: Clear all memory
+      clear-all-confirm: Clear
+      clear-all-cancel: Keep
+      advanced: Advanced
+      extraction:
+        title: Extraction model
+        description: Empty uses the chat model of the character.
+        provider: Provider
+        model: Model
+        consent-notice: Your chats are sent to this provider for extraction. Memory starts after you allow it.
+      embedding:
+        title: Embedding model
+        mode: Mode
+        auto: Detect automatically
+        custom: Choose manually
+        off: Keywords only
+        provider: Provider
+        model: Model
+        current-vector: 'Current search: vectors and keywords ({model})'
+        current-keyword: 'Current search: keywords only'
+      core-edit:
+        title: Edit core memory
+        lock: Lock. Extraction does not change a locked block.
+        save: Save
+      invalidated:
+        title: Replaced entries
+        empty: No replaced entries.
+      export: Export memory
+      backfill:
+        title: Add earlier chats
+        description: Memory includes the last 7 days of chat. Add an earlier conversation here.
+        action: 'Add ({count} batches)'
+        none: All conversations of this character are in memory.
     memory-short-term:
       description: Short-term memory specific settings and management
       title: Short-Term Memory

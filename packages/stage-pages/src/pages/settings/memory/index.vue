@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { WIP } from '@proj-airi/stage-ui/components'
+import { useRouter } from 'vue-router'
+
+// The settings entry and the module list open the same memory page. The module page owns it.
+void useRouter().replace('/settings/modules/memory-long-term')
 </script>
 
 <template>
-  <WIP />
+  <div />
 </template>
 
 <route lang="yaml">

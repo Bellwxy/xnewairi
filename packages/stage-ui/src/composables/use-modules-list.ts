@@ -6,6 +6,8 @@ import { useI18n } from 'vue-i18n'
 
 import factorioIcon from '../assets/factorio-simple.png'
 
+import { useProactiveCareStore } from '../stores/character/proactive'
+import { useMemorySettingsStore } from '../stores/memory/memory-settings'
 import { useArtistryStore } from '../stores/modules/artistry'
 import { useConsciousnessStore } from '../stores/modules/consciousness'
 import { useDiscordStore } from '../stores/modules/discord'
@@ -47,6 +49,8 @@ export function useModulesList() {
   const factorioStore = useFactorioStore()
   const homeAssistantStore = useHomeAssistantStore()
   const artistryStore = useArtistryStore()
+  const memorySettingsStore = useMemorySettingsStore()
+  const proactiveCareStore = useProactiveCareStore()
   const beatSyncState = ref<BeatSyncDetectorState>()
   const beatSyncSupported = isBeatSyncSupported()
 
@@ -117,12 +121,12 @@ export function useModulesList() {
       category: 'essential',
     },
     {
-      id: 'memory-short-term',
-      name: t('settings.pages.modules.memory-short-term.title'),
-      description: t('settings.pages.modules.memory-short-term.description'),
-      icon: 'i-solar:bookmark-bold-duotone',
-      to: '/settings/modules/memory-short-term',
-      configured: false,
+      id: 'proactive-care',
+      name: t('settings.pages.modules.proactive-care.title'),
+      description: t('settings.pages.modules.proactive-care.description'),
+      icon: 'i-solar:sun-fog-bold-duotone',
+      to: '/settings/modules/proactive-care',
+      configured: proactiveCareStore.enabled,
       category: 'essential',
     },
     {
@@ -131,7 +135,7 @@ export function useModulesList() {
       description: t('settings.pages.modules.memory-long-term.description'),
       icon: 'i-solar:book-bookmark-bold-duotone',
       to: '/settings/modules/memory-long-term',
-      configured: false,
+      configured: memorySettingsStore.enabled,
       category: 'essential',
     },
     {

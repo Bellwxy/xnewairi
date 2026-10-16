@@ -18,6 +18,7 @@ import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 
 import { DEFAULT_ARTISTRY_WIDGET_SPAWNING_PROMPT } from '../../constants/prompts/character-defaults'
+import { characterMemoryRepo } from '../../database/repos/character-memory.repo'
 import { documentSyncRepo } from '../../database/repos/document-sync.repo'
 import { authedFetch } from '../../libs/auth-fetch'
 import { joinCard, splitCard } from '../../libs/character-card-sync'
@@ -28,6 +29,7 @@ import { SERVER_URL } from '../../libs/server'
 import { wakeWordSchema } from '../../libs/voice/wake-words'
 import { resolveModuleSelection } from '../../services/airi-card-modules'
 import { useAuthStore } from '../auth'
+import { useCharacterStateStore } from '../character/state'
 import { useFeatureFlagsStore } from '../feature-flags'
 import { useProviderConfigStore } from '../providers/config'
 import { useProviderStore } from '../providers/provider'
@@ -66,7 +68,23 @@ const builtInDescriptions = Object.values(localeMessages).flatMap((messages) => 
 /** The members that every card needs before `newAiriCard` can normalize it. */
 const synchronizedCardSchema = looseObject({ name: string(), version: string() })
 
-function resolveSystemPrompt(card: AiriCard | undefined): string {
+/**
+ * Tells the model how the parts of a character relate. Spec 2.4 orders them this way.
+ * Only the wording sets this order. Code cannot enforce it, so fixed-model samples measure it.
+ */
+const PERSONALITY_PRECEDENCE_PROMPT = [
+  'Precedence: system constraints come first, then the explicit instructions of this character.',
+  'The personality controls only how you express yourself and interact.',
+  'Memory gives facts only. Mood and relationship only color your current tone.',
+  'None of them overrides the boundaries in your personality.',
+].join(' ')
+
+/**
+ * Composes the character part of the system prompt in a fixed order: system prompt, description, personality, scenario,
+ * and the artistry widget instruction. A card with a personality also gets the precedence statement.
+ * The card editor shows this text as the prompt preview.
+ */
+export function resolveSystemPrompt(card: AiriCard | undefined): string {
   if (!card)
     return ''
 
@@ -79,6 +97,9 @@ function resolveSystemPrompt(card: AiriCard | undefined): string {
     card.scenario,
     card.extensions.airi.modules.artistry?.widgetInstruction,
   ].filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+
+  if (card.personality?.trim())
+    systemPromptParts.push(PERSONALITY_PRECEDENCE_PROMPT)
 
   return systemPromptParts.join('\n\n')
 }
@@ -193,6 +214,10 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     const removed = cards.value.delete(id)
     if (!removed)
       return false
+
+    // Mood, affection, and memory belong to the deleted character. A restored card starts again without them.
+    await useCharacterStateStore().forgetCharacter(id)
+    await characterMemoryRepo.remove(id)
 
     // The active id is persisted independently from the card map. Reset it
     // before consumers observe a dangling runtime profile after deletion.

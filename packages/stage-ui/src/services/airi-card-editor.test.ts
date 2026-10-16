@@ -1,10 +1,10 @@
 import type { Card } from '@proj-airi/ccc'
 
-import type { AiriExtension } from '../types/airiCard'
+import type { AiriCard, AiriExtension } from '../types/airiCard'
 
 import { describe, expect, it } from 'vitest'
 
-import { applyAiriCardEditorModules, getAiriCardEditorModuleSettings, safeParseAiriCardDraft } from './airi-card-editor'
+import { applyAiriCardEditorModules, getAiriCardEditorModuleSettings, isPersonalityOverLimit, mergeCardEdit, safeParseAiriCardDraft } from './airi-card-editor'
 
 describe('airi card editor validation', () => {
   // https://github.com/moeru-ai/airi/issues/2108
@@ -221,6 +221,83 @@ describe('airi card editor validation', () => {
     expect(extension.agents).toEqual(existing.agents)
   })
 })
+
+describe('isPersonalityOverLimit', () => {
+  it('blocks a new personality over 2000 code points', () => {
+    expect(isPersonalityOverLimit('😀'.repeat(2001), 'short')).toBe(true)
+    expect(isPersonalityOverLimit('😀'.repeat(2000), 'short')).toBe(false)
+  })
+
+  it('keeps an unchanged imported personality over the limit', () => {
+    const imported = 'a'.repeat(3000)
+
+    expect(isPersonalityOverLimit(imported, imported)).toBe(false)
+  })
+})
+
+describe('mergeCardEdit', () => {
+  it('keeps a wake word that a tool wrote while the editor was open', () => {
+    const baseline = createAiriCard({ personality: 'Calm.' })
+    const draft = createAiriCard({ personality: 'Cheerful.' })
+    const latest = createAiriCard({ personality: 'Calm.', wakeWords: [{ text: 'mio', modelId: 'zh-kws', pronunciations: [['m', 'i', 'o']] }] })
+
+    const result = mergeCardEdit({ baseline, draft, latest })
+
+    expect(result.conflicts).toEqual([])
+    expect(result.card.personality).toBe('Cheerful.')
+    const airi = result.card.extensions?.airi as AiriExtension | undefined
+    expect(airi?.wakeWords).toEqual([{ text: 'mio', modelId: 'zh-kws', pronunciations: [['m', 'i', 'o']] }])
+  })
+
+  it('keeps the latest value of a field that the draft did not change', () => {
+    const baseline = createAiriCard({ personality: 'Calm.', scenario: 'A cafe.' })
+    const draft = createAiriCard({ personality: 'Cheerful.', scenario: 'A cafe.' })
+    const latest = createAiriCard({ personality: 'Calm.', scenario: 'A library.' })
+
+    expect(mergeCardEdit({ baseline, draft, latest }).card.scenario).toBe('A library.')
+  })
+
+  it('reports a field that both sides changed to different values', () => {
+    const baseline = createAiriCard({ personality: 'Calm.' })
+    const draft = createAiriCard({ personality: 'Cheerful.' })
+    const latest = createAiriCard({ personality: 'Shy.' })
+
+    const mine = mergeCardEdit({ baseline, draft, latest }, 'draft')
+    const theirs = mergeCardEdit({ baseline, draft, latest }, 'latest')
+
+    expect(mine.conflicts).toEqual(['/personality'])
+    expect(mine.card.personality).toBe('Cheerful.')
+    expect(theirs.conflicts).toEqual(['/personality'])
+    expect(theirs.card.personality).toBe('Shy.')
+  })
+
+  it('does not report a field that both sides changed to the same value', () => {
+    const baseline = createAiriCard({ personality: 'Calm.' })
+    const draft = createAiriCard({ personality: 'Cheerful.' })
+    const latest = createAiriCard({ personality: 'Cheerful.' })
+
+    expect(mergeCardEdit({ baseline, draft, latest }).conflicts).toEqual([])
+  })
+})
+
+function createAiriCard(fields: Partial<Card> & { wakeWords?: AiriExtension['wakeWords'] }): AiriCard {
+  const { wakeWords, ...cardFields } = fields
+  return {
+    ...createCard(),
+    ...cardFields,
+    extensions: {
+      airi: {
+        ...(wakeWords ? { wakeWords } : {}),
+        modules: {
+          consciousness: { provider: '', model: '' },
+          vision: { provider: '', model: '' },
+          speech: { provider: '', model: '', voice_id: '' },
+        },
+        agents: {},
+      },
+    },
+  }
+}
 
 function createCard(): Card {
   return {

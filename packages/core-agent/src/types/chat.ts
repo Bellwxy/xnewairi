@@ -97,6 +97,11 @@ export type ChatHistoryItem = (ChatMessage | ErrorMessage) & {
   replyToMessageId?: string
   /** Tools selected for this message. The runtime rebuilds executors from these names. */
   tools?: ChatToolReference[]
+  /**
+   * `proactive` marks an assistant message that the character sent on its own, for example a morning greeting.
+   * It has no user message before it, so the history window counts it in the round before it.
+   */
+  source?: 'proactive'
 }
 
 export interface ChatStreamEventContext {

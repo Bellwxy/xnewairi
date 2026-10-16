@@ -21,7 +21,7 @@ const deviceStorageKeys = new Set([
  * Logical names of every IndexedDB database that belongs to an account.
  * Deleting the data of an account deletes each one. Add a name here when a store opens a new account database.
  */
-export const ACCOUNT_DATABASE_NAMES = ['airi-local', 'airi-sync-queue', 'airi-chat-assets', 'airi-stickers', 'localforage'] as const
+export const ACCOUNT_DATABASE_NAMES = ['airi-local', 'airi-sync-queue', 'airi-chat-assets', 'airi-stickers', 'airi-character-memory', 'airi-character-memory-vectors', 'localforage'] as const
 
 /** One logical account database name. `databaseName` accepts only these, so the list above stays complete. */
 export type AccountDatabaseName = typeof ACCOUNT_DATABASE_NAMES[number]

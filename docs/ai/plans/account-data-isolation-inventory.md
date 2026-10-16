@@ -184,6 +184,19 @@ Electron 主进程长期存活，不能只重载渲染窗口而保留旧账号�
 | `packages/stage-ui/stories/modules/i18n.ts` | 账号 |
 | `packages/ui/src/composables/use-theme.ts` | 设备 |
 
+## 角色大脑新增入口
+
+角色大脑 SPEC v3.2 的 2.1 至 2.3 新增以下持久化入口，全部属于账号作用域。
+
+| 文件 | 存储 | 目标作用域 |
+| --- | --- | --- |
+| `packages/stage-ui/src/database/repos/character-memory.repo.ts` | IndexedDB `airi-character-memory` 与 `airi-character-memory-vectors`，已登记在 `ACCOUNT_DATABASE_NAMES` | 账号 |
+| `packages/stage-ui/src/stores/memory/memory-settings.ts` | localStorage `settings/memory/*` | 账号 |
+| `packages/stage-ui/src/stores/character/state.ts` | localStorage `character-state/*` | 账号 |
+| `packages/stage-ui/src/stores/character/proactive.ts` | localStorage `settings/proactive-care/*` 与 `proactive-care/*` | 账号 |
+
+锁名称与 BroadcastChannel 名称都通过 `lockName` 带上账号 ID。
+
 ## 启用前的检查点
 
 1. 完成动态键、默认实例、OPFS 与主进程文件的实际写入审计。

@@ -554,7 +554,8 @@ describe('chat store contract', () => {
     await store.submit({ sessionId: 'session-2', messageId: 'bob-voice', text: 'For Bob' })
 
     expect(getChatProviderInstanceMock).toHaveBeenCalledWith('bob-provider', { reasoning: 'disabled' })
-    expect(llmStreamMock.mock.calls[0]?.[0]).toBe('bob-model')
+    // `submit` resolves when the message is accepted. Generation starts after request contexts resolve.
+    await expect.poll(() => llmStreamMock.mock.calls[0]?.[0]).toBe('bob-model')
     expect(activeSessionIdRef.value).toBe('session-1')
   })
 

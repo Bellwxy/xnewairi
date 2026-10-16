@@ -12,6 +12,7 @@ import { createQueue } from '@proj-airi/stream-kit'
 
 import { chatMessagesToTurns } from '../messages/chat-completions'
 import { formatTimePrefix } from '../messages/datetime-prefix'
+import { selectHistoryWindow } from '../messages/history-window'
 import { renderConversationPreview } from '../messages/preview'
 import { createChatHooks } from './agent-hooks'
 import { useLlmmarkerParser } from './llm-marker-parser'
@@ -132,6 +133,19 @@ export interface ChatOrchestratorSendOptions {
   supportsVisionInput?: boolean
   /** Request-owned character instructions, captured before waiting in the session queue. */
   systemPromptSupplement?: string
+  /**
+   * Most recent rounds of session history that this request sends, including the new user message.
+   * Stored messages do not change. Omission sends the complete history. See {@link selectHistoryWindow}.
+   */
+  historyRoundLimit?: number
+  /**
+   * Reads request-owned context after the request leaves the session queue, immediately before prompt composition.
+   * The entries go to the new user message as runtime context, after the entries of the shared context registry.
+   * They are not stored in session history. Use it for context of the session owner, for example character memory.
+   * A rejection fails the send, so a caller that must not block chat catches its own errors.
+   */
+  resolveContexts?: (input: { messageText: string }) => Promise<Array<{ source: string, text: string }>>
+
   /** Eligible catalog for this request. Omission disables stickers. The queue copies entries before waiting. */
   stickers?: readonly { id: string, description: string }[]
   /** Stable user-message identity. Retries acknowledge the existing message without generating another reply. */
@@ -869,7 +883,9 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
         ],
       })
 
-      const context = buildContext(sessionMessagesForSend)
+      const context = buildContext(options.historyRoundLimit
+        ? selectHistoryWindow(sessionMessagesForSend, options.historyRoundLimit)
+        : sessionMessagesForSend)
       const stickerPrompt = stickers?.length
         ? [
             'You can send one optional sticker per reply with a marker from this catalog.',
@@ -889,7 +905,16 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
       }
 
       const contextsSnapshot = deps.context.snapshot()
-      const entries = Object.entries(contextsSnapshot).flatMap(([source, messages]) => messages.map(message => ({ source, text: message.text })))
+      let requestContexts: Array<{ source: string, text: string }> = []
+      if (options.resolveContexts) {
+        requestContexts = await options.resolveContexts({ messageText: sendingMessage })
+        if (shouldAbort())
+          return
+      }
+      const entries = [
+        ...Object.entries(contextsSnapshot).flatMap(([source, messages]) => messages.map(message => ({ source, text: message.text }))),
+        ...requestContexts,
+      ]
       if (entries.length) {
         const lastMessage = context.turns.at(-1)
         if (lastMessage?.type === 'user')

@@ -8,10 +8,14 @@ import { useModelStore } from '@proj-airi/stage-ui-three'
 
 import { useLive2DMotionMagicSettings } from '../features/motions/live2d'
 import { clearSherpawModelAssets } from '../libs/providers/providers/sherpaw/model-assets'
+import { useProactiveCareStore } from '../stores/character/proactive'
+import { useCharacterStateStore } from '../stores/character/state'
 import { useChatStore } from '../stores/chat'
 import { useChatSessionStore } from '../stores/chat/session-store'
 import { useDisplayModelsStore } from '../stores/display-models'
 import { useMcpStore } from '../stores/mcp'
+import { useMemorySettingsStore } from '../stores/memory/memory-settings'
+import { useCharacterMemoryStore } from '../stores/memory/memory-store'
 import { useAiriCardStore } from '../stores/modules/airi-card'
 import { useConsciousnessStore } from '../stores/modules/consciousness'
 import { useConsciousnessSettingsStore } from '../stores/modules/consciousness-settings'
@@ -52,6 +56,10 @@ export function useDataMaintenance() {
   const mcpStore = useMcpStore()
   const onboardingStore = useOnboardingStore()
   const airiCardStore = useAiriCardStore()
+  const characterStateStore = useCharacterStateStore()
+  const characterMemoryStore = useCharacterMemoryStore()
+  const memorySettingsStore = useMemorySettingsStore()
+  const proactiveCareStore = useProactiveCareStore()
 
   async function deleteAllModels() {
     await displayModelsStore.resetDisplayModels()
@@ -118,6 +126,9 @@ export function useDataMaintenance() {
     mcpStore.resetState()
     onboardingStore.resetSetupState()
     airiCardStore.resetState()
+    characterStateStore.resetState()
+    await memorySettingsStore.resetState()
+    await proactiveCareStore.resetState()
   }
 
   async function deleteAllData() {
@@ -125,6 +136,9 @@ export function useDataMaintenance() {
     await resetProvidersSettings()
     await resetModulesSettings()
     await deleteAllChatSessions()
+    // Deleting chats alone keeps memory, as deleting a source message does. Deleting all data removes it.
+    // The leader runs the deletion, so its running extraction ends and cannot write the memory back.
+    await characterMemoryStore.clearAll()
     await resetSettingsState()
     await clearSherpawModelAssets()
   }

@@ -1,21 +1,24 @@
 <script setup lang="ts">
 // 角色卡编辑页的核心表单，路由壳只负责把卡片 ID 和当前分区传进来。
 import type { Card } from '@proj-airi/ccc'
-import type { AiriExtension } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import type { CardEditConflictChoice } from '@proj-airi/stage-ui/services/airi-card-editor'
+import type { CharacterPresetId } from '@proj-airi/stage-ui/services/character-card-generation'
+import type { AiriCard, AiriExtension } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import type { VoiceInfo } from '@proj-airi/stage-ui/stores/providers/provider'
 import type { Ref } from 'vue'
 
 import { errorMessageFrom } from '@moeru/std'
 import { useAnalytics } from '@proj-airi/stage-ui/composables'
 import { DEFAULT_ARTISTRY_WIDGET_INSTRUCTION } from '@proj-airi/stage-ui/constants/prompts/artistry-instruction'
-import { applyAiriCardEditorModules, getAiriCardEditorModuleSettings, safeParseAiriCardDraft } from '@proj-airi/stage-ui/services/airi-card-editor'
+import { applyAiriCardEditorModules, countCodePoints, getAiriCardEditorModuleSettings, isPersonalityOverLimit, mergeCardEdit, personalityLimit, safeParseAiriCardDraft } from '@proj-airi/stage-ui/services/airi-card-editor'
 import { resolveModuleSelection } from '@proj-airi/stage-ui/services/airi-card-modules'
+import { characterPresetIds } from '@proj-airi/stage-ui/services/character-card-generation'
 import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
-import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
+import { resolveSystemPrompt, useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
 import { useProviderStore } from '@proj-airi/stage-ui/stores/providers/provider'
-import { Button, FieldInput, FieldValues, GhostButton, IconButton } from '@proj-airi/ui'
+import { Button, Collapsible, FieldInput, FieldValues, GhostButton, IconButton } from '@proj-airi/ui'
 import { ComboboxSelect } from '@proj-airi/ui/components/form'
 import { isEqual } from 'es-toolkit'
 import { storeToRefs } from 'pinia'
@@ -23,6 +26,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, toRaw, wat
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 
+import CardEditConflictDialog from './card-edit-conflict-dialog.vue'
 import CardCreationTabArtistry from './tabs/CardCreationTabArtistry.vue'
 
 interface Props {
@@ -476,6 +480,17 @@ function initializeCard(): Card {
 
 const card = ref<Card>(createCardDraft())
 const initialSnapshot = shallowRef<EditorSnapshot>()
+/**
+ * The stored card when the editor opened or last saved. A save writes only the fields that the draft changed
+ * against it, so writes of other sources during editing survive. A new card has no baseline.
+ */
+const baselineCard = shallowRef<AiriCard>()
+
+function readStoredCard(cardId: string | undefined): AiriCard | undefined {
+  const stored = cardId ? cardStore.getCard(cardId) : undefined
+  // The JSON round trip detaches the copy from the reactive store.
+  return stored ? JSON.parse(JSON.stringify(stored)) as AiriCard : undefined
+}
 
 interface EditorSnapshot {
   card: Card
@@ -564,6 +579,7 @@ watch([
   hasLoadedModuleOptions = false
   isInitializingModuleSelections = true
   card.value = initializeCard()
+  baselineCard.value = readStoredCard(cardId)
   hasInitializedEditor = true
   hasLoadedCard = !!existingCard
   await nextTick()
@@ -594,6 +610,28 @@ const cardNotes = makeComputed('notes')
 
 const cardPersonality = makeComputed('personality')
 const cardScenario = makeComputed('scenario')
+
+const personalityLength = computed(() => countCodePoints(cardPersonality.value))
+const personalityOverLimit = computed(() => isPersonalityOverLimit(card.value.personality, baselineCard.value?.personality))
+/** An imported personality over the limit stays as it is until the user edits it. */
+const personalityKeptOverLimit = computed(() => !personalityOverLimit.value && personalityLength.value > personalityLimit)
+
+/** The preset that the user previews. Applying it replaces only the draft. The save writes it. */
+const previewPresetId = ref<CharacterPresetId>()
+const previewPresetPersonality = computed(() => previewPresetId.value ? t(`settings.pages.card.presets.${previewPresetId.value}.personality`) : '')
+
+function applyPresetPreview() {
+  cardPersonality.value = previewPresetPersonality.value
+  previewPresetId.value = undefined
+}
+
+/** The character part of the system prompt that the draft gives. Format instructions, tools, and memory are not part of it. */
+const promptPreview = computed(() => resolveSystemPrompt(applyAiriCardEditorModules(card.value, editorModules())))
+const fieldsNotInPrompt = computed(() => [
+  card.value.postHistoryInstructions?.trim() ? t('settings.pages.card.posthistoryinstructions') : '',
+  card.value.greetings?.length ? t('settings.pages.card.creation.greetings') : '',
+  card.value.notes?.trim() ? t('settings.pages.card.creator_notes') : '',
+].filter(Boolean))
 const cardGreetings = computed({
   get: () => card.value.greetings ?? [],
   set: (val: string[]) => {
@@ -617,7 +655,71 @@ const editorTitle = computed(() => {
   return card.value.name || t('settings.pages.card.edit_card')
 })
 
-async function handleSave(activate: boolean) {
+/** The fields of a pending save that another source also changed, with the activation choice of that save. */
+const pendingConflict = ref<{ fields: string[], activate: boolean }>()
+const showConflictDialog = ref(false)
+
+const conflictFieldLabelKeys: Record<string, string> = {
+  '/name': 'settings.pages.card.creation.name',
+  '/nickname': 'settings.pages.card.creation.nickname',
+  '/description': 'settings.pages.card.creation.description',
+  '/notes': 'settings.pages.card.creator_notes',
+  '/personality': 'settings.pages.card.personality',
+  '/scenario': 'settings.pages.card.scenario',
+  '/greetings': 'settings.pages.card.creation.greetings',
+  '/systemPrompt': 'settings.pages.card.systemprompt',
+  '/postHistoryInstructions': 'settings.pages.card.posthistoryinstructions',
+  '/version': 'settings.pages.card.creation.version',
+}
+
+const conflictFieldLabels = computed(() => (pendingConflict.value?.fields ?? []).map((field) => {
+  const key = conflictFieldLabelKeys[field]
+  // Module and extension fields have no label of their own, so their path names them.
+  return key ? t(key) : field.split('/').at(-1) ?? field
+}))
+
+async function resolveConflict(choice: CardEditConflictChoice) {
+  const pending = pendingConflict.value
+  pendingConflict.value = undefined
+  if (pending)
+    await handleSave(pending.activate, choice)
+}
+
+/** The module settings of the form. Saving passes the parsed artistry options. The prompt preview needs none. */
+function editorModules(artistryOptions?: Record<string, unknown>) {
+  return {
+    consciousness: {
+      provider: selectedConsciousnessProvider.value,
+      model: selectedConsciousnessModel.value,
+    },
+    vision: {
+      provider: selectedVisionProvider.value,
+      model: selectedVisionModel.value,
+    },
+    speech: {
+      provider: selectedSpeechProvider.value,
+      model: selectedSpeechModel.value,
+      voice_id: selectedSpeechVoiceId.value,
+    },
+    displayModelId: selectedDisplayModelId.value,
+    artistry: {
+      provider: selectedArtistryProvider.value,
+      model: selectedArtistryModel.value,
+      promptPrefix: selectedArtistryPromptPrefix.value,
+      widgetInstruction: selectedArtistryWidgetInstruction.value,
+      spawnMode: selectedArtistrySpawnMode.value,
+      options: artistryOptions,
+      autonomousEnabled: selectedArtistryAutonomousEnabled.value,
+      autonomousThreshold: selectedArtistryAutonomousThreshold.value,
+    },
+  }
+}
+
+/**
+ * Saves the draft. In edit mode it merges the draft into the latest stored card, field by field.
+ * Without `conflictChoice`, a field that another source also changed opens the conflict dialog and stops the save.
+ */
+async function handleSave(activate: boolean, conflictChoice?: CardEditConflictChoice) {
   if (isSaving.value)
     return
 
@@ -638,6 +740,12 @@ async function handleSave(activate: boolean) {
       }
     }
 
+    if (isPersonalityOverLimit(card.value.personality, baselineCard.value?.personality)) {
+      showError.value = true
+      errorMessage.value = t('settings.pages.card.creation.errors.personality_too_long', { limit: personalityLimit })
+      return
+    }
+
     const draftResult = safeParseAiriCardDraft(toRaw(card.value), selectedArtistryConfigStr.value)
     if (!draftResult.success) {
       showError.value = true
@@ -647,36 +755,25 @@ async function handleSave(activate: boolean) {
 
     showError.value = false
     const { card: rawCard, artistryOptions } = draftResult.output
-    const cardWithModules = applyAiriCardEditorModules(rawCard, {
-      consciousness: {
-        provider: selectedConsciousnessProvider.value,
-        model: selectedConsciousnessModel.value,
-      },
-      vision: {
-        provider: selectedVisionProvider.value,
-        model: selectedVisionModel.value,
-      },
-      speech: {
-        provider: selectedSpeechProvider.value,
-        model: selectedSpeechModel.value,
-        voice_id: selectedSpeechVoiceId.value,
-      },
-      displayModelId: selectedDisplayModelId.value,
-      artistry: {
-        provider: selectedArtistryProvider.value,
-        model: selectedArtistryModel.value,
-        promptPrefix: selectedArtistryPromptPrefix.value,
-        widgetInstruction: selectedArtistryWidgetInstruction.value,
-        spawnMode: selectedArtistrySpawnMode.value,
-        options: artistryOptions,
-        autonomousEnabled: selectedArtistryAutonomousEnabled.value,
-        autonomousThreshold: selectedArtistryAutonomousThreshold.value,
-      },
-    })
+    const cardWithModules = applyAiriCardEditorModules(rawCard, editorModules(artistryOptions))
 
     let savedCardId: string
     if (isEditMode.value && props.cardId) {
-      if (!await cardStore.updateCard(props.cardId, cardWithModules)) {
+      const latest = readStoredCard(props.cardId)
+      if (!latest) {
+        showError.value = true
+        errorMessage.value = t('settings.pages.card.card_not_found')
+        return
+      }
+
+      const merge = mergeCardEdit({ baseline: baselineCard.value ?? latest, draft: cardWithModules, latest }, conflictChoice)
+      if (merge.conflicts.length && !conflictChoice) {
+        pendingConflict.value = { fields: merge.conflicts, activate }
+        showConflictDialog.value = true
+        return
+      }
+
+      if (!await cardStore.updateCard(props.cardId, merge.card)) {
         showError.value = true
         errorMessage.value = t('settings.pages.card.card_not_found')
         return
@@ -691,6 +788,10 @@ async function handleSave(activate: boolean) {
     if (activate)
       await cardStore.activateCard(savedCardId)
 
+    // The saved card can hold writes of other sources, so the draft continues from the stored card.
+    baselineCard.value = readStoredCard(savedCardId)
+    if (isEditMode.value && baselineCard.value)
+      card.value = structuredClone(baselineCard.value)
     initialSnapshot.value = createEditorSnapshot()
     toast(t('settings.pages.card.saved'))
     if (activate) {
@@ -894,10 +995,76 @@ function handleBack() {
             <!-- Behavior -->
             <div v-else-if="activeSection === 'behavior'" :class="['flex flex-col gap-5']">
               <div :class="['grid grid-cols-1 gap-5', 'xl:grid-cols-2']">
-                <FieldInput v-model="cardPersonality" :label="t('settings.pages.card.personality')" :single-line="false" :description="t('settings.pages.card.creation.fields_info.personality')" :input-class="editorLongTextareaClass" />
+                <div :class="['flex flex-col gap-2']">
+                  <FieldInput v-model="cardPersonality" :label="t('settings.pages.card.personality')" :single-line="false" :description="t('settings.pages.card.creation.fields_info.personality')" :input-class="editorLongTextareaClass" />
+                  <div :class="['flex flex-wrap items-center justify-between gap-2']">
+                    <div :class="['flex flex-wrap items-center gap-2']">
+                      <span :class="['text-xs', 'text-neutral-500 dark:text-neutral-400']">
+                        {{ t('settings.pages.card.presets_label') }}
+                      </span>
+                      <Button
+                        v-for="id in characterPresetIds"
+                        :key="id"
+                        size="sm"
+                        :label="t(`settings.pages.card.presets.${id}.label`)"
+                        @click="previewPresetId = id"
+                      />
+                    </div>
+                    <span
+                      :class="[
+                        'text-xs tabular-nums',
+                        personalityOverLimit ? 'text-red-600 dark:text-red-400' : 'text-neutral-500 dark:text-neutral-400',
+                      ]"
+                    >
+                      {{ personalityLength }} / {{ personalityLimit }}
+                    </span>
+                  </div>
+                  <p v-if="personalityOverLimit" :class="['text-xs', 'text-red-600 dark:text-red-400']">
+                    {{ t('settings.pages.card.creation.errors.personality_too_long', { limit: personalityLimit }) }}
+                  </p>
+                  <p v-else-if="personalityKeptOverLimit" :class="['text-xs', 'text-amber-700 dark:text-amber-300']">
+                    {{ t('settings.pages.card.personality_kept_over_limit', { limit: personalityLimit }) }}
+                  </p>
+                  <div
+                    v-if="previewPresetId"
+                    :class="[
+                      'flex flex-col gap-3',
+                      'rounded-xl border-2 border-primary-200 bg-primary-50 p-3',
+                      'dark:border-primary-800 dark:bg-primary-900/20',
+                    ]"
+                  >
+                    <p :class="['text-sm font-medium', 'text-neutral-800 dark:text-neutral-100']">
+                      {{ t('settings.pages.card.preset_preview.title') }}
+                    </p>
+                    <p :class="['whitespace-pre-wrap text-sm', 'text-neutral-600 dark:text-neutral-300']">
+                      {{ previewPresetPersonality }}
+                    </p>
+                    <div :class="['flex justify-end gap-2']">
+                      <Button size="sm" :label="t('settings.pages.card.preset_preview.cancel')" @click="previewPresetId = undefined" />
+                      <Button size="sm" color="primary" variant="primary" :label="t('settings.pages.card.preset_preview.apply')" @click="applyPresetPreview" />
+                    </div>
+                  </div>
+                </div>
                 <FieldInput v-model="cardScenario" :label="t('settings.pages.card.scenario')" :single-line="false" :description="t('settings.pages.card.creation.fields_info.scenario')" :input-class="editorLongTextareaClass" />
               </div>
               <FieldValues v-model="cardGreetings" :label="t('settings.pages.card.creation.greetings')" :description="t('settings.pages.card.creation.fields_info.greetings')" :required="false" />
+              <Collapsible :label="t('settings.pages.card.prompt_preview.title')">
+                <div :class="['flex flex-col gap-2', 'pt-2']">
+                  <p :class="['text-xs', 'text-neutral-500 dark:text-neutral-400']">
+                    {{ t('settings.pages.card.prompt_preview.description') }}
+                  </p>
+                  <pre
+                    :class="[
+                      'max-h-80 overflow-auto whitespace-pre-wrap break-words',
+                      'rounded-lg bg-neutral-100 p-3 text-xs',
+                      'text-neutral-700 dark:bg-neutral-900 dark:text-neutral-300',
+                    ]"
+                  >{{ promptPreview }}</pre>
+                  <p v-if="fieldsNotInPrompt.length" :class="['text-xs', 'text-neutral-500 dark:text-neutral-400']">
+                    {{ t('settings.pages.card.prompt_preview.not_sent', { fields: fieldsNotInPrompt.join(', ') }) }}
+                  </p>
+                </div>
+              </Collapsible>
             </div>
             <!-- Modules -->
             <div v-else-if="activeSection === 'modules'" :class="['flex flex-col gap-5']">
@@ -1088,5 +1255,11 @@ function handleBack() {
         </footer>
       </section>
     </div>
+    <CardEditConflictDialog
+      v-model="showConflictDialog"
+      :fields="conflictFieldLabels"
+      @keep-draft="resolveConflict('draft')"
+      @keep-latest="resolveConflict('latest')"
+    />
   </div>
 </template>

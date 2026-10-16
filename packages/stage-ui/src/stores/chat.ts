@@ -12,10 +12,11 @@ import { errorMessageFrom } from '@moeru/std'
 import { decodeBase64 } from '@moeru/std/base64'
 import { fileSource } from '@proj-airi/audio/encoding'
 import { createChatOrchestratorRuntime, renderConversationPreview } from '@proj-airi/core-agent'
+import { normalizeActPayload, tokenAct } from '@proj-airi/pipelines-audio'
 import { IOAttributes, IOEvents, IOSpanNames, IOSubsystems } from '@proj-airi/stage-shared'
 import { nanoid } from 'nanoid'
 import { defineStore, storeToRefs } from 'pinia'
-import { computed, shallowRef, toRaw } from 'vue'
+import { computed, shallowRef, toRaw, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { getConversationAnalyticsSurface } from '../composables'
@@ -38,12 +39,16 @@ import { resolveLlmTools } from './ai/chat-llm/tool-resolver'
 import { useLlmToolsStore } from './ai/chat-llm/tools'
 import { useLlmToolsetPromptsStore } from './ai/chat-llm/toolset-prompts'
 import { useAuthStore } from './auth'
+import { useProactiveCareStore } from './character/proactive'
+import { useCharacterStateStore } from './character/state'
 import { createMinecraftContext, createRuntimePromptContext, createUserAccountContext } from './chat/context-providers'
 import { useChatContextStore } from './chat/context-store'
+import { historyRoundLimitFor } from './chat/history-round-limit'
 import { describeChatImages, replaceToolResultImages } from './chat/image-projection'
 import { useChatSessionStore } from './chat/session-store'
 import { useChatStreamStore } from './chat/stream-store'
 import { useContextObservabilityStore } from './devtools/context-observability'
+import { useCharacterMemoryStore } from './memory/memory-store'
 import { useAiriCardStore } from './modules/airi-card'
 import { useAutonomousArtistryStore } from './modules/artistry-autonomous'
 import { useConsciousnessStore } from './modules/consciousness'
@@ -237,10 +242,18 @@ export const useChatStore = defineStore('chat', () => {
   const chatStream = useChatStreamStore()
   const chatContext = useChatContextStore()
   const cardStore = useAiriCardStore()
+  const characterState = useCharacterStateStore()
+  const characterMemory = useCharacterMemoryStore()
+  const proactiveCare = useProactiveCareStore()
   const wakeWords = useWakeWordsStore()
   const stickersStore = useStickersStore()
   const contextObservability = useContextObservabilityStore()
   const { activeSessionId } = storeToRefs(chatSession)
+  // Leaving a session sends its complete rounds to memory. Only the leader acts, because only it runs extraction.
+  watch(activeSessionId, (_current, previous) => {
+    if (previous)
+      void characterMemory.noteSessionLeft(previous).catch(error => console.error('[chat] Failed to schedule memory extraction:', error))
+  })
   const { streamingMessage } = storeToRefs(chatStream)
 
   const activeTurns = shallowRef<readonly { sessionId: string, turnId: string }[]>([])
@@ -266,8 +279,15 @@ export const useChatStore = defineStore('chat', () => {
     stopLeadershipListener ??= syncedPinia.onLeadershipChange((isLeader) => {
       if (!isLeader) {
         chatSession.dispose()
+        void characterMemory.stop()
+        proactiveCare.stop()
         return
       }
+
+      // The leader sends every turn, so it also owns memory extraction of those turns and proactive messages.
+      // `start` waits for the session index itself, because this callback runs before `initialize` loads it.
+      void characterMemory.start().catch(error => console.error('[chat] Failed to start memory extraction:', error))
+      proactiveCare.start()
 
       void chatSession.ensureCurrentSession().catch((error) => {
         console.error('[chat] Failed to start chat consumers after leader promotion:', error)
@@ -654,6 +674,16 @@ export const useChatStore = defineStore('chat', () => {
     onSendSettled: (event) => {
       settleOwnedTurnSpan(event)
       getSpeechBusContext().emit(voiceGenerationEnded, event)
+      // Only a completed round counts as an interaction. A cancelled or failed round gives no affection.
+      const characterId = chatSession.sessionMetas[event.sessionId]?.characterId
+      if (event.status === 'finished' && characterId) {
+        void characterState.recordRound(characterId)
+          .catch(error => console.error('[chat] Failed to record the round for affection:', error))
+        void characterMemory.noteRoundFinished(event.sessionId)
+          .catch(error => console.error('[chat] Failed to schedule memory extraction:', error))
+        void proactiveCare.recordInteraction()
+          .catch(error => console.error('[chat] Failed to record activity for proactive care:', error))
+      }
     },
     ...analyticsHooks,
     onLifecycle: record => contextObservability.recordLifecycle(record),
@@ -698,6 +728,20 @@ export const useChatStore = defineStore('chat', () => {
       if (artistry?.autonomousEnabled && artistry?.autonomousTarget === 'assistant')
         void artistryAutonomousStore.runArtistTask(messageText, toProviderHistory(sessionMessages))
     },
+  })
+
+  // ACT emotions move the mood of the character that owns the session, not the mood of the selected card.
+  // Recording does not wait, so a slow synchronized write cannot delay the stream.
+  const actToken = tokenAct()
+  runtime.hooks.onTokenSpecial(async (special, context) => {
+    if (!actToken.match(special))
+      return
+    const emotion = normalizeActPayload(actToken.parse(special)?.payload ?? {}).emotion
+    const characterId = chatSession.sessionMetas[context.sessionId]?.characterId
+    if (!emotion || !characterId)
+      return
+    void characterState.recordEmotion(characterId, emotion.name, emotion.intensity)
+      .catch(error => console.error('[chat] Failed to record the emotion of the reply:', error))
   })
 
   // One request owns preparation and generation. Cancellation cannot miss asynchronous startup.
@@ -857,6 +901,8 @@ export const useChatStore = defineStore('chat', () => {
       throw new Error(`Failed to resolve chat provider "${providerId}"`)
 
     const selectedModel = (await consciousnessStore.getModelsForProvider(providerId)).find(model => model.id === modelId)
+    // A session without a reply yet waits briefly for memory that the previous session of the character is extracting.
+    const newSession = !chatSession.getSessionMessages(payload.sessionId).some(message => message.role === 'assistant')
 
     /**
      * Reads the session character's current consciousness settings and prompt before each model request.
@@ -897,6 +943,15 @@ export const useChatStore = defineStore('chat', () => {
       temperature,
       topP,
       systemPromptSupplement,
+      historyRoundLimit: historyRoundLimitFor(selectedModel?.contextLength),
+      // Read after the queue wait, so a request that waited sees the latest mood and memory edits.
+      resolveContexts: async ({ messageText }) => {
+        const memory = await characterMemory.recallContext(characterId, messageText, { newSession })
+        return [
+          { source: 'character-state', text: characterState.describe(characterId) },
+          ...(memory ? [{ source: 'character-memory', text: memory }] : []),
+        ]
+      },
       stickers,
       tools: async () => {
         const references = collectToolReferences(payload.sessionId, payload.tools)

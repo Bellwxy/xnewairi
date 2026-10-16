@@ -742,6 +742,52 @@ describe('createChatOrchestratorRuntime', () => {
     })
   })
 
+  it('sends only the most recent history rounds and keeps the stored history', async () => {
+    const harness = createHarness()
+    for (let index = 1; index <= 4; index++) {
+      harness.sessionMessages['session-1'].push(
+        { role: 'user', content: `question ${index}`, createdAt: new Date(2026, 3, 25, 18, index).getTime(), id: `user-${index}` },
+        { role: 'assistant', content: `answer ${index}`, slices: [], tool_results: [], id: `assistant-${index}` },
+      )
+    }
+    let composedMessages: Message[] = []
+    harness.stream.mockImplementationOnce(async (_model, _chatProvider, messages, options) => {
+      composedMessages = conversationToChatMessages(messages)
+      await options?.onStreamEvent?.({ type: 'finish' })
+    })
+
+    await harness.runtime.ingest('question 5', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      historyRoundLimit: 2,
+    })
+
+    expect(composedMessages.map(message => message.role)).toEqual(['system', 'user', 'assistant', 'user'])
+    expect(composedMessages[1]?.content).toBe('[2026-04-25 18:04] question 4')
+    expect(composedMessages[3]?.content).toBe('[2026-04-25 18:47] question 5')
+    expect(harness.sessionMessages['session-1'].filter(message => message.role === 'user')).toHaveLength(5)
+  })
+
+  it('appends request contexts to the new user message without storing them', async () => {
+    const harness = createHarness()
+    let composedMessages: Message[] = []
+    harness.stream.mockImplementationOnce(async (_model, _chatProvider, messages, options) => {
+      composedMessages = conversationToChatMessages(messages)
+      await options?.onStreamEvent?.({ type: 'finish' })
+    })
+    const resolveContexts = vi.fn(async () => [{ source: 'character-memory', text: 'The user was born on 3 May.' }])
+
+    await harness.runtime.ingest('when is my birthday?', {
+      model: 'gpt-test',
+      chatProvider: provider,
+      resolveContexts,
+    })
+
+    expect(resolveContexts).toHaveBeenCalledWith({ messageText: 'when is my birthday?' })
+    expect(composedMessages.at(-1)?.content).toBe('[2026-04-25 18:47] when is my birthday?\n[Context]\n- character-memory: The user was born on 3 May.')
+    expect(harness.sessionMessages['session-1'].find(message => message.role === 'user')?.content).toBe('when is my birthday?')
+  })
+
   it('appends the request supplement to the system prompt of each resolved step', async () => {
     const harness = createHarness()
     harness.systemPromptSupplement.set('Plugin toolset guidance.')

@@ -2,6 +2,8 @@ import type { Conversation } from '@proj-airi/core-agent'
 
 import { check, minLength, object, parse, pipe, string, trim } from 'valibot'
 
+import { personalityLimit } from './airi-card-editor'
+
 /**
  * The presets that fill the one-sentence summary of a new character.
  * Each preset has a label, an example summary, and a personality template in `settings.pages.card.presets`.
@@ -46,12 +48,12 @@ export interface GenerateCharacterFieldsOptions {
 const DEFAULT_TIMEOUT_MS = 20_000
 
 /**
- * Length limits in Unicode code points. 2000 is the personality limit of the card editor in spec 2.4.
+ * Length limits in Unicode code points. The personality uses the limit of the card editor.
  * A reply over a limit is invalid. Generation does not cut text, because a cut sentence changes its meaning.
  */
 const fieldLimits = {
   description: 2000,
-  personality: 2000,
+  personality: personalityLimit,
   scenario: 1000,
   greeting: 1000,
 }
