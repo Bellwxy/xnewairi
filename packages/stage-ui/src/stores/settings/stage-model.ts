@@ -7,7 +7,7 @@ import { refManualReset, useEventListener } from '@vueuse/core'
 import { defineStore, storeToRefs } from 'pinia'
 import { computed, watch } from 'vue'
 
-import { DisplayModelFormat, useDisplayModelsStore } from '../display-models'
+import { DisplayModelFormat, isLive2DModel, useDisplayModelsStore } from '../display-models'
 
 export type StageModelRenderer = 'live2d' | 'vrm' | 'spine' | 'tachie' | 'mmd' | 'godot' | 'disabled' | undefined
 type BuiltInStageModelRenderer = Exclude<StageModelRenderer, 'godot'>
@@ -126,7 +126,8 @@ export const useSettingsStageModel = defineStore('settings-stage-model', () => {
     if (requestId !== stageModelUpdateSequence)
       return
 
-    if (!model) {
+    // The product renders Live2D only. A model of another format from an earlier import is not activated.
+    if (!model || !isLive2DModel(model)) {
       if (selectedModelId !== defaultStageModelId) {
         stageModelSelectedState.value = defaultStageModelId
         await updateStageModel()

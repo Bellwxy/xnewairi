@@ -12,5 +12,6 @@ export type {
   ChatToolReference,
   ContextMessage,
   ErrorMessage,
+  ProviderErrorKind,
   StreamingAssistantMessage,
 } from '@proj-airi/core-agent'

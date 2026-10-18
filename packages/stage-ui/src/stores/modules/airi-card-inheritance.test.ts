@@ -10,7 +10,6 @@ import { useAiriCardStore } from './airi-card'
 import { useArtistryStore } from './artistry'
 import { useConsciousnessStore } from './consciousness'
 import { useSpeechStore } from './speech'
-import { useVisionStore } from './vision'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ locale: { value: 'en' }, t: (key: string) => key }),
@@ -35,7 +34,6 @@ function card(provider = '', model = ''): AiriCard {
       airi: {
         modules: {
           consciousness: { provider, model },
-          vision: { provider: '', model: '' },
           speech: { provider: '', model: '', voice_id: '' },
         },
         agents: {},
@@ -75,17 +73,15 @@ describe('card inheritance with real module stores', () => {
 
   // https://github.com/moeru-ai/airi/pull/2332
   it('does not inherit a model from a different provider', async () => {
-    const vision = useVisionStore()
-    vision.activeProvider = 'global-provider'
-    vision.activeModel = 'global-model'
+    const consciousness = useConsciousnessStore()
+    consciousness.activeProvider = 'global-provider'
+    consciousness.activeModel = 'global-model'
     const cards = useAiriCardStore()
     await cards.initialize()
-    const uploaded = card()
-    uploaded.extensions.airi.modules.vision.provider = 'another-provider'
-    const id = await cards.addCard(uploaded, 'import')
+    const id = await cards.addCard(card('another-provider'), 'import')
     await cards.activateCard(id)
-    expect(vision.activeProvider).toBe('another-provider')
-    expect(vision.activeModel).toBe('')
+    expect(consciousness.activeProvider).toBe('another-provider')
+    expect(consciousness.activeModel).toBe('')
   })
 
   // https://github.com/moeru-ai/airi/pull/2332

@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import groovy.json.JsonSlurper
 
 import java.util.Properties
 
@@ -17,6 +18,10 @@ val orgJsonVersion: String by rootProject.extra
 val androidMinSdk = minSdkVersion
 val androidCompileSdk = compileSdkVersion
 val androidTargetSdk = targetSdkVersion
+val brand = JsonSlurper().parse(rootProject.file("brand.json")) as Map<*, *>
+val pocketAppId = brand["pocketAppId"] as String
+val productName = brand["productName"] as String
+val callbackScheme = brand["callbackScheme"] as String
 val appVersionProperties = Properties().apply {
     rootProject.file("app-version.properties").inputStream().use(::load)
 }
@@ -36,7 +41,9 @@ android {
     compileSdk = androidCompileSdk
 
     defaultConfig {
-        applicationId = "ai.moeru.airi_pocket"
+        applicationId = pocketAppId
+        manifestPlaceholders["brandProductName"] = productName
+        manifestPlaceholders["brandCallbackScheme"] = callbackScheme
         minSdk = androidMinSdk
         targetSdk = androidTargetSdk
         versionCode = androidVersionCode
@@ -78,6 +85,8 @@ dependencies {
     implementation("androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion")
     implementation("androidx.core:core-splashscreen:$coreSplashScreenVersion")
     implementation("com.squareup.okhttp3:okhttp:$okhttpVersion")
+    // The Vite build downloads this AAR. Keep the name equal to `androidSherpaOnnxLibrary` in `@proj-airi/stage-shared/local-speech-model`.
+    implementation(files("libs/sherpa-onnx-1.13.8.aar"))
     implementation(project(":capacitor-android"))
     testImplementation("junit:junit:$junitVersion")
     testImplementation("org.json:json:$orgJsonVersion")

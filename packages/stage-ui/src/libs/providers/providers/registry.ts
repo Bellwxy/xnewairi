@@ -13,6 +13,7 @@ import type {
   providerBrowserLocalAudioSpeech,
   providerBrowserLocalAudioTranscription,
 } from './local-audio'
+import type { providerLocalSpeech } from './local-speech'
 import type { providerNvidia } from './nvidia'
 import type { providerSherpawTranscription } from './sherpaw'
 
@@ -30,6 +31,7 @@ type StageOnlyProviderId
     | typeof providerBrowserLocalAudioSpeech.id
     | typeof providerBrowserLocalAudioTranscription.id
     | typeof providerKokoroLocal.id
+    | typeof providerLocalSpeech.id
     | typeof providerNvidia.id
 
 /** IDs of definitions registered by stage-ui, including portable definitions. */

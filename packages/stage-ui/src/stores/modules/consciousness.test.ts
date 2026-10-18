@@ -160,21 +160,15 @@ describe('consciousness store provider selection', () => {
     expect(definition?.name).toBe('OpenAI')
   })
 
-  it('resolves chat providers with the current reasoning mode', async () => {
+  it('resolves chat providers only through the gateway', async () => {
     const providerConfigStore = useProviderConfigStore()
     providerConfigStore.ensureProvider('openai', 'openai', { apiKey: 'sk-test' })
+    providerConfigStore.ensureProvider('openai-compatible', 'openai-compatible', { apiKey: 'sk-test', baseUrl: 'https://gateway.example/v1/' })
     const consciousnessStore = useConsciousnessStore()
-    const settingsStore = useConsciousnessSettingsStore()
 
-    const disabledProvider = await consciousnessStore.getChatProviderInstance('openai')
-    // The provider only sends efforts supported by the selected catalog model.
-    expect(disabledProvider.generation('gpt-5.1').config).toMatchObject({ reasoning: { effort: 'none' } })
-
-    await settingsStore.setReasoning(true)
-
-    const enabledProvider = await consciousnessStore.getChatProviderInstance('openai')
-    expect(enabledProvider.generation('gpt-5.1').config).toMatchObject({ reasoning: { effort: 'medium', summary: 'auto' } })
-    expect(enabledProvider.generation('test-model').config).not.toHaveProperty('reasoning')
+    await expect(consciousnessStore.getChatProviderInstance('openai')).rejects.toThrow('is not the gateway')
+    const gateway = await consciousnessStore.getChatProviderInstance('openai-compatible')
+    expect(gateway.generation('gateway-chat').config).toMatchObject({ model: 'gateway-chat' })
   })
 
   // https://github.com/moeru-ai/airi/issues/2816
@@ -191,9 +185,6 @@ describe('consciousness store provider selection', () => {
     consciousnessStore.activeModel = 'uncatalogued-model'
 
     expect(consciousnessStore.activeModelUsesProviderReasoningDefault).toBe(true)
-
-    const provider = await consciousnessStore.getChatProviderInstance('openrouter-ai')
-    expect(provider.generation('uncatalogued-model').config).not.toHaveProperty('reasoning')
   })
 
   // ROOT CAUSE:

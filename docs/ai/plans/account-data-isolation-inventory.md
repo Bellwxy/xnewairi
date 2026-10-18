@@ -165,8 +165,6 @@ Electron 主进程长期存活，不能只重载渲染窗口而保留旧账号�
 | `packages/stage-ui/src/stores/modules/speech.ts` | 账号 |
 | `packages/stage-ui/src/stores/modules/stickers.ts` | 账号 |
 | `packages/stage-ui/src/stores/modules/twitter.ts` | 账号 |
-| `packages/stage-ui/src/stores/modules/vision/processing-store.ts` | 账号 |
-| `packages/stage-ui/src/stores/modules/vision/store.ts` | 账号 |
 | `packages/stage-ui/src/stores/modules/web-search.ts` | 账号 |
 | `packages/stage-ui/src/stores/onboarding.ts` | 账号 |
 | `packages/stage-ui/src/stores/providers/config.ts` | 账号 |

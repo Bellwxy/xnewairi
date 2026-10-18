@@ -79,8 +79,10 @@ v2 相对 v1 的变化：
 
 | 位置 | 内容 | 能否跳过 |
 | --- | --- | --- |
-| 引导：供应商配置 | 对话端点与密钥 | 不能。现有步骤 |
-| 引导：模型选择 | 对话模型 | 不能。现有步骤 |
+| 引导：密钥 | 网关发放的密钥。品牌配置 `inferenceBaseUrl` 固定端点，用户不填端点 | 不能。现有步骤 |
+| 引导：模型（自动，无步骤） | 对话模型。品牌配置 `inferenceModel` 优先，此时不请求模型列表。没有固定值时，使用网关模型列表的第一个。列表请求失败或为空时，引导显示错误和重试，不能继续。有固定模型时，密钥校验只用该模型发一次对话请求，不请求模型列表。引导完成时把供应商和模型写入角色默认，跳过角色或语音步骤也写入 | 不需要用户操作。设置页高级区可以覆盖 |
+| 图片（自动，无配置） | 网关的对话模型接受图片。聊天图片和工具图片直接发给会话所属角色的对话模型，没有单独的视觉模块和图片描述流程 | 不需要用户操作 |
+| 语音识别（自动，无配置） | 内置 Sherpaw 识别模型。包内有内置模型时即为就绪，识别模型由供应商配置选择 | 不需要用户操作 |
 | 引导：认识你的角色（新增，见 2.5） | 形象、名字、一句话描述 | 能。跳过时使用内置 `default` 角色卡 |
 
 **设置页只显示以下控件**：
@@ -141,7 +143,7 @@ v3.2 新增以下源码事实，核对于 `2ed931c`：
 | 引导宿主 | 安卓附加分析提示与权限步骤，权限步骤已包含通知权限。桌面只附加分析提示 | `stage-pocket/src/App.vue:150-160`、`stage-pocket/src/components/permissions/permissions-panel.vue:33`、`stage-tamagotchi/src/renderer/pages/onboarding.vue:35-39` |
 | 角色卡创建 | `addCard` 的来源只有 `scratch`、`import` 与 `duplicate`。内置角色卡 ID 为 `default`，不能删除 | `stores/modules/airi-card.ts:180-190` |
 | 上下文长度 | 只有端点的模型列表返回 `context_length` 时才有值。自定义端点不补充目录元数据，缺失时归一为 0 | `provider-inference/src/model-catalog.ts:26-47`、`stores/providers/provider.ts:613` |
-| 一次性模型调用 | 现有写法是 `useLLM().stream`，传入 `supportsTools: false` 并收集 `text-delta`。它处理两种协议与兼容性降级 | `composables/voice-end-judge.ts:49-70`、`composables/vision/use-vision-inference.ts:56-110` |
+| 一次性模型调用 | 现有写法是 `useLLM().stream`，传入 `supportsTools: false` 并收集 `text-delta`。它处理两种协议与兼容性降级 | `composables/voice-end-judge.ts:49-70` |
 | 请求重试 | 核心层对 408、429 与 5xx 最多重试 3 次，间隔 3、6、12 秒。其他 4xx 不重试 | `core-agent/src/runtime/llm-service.ts:19-47` |
 | 内置背景 | 只有 2 张内置背景，不分时段 | `stores/background.ts:24-35` |
 | 记忆入口 | 模块列表有短期与长期两个记忆入口，`configured` 固定为 `false` | `composables/use-modules-list.ts:119-136` |

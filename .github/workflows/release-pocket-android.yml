@@ -25,7 +25,10 @@ jobs:
     name: Build Android APK
     runs-on: ubuntu-latest
     env:
-      PRODUCT_NAME: 'AIRI'
+      AIRI_BRAND_JSON: ${{ vars.AIRI_BRAND_JSON }}
+      PRODUCT_NAME: ${{ fromJSON(vars.AIRI_BRAND_JSON || '{}').productName }}
+      ITCH_TARGET: ${{ fromJSON(vars.AIRI_BRAND_JSON || '{}').itchTarget }}
+      SHERPAW_BUNDLE_MODELS: 'true'
       # Every current trigger path produces an installable APK artifact, so ship the analytics-enabled build consistently.
       VITE_ENABLE_ANALYTICS: 'true'
     steps:
@@ -113,12 +116,13 @@ jobs:
           tag_name: ${{ github.event.release.tag_name || inputs.tag }}
 
       - name: Setup butler
+        if: ${{ github.event_name == 'release' && env.ITCH_TARGET != '' }}
         uses: remarkablegames/setup-butler@v2
 
       # https://itch.io/docs/butler/pushing.html
       - name: Upload Android to itch.io
-        if: ${{ github.event_name == 'release' }}
-        run: butler push apps/stage-pocket/android/bundle/${{ env.APK_NAME }} nekomeowww/airi:android --userversion ${{ env.VERSION }}
+        if: ${{ github.event_name == 'release' && env.ITCH_TARGET != '' }}
+        run: butler push "apps/stage-pocket/android/bundle/${APK_NAME}" "${ITCH_TARGET}:android" --userversion "${VERSION}"
         env:
           BUTLER_API_KEY: ${{ secrets.GAME_PUBLISHING_ITCHIO }}
 

@@ -40,7 +40,6 @@ function card(name: string): AiriCard {
         modules: {
           consciousness: { provider: '', model: '' },
           speech: { provider: '', model: '', voice_id: '' },
-          vision: { provider: '', model: '' },
         },
       },
     },

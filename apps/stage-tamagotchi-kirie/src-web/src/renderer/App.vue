@@ -13,7 +13,6 @@ import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
-import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
 import { usePerfTracerBridgeStore } from '@proj-airi/stage-ui/stores/perf-tracer-bridge'
 import { useSettings, useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
 import { useSettingsStageModel } from '@proj-airi/stage-ui/stores/settings/stage-model'
@@ -112,7 +111,6 @@ function createFullStageRuntime() {
   useHearingStore()
   useSpeechStore()
   useSettingsStageModel()
-  useVisionStore()
 
   usePerfTracerBridgeStore()
   initializeStageThreeRuntimeTraceBridge()

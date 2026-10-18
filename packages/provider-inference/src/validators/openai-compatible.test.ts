@@ -118,6 +118,21 @@ describe('createOpenAICompatibleValidators', () => {
     expect(generateTextMock).not.toHaveBeenCalled()
   })
 
+  it('checks a fixed model with one chat request and no model catalog request', async () => {
+    generateTextMock.mockResolvedValue({ text: 'pong' })
+
+    const [chatValidator] = await getProviderValidators({
+      checks: [ProviderValidationCheck.ChatCompletions],
+      validationModel: 'fixed-model',
+    })
+    const result = await chatValidator.validator(config, provider, providerExtra, { t: mockT })
+
+    expect(result.valid).toBe(true)
+    expect(generateTextMock).toHaveBeenCalledWith(expect.objectContaining({ model: 'fixed-model' }))
+    expect(listModelsMock).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('default checks do not include chat_completions', async () => {
     const validators = await getProviderValidators()
     const ids = validators.map(v => v.id)

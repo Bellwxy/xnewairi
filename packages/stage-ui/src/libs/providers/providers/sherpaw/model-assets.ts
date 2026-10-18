@@ -76,12 +76,6 @@ export async function listSherpawModelAssets() {
   return sherpawModelAssets.list()
 }
 
-export async function ensureSherpawModelAssets(id: string): Promise<void> {
-  if (host && !isSherpawModelBundled(id))
-    return host.ensure(id)
-  return sherpawModelAssets.ensureAvailable(id)
-}
-
 export async function cancelSherpawModelAssets(id: string): Promise<void> {
   if (host && !isSherpawModelBundled(id))
     return host.cancel(id)

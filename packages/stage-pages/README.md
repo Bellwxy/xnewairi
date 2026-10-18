@@ -29,11 +29,11 @@ Desktop hosts compose the same section in their own Data page.
 
 ## Provider settings
 
-Provider catalogs expose only custom API endpoints for chat, vision, speech, and transcription.
+Provider catalogs expose only custom API endpoints for chat, speech, and transcription.
 The directory has no preset image providers, price filters, or deployment filters.
 The shared routes do not include official hosted providers, Flux purchases, or Capacitor subscriptions.
 
-The active chat and vision provider routes live under `/settings/providers`. They use `ProviderGenerationSettings` from stage-ui to render protocol and native search options from the provider catalog. The V2 editor is a separate consumer and does not replace these routes.
+The active chat provider routes live under `/settings/providers`. They use `ProviderGenerationSettings` from stage-ui to render protocol and native search options from the provider catalog. The V2 editor is a separate consumer and does not replace these routes.
 
 ## Hearing settings
 

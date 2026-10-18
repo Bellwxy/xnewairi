@@ -68,6 +68,10 @@ jobs:
             command: pnpm -F @proj-airi/ui-loading-screens run play:build
 
     runs-on: ubuntu-latest
+    env:
+      # Production builds require a customer identity. These fixed values only pass validation.
+      # The `.invalid` domains cannot resolve, so CI output cannot reach a real service.
+      AIRI_BRAND_JSON: '{"productName":"CI Build","desktopAppId":"invalid.ci.desktop","pocketAppId":"invalid.ci.pocket","callbackScheme":"invalid.ci.pocket","serverUrl":"https://api.ci.invalid","termsUrl":"https://ci.invalid/terms","privacyUrl":"https://ci.invalid/privacy","updateRepository":"ci/invalid","desktopOidcClientId":"ci-desktop","pocketOidcClientId":"ci-pocket","webOidcClientId":"ci-web","itchTarget":""}'
     steps:
       - uses: actions/checkout@v6
 

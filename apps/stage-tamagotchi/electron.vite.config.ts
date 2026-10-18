@@ -14,6 +14,8 @@ import VueMacros from 'vue-macros/vite'
 import VueRouter from 'vue-router/vite'
 
 import { paraformerBilingualZhEn, xAsrBilingualZhEnInt8, zipformerMultilingual } from '@proj-airi/provider-inference/sherpaw-transcription/models'
+import { brandPlugin } from '@proj-airi/stage-shared/brand/build'
+import { desktopLocalSpeechModelDownloads } from '@proj-airi/stage-shared/local-speech-model'
 import { kwsModel } from '@proj-airi/stage-ui/libs/voice/kws-model-info'
 import { Download } from '@proj-airi/unplugin-fetch'
 import { DownloadLive2DSDK } from '@proj-airi/unplugin-live2d-sdk'
@@ -46,6 +48,12 @@ export default defineConfig({
       },
     },
     plugins: [
+      brandPlugin(),
+      // The main process reads the offline voice from `local-tts`. electron-builder copies that directory into the package.
+      ...desktopLocalSpeechModelDownloads(sherpawModelEndpoint).map(file => Download(file.url, file.filename, file.destination, {
+        parentDir: join(import.meta.dirname, 'local-tts'),
+        cacheDir: sharedCacheDir,
+      })),
       {
         // To replace `build.rolldownOptions`, as electron-vite still uses the deprecated
         // `rollupOptions`, using `rollupOptions` and `rolldownOptions` at the same
@@ -102,7 +110,7 @@ export default defineConfig({
       },
     },
 
-    plugins: [],
+    plugins: [brandPlugin()],
   },
 
   renderer: {
@@ -196,6 +204,7 @@ export default defineConfig({
     },
 
     plugins: [
+      brandPlugin(),
       Info(),
 
       {
@@ -246,11 +255,31 @@ export default defineConfig({
               '**/settings/modules/mcp.vue',
               '**/devtools/index.vue',
               '**/settings/index.vue',
+              // Customer builds route every LLM request to the brand gateway. Hide provider and endpoint pages.
+              '**/settings/providers/index.vue',
+              '**/settings/providers/artistry/**',
+              '**/settings/providers/speech/**',
+              '**/settings/providers/transcription/**',
+              '**/settings/providers/vision/**',
+              '**/settings/providers/chat/amazon-bedrock.vue',
+              '**/settings/providers/chat/azure-ai-foundry.vue',
+              '**/settings/providers/chat/cloudflare-workers-ai.vue',
+              '**/settings/providers/chat/lm-studio.vue',
+              '**/settings/providers/chat/ollama.vue',
+              '**/settings/providers/chat/prompt-api.vue',
+              '**/v2/settings/providers.vue',
+              '**/v2/settings/providers/**',
+              // The product has no messaging, social, or game integrations.
+              '**/settings/modules/gaming-factorio.vue',
+              '**/settings/modules/gaming-minecraft.vue',
+              '**/settings/modules/messaging-discord.vue',
+              '**/settings/modules/x.vue',
             ],
           },
           resolve(import.meta.dirname, 'src', 'renderer', 'pages'),
         ],
-        exclude: ['**/components/**'],
+        // The desktop pages of Home Assistant and MCP replace the shared pages above. The product has neither integration.
+        exclude: ['**/components/**', '**/settings/modules/home-assistant.vue', '**/settings/modules/mcp.vue'],
       }),
 
       VitePluginVueDevTools(),

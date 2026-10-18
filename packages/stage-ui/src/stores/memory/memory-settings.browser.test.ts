@@ -17,7 +17,6 @@ import { useAiriCardStore } from '../modules/airi-card'
 import { useArtistryStore } from '../modules/artistry'
 import { useConsciousnessStore } from '../modules/consciousness'
 import { useSpeechStore } from '../modules/speech'
-import { useVisionStore } from '../modules/vision'
 import { useProviderStore } from '../providers/provider'
 import { useSettingsStageModel } from '../settings/stage-model'
 import { useMemorySettingsStore } from './memory-settings'
@@ -35,7 +34,6 @@ function createWindow(namespace: string, leadership: LeadershipMode) {
       // These stores call `useI18n` and must exist before other stores first use them.
       useProviderStore()
       useConsciousnessStore()
-      useVisionStore()
       useSpeechStore()
       useArtistryStore()
       useSettingsStageModel()

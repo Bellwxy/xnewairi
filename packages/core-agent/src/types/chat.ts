@@ -63,9 +63,14 @@ export interface ChatToolReference {
   name: string
 }
 
+/** The cause of a failed provider request, in terms that a user can fix. */
+export type ProviderErrorKind = 'endpoint' | 'auth' | 'model' | 'quota' | 'rate-limit'
+
 export interface ErrorMessage {
   role: 'error'
   content: string
+  /** The classified cause. It is absent when the cause is not known. */
+  kind?: ProviderErrorKind
 }
 
 export interface ContextMessage extends ContextUpdate<Record<string, unknown>, unknown> {
@@ -86,11 +91,6 @@ export type ChatHistoryItem = (ChatMessage | ErrorMessage) & {
    */
   completedAt?: number
   id?: string
-  /** Vision output stored by image order so later turns can reuse it without copying the image URL. */
-  imageDescriptions?: Array<{
-    description: string
-    imageIndex: number
-  }>
   /** ASR results indexed by the audio parts in the original user message. */
   audioTranscripts?: string[]
   /** Message that this message replies to in the same chat session. */

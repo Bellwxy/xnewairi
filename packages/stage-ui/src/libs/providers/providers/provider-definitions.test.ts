@@ -94,6 +94,7 @@ describe('migrated provider definitions', () => {
       'mimo-audio-transcription',
       'player2-speech',
       'kokoro-local',
+      'local-speech',
       'google-gemini-audio-speech',
       'voicevox',
       'aivis-speech',

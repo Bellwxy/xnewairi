@@ -4,21 +4,13 @@ import { getBeatSyncState, isBeatSyncSupported, listenBeatSyncStateChange } from
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import factorioIcon from '../assets/factorio-simple.png'
-
 import { useProactiveCareStore } from '../stores/character/proactive'
 import { useMemorySettingsStore } from '../stores/memory/memory-settings'
 import { useArtistryStore } from '../stores/modules/artistry'
 import { useConsciousnessStore } from '../stores/modules/consciousness'
-import { useDiscordStore } from '../stores/modules/discord'
-import { useFactorioStore } from '../stores/modules/gaming-factorio'
-import { useMinecraftStore } from '../stores/modules/gaming-minecraft'
 import { useHearingStore } from '../stores/modules/hearing'
-import { useHomeAssistantStore } from '../stores/modules/home-assistant'
 import { useSpeechStore } from '../stores/modules/speech'
 import { useStickersStore } from '../stores/modules/stickers'
-import { useTwitterStore } from '../stores/modules/twitter'
-import { useVisionStore } from '../stores/modules/vision'
 import { useWebSearchStore } from '../stores/modules/web-search'
 
 export interface Module {
@@ -41,20 +33,12 @@ export function useModulesList() {
   const speechStore = useSpeechStore()
   const stickersStore = useStickersStore()
   const hearingStore = useHearingStore()
-  const visionStore = useVisionStore()
-  const discordStore = useDiscordStore()
-  const twitterStore = useTwitterStore()
   const webSearchStore = useWebSearchStore()
-  const minecraftStore = useMinecraftStore()
-  const factorioStore = useFactorioStore()
-  const homeAssistantStore = useHomeAssistantStore()
   const artistryStore = useArtistryStore()
   const memorySettingsStore = useMemorySettingsStore()
   const proactiveCareStore = useProactiveCareStore()
   const beatSyncState = ref<BeatSyncDetectorState>()
   const beatSyncSupported = isBeatSyncSupported()
-
-  minecraftStore.initialize()
 
   const modulesList = computed<Module[]>(() => [
     {
@@ -82,15 +66,6 @@ export function useModulesList() {
       icon: 'i-solar:microphone-3-bold-duotone',
       to: '/settings/modules/hearing',
       configured: hearingStore.configured,
-      category: 'essential',
-    },
-    {
-      id: 'vision',
-      name: t('settings.pages.modules.vision.title'),
-      description: t('settings.pages.modules.vision.description'),
-      icon: 'i-solar:eye-closed-bold-duotone',
-      to: '/settings/modules/vision',
-      configured: visionStore.configured,
       category: 'essential',
     },
     {
@@ -136,60 +111,6 @@ export function useModulesList() {
       icon: 'i-solar:book-bookmark-bold-duotone',
       to: '/settings/modules/memory-long-term',
       configured: memorySettingsStore.enabled,
-      category: 'essential',
-    },
-    {
-      id: 'messaging-discord',
-      name: t('settings.pages.modules.messaging-discord.title'),
-      description: t('settings.pages.modules.messaging-discord.description'),
-      icon: 'i-simple-icons:discord',
-      to: '/settings/modules/messaging-discord',
-      configured: discordStore.configured,
-      category: 'messaging',
-    },
-    {
-      id: 'x',
-      name: t('settings.pages.modules.x.title'),
-      description: t('settings.pages.modules.x.description'),
-      icon: 'i-simple-icons:x',
-      to: '/settings/modules/x',
-      configured: twitterStore.configured,
-      category: 'messaging',
-    },
-    {
-      id: 'gaming-minecraft',
-      name: t('settings.pages.modules.gaming-minecraft.title'),
-      description: t('settings.pages.modules.gaming-minecraft.description'),
-      iconColor: 'i-vscode-icons:file-type-minecraft',
-      to: '/settings/modules/gaming-minecraft',
-      configured: minecraftStore.configured,
-      category: 'gaming',
-    },
-    {
-      id: 'gaming-factorio',
-      name: t('settings.pages.modules.gaming-factorio.title'),
-      description: t('settings.pages.modules.gaming-factorio.description'),
-      iconImage: factorioIcon,
-      to: '/settings/modules/gaming-factorio',
-      configured: factorioStore.configured,
-      category: 'gaming',
-    },
-    {
-      id: 'home-assistant',
-      name: t('settings.pages.modules.home-assistant.title'),
-      description: t('settings.pages.modules.home-assistant.description'),
-      icon: 'i-solar:home-smile-bold-duotone',
-      to: '/settings/modules/home-assistant',
-      configured: homeAssistantStore.configured,
-      category: 'essential',
-    },
-    {
-      id: 'mcp-server',
-      name: t('settings.pages.modules.mcp-server.title'),
-      description: t('settings.pages.modules.mcp-server.description'),
-      icon: 'i-solar:server-bold-duotone',
-      to: '/settings/modules/mcp',
-      configured: false,
       category: 'essential',
     },
     ...(beatSyncSupported

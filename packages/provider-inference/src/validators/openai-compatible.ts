@@ -15,6 +15,8 @@ interface OpenAICompatibleValidationOptions<TConfig extends { apiKey?: string, b
   checks?: ProviderValidationCheck[]
   additionalHeaders?: Record<string, string>
   allowValidationWithoutModel?: boolean
+  /** A fixed model for the chat check. The check then sends no model catalog request. */
+  validationModel?: string
   normalizeModelId?: (modelId: string) => string
   schedule?: {
     mode: 'once' | 'interval'
@@ -123,7 +125,7 @@ export function createOpenAICompatibleValidators<TConfig extends { apiKey?: stri
     provider: ProviderInstance,
     providerExtra: ProviderExtraMethods<TConfig> | undefined,
   ): Promise<ChatCheckResult> {
-    const model = await pickValidationModel(config, provider, providerExtra)
+    const model = options?.validationModel ?? await pickValidationModel(config, provider, providerExtra)
     const normalizedModel = model ? options?.normalizeModelId?.(model) ?? model : model
 
     if (!normalizedModel) {

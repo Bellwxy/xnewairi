@@ -27,6 +27,7 @@ class MainActivity : BridgeActivity() {
     private var webSocketBridge: HostWebSocketBridge? = null
 
     override fun load() {
+        registerPlugin(LocalSpeechPlugin::class.java)
         registerPlugin(MicrophonePermissionPlugin::class.java)
         registerPlugin(WebAuthenticationPlugin::class.java)
         super.load()

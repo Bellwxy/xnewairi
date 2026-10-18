@@ -42,9 +42,10 @@ it('shows only custom endpoints in every provider category', async () => {
   }
   await expect.element(screen.getByText('Pricing', { exact: true })).not.toBeInTheDocument()
   await expect.element(screen.getByRole('button', { name: 'Artistry', exact: true })).not.toBeInTheDocument()
+  // The gateway chat model reads images, so the directory has no vision category.
+  await expect.element(screen.getByRole('button', { name: 'Vision', exact: true })).not.toBeInTheDocument()
 
   for (const [category, path] of [
-    ['Vision', '/settings/providers/vision/openai-compatible'],
     ['Speech', '/settings/providers/speech/openai-compatible-audio-speech'],
     ['Transcription', '/settings/providers/transcription/openai-compatible-audio-transcription'],
     ['Chat', '/settings/providers/chat/openai-compatible'],

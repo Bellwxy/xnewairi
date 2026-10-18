@@ -1,6 +1,7 @@
 import { defineInvoke } from '@moeru/eventa'
 import { errorMessageFrom } from '@moeru/std'
 import { getElectronEventaContext } from '@proj-airi/electron-vueuse'
+import { brand } from '@proj-airi/stage-shared/brand'
 import { useAuthStore } from '@proj-airi/stage-ui/stores/auth'
 import { toast } from 'vue-sonner'
 
@@ -43,7 +44,8 @@ export function initializeElectronAuthCallbackBridge() {
     try {
       const confirmed = await useAuthStore().completeSignIn({
         ...credentials,
-        clientId: import.meta.env.VITE_OIDC_CLIENT_ID || 'airi-stage-electron',
+        // Token refresh must use the client that the main process used for the code exchange.
+        clientId: brand.desktopOidcClientId,
       })
       if (!confirmed)
         failure = i18n.global.t('stage.status.sign-in-unconfirmed')

@@ -70,8 +70,6 @@ const moduleSettings = computed(() => {
     return {
       consciousnessProvider: '',
       consciousness: '',
-      visionProvider: '',
-      vision: '',
       speechProvider: '',
       speech: '',
       voice: '',
@@ -82,8 +80,6 @@ const moduleSettings = computed(() => {
   return {
     consciousnessProvider: airiExt.consciousness?.provider || '',
     consciousness: airiExt.consciousness?.model || '',
-    visionProvider: airiExt.vision?.provider || '',
-    vision: airiExt.vision?.model || '',
     speechProvider: airiExt.speech?.provider || '',
     speech: airiExt.speech?.model || '',
     voice: airiExt.speech?.voice_id || '',
@@ -575,40 +571,6 @@ function getModuleDisplayValue(value: string | undefined): string {
                   </span>
                   <div truncate font-medium>
                     {{ getModuleDisplayValue(moduleSettings.consciousness) }}
-                  </div>
-                </div>
-
-                <div
-                  flex="~ col"
-                  bg="white/60 dark:black/30"
-                  gap-1 rounded-lg p-3
-                  border="~ neutral-200/50 dark:neutral-700/30"
-                  transition="all duration-200"
-                  hover="bg-white/80 dark:bg-black/40"
-                >
-                  <span flex="~ row" items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400>
-                    <div i-lucide:eye />
-                    {{ t('settings.pages.card.vision.provider') }}
-                  </span>
-                  <div truncate font-medium>
-                    {{ getModuleDisplayValue(moduleSettings.visionProvider) }}
-                  </div>
-                </div>
-
-                <div
-                  flex="~ col"
-                  bg="white/60 dark:black/30"
-                  gap-1 rounded-lg p-3
-                  border="~ neutral-200/50 dark:neutral-700/30"
-                  transition="all duration-200"
-                  hover="bg-white/80 dark:bg-black/40"
-                >
-                  <span flex="~ row" items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400>
-                    <div i-lucide:scan-eye />
-                    {{ t('settings.pages.card.vision.model') }}
-                  </span>
-                  <div truncate font-medium>
-                    {{ getModuleDisplayValue(moduleSettings.vision) }}
                   </div>
                 </div>
 

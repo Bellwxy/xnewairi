@@ -1,6 +1,7 @@
 import type { ElectronAuthStatus } from '../../shared/eventa'
 
 import { createContext, defineInvokeHandler } from '@moeru/eventa'
+import { brand } from '@proj-airi/stage-shared/brand'
 import { useAuthStore } from '@proj-airi/stage-ui/stores/auth'
 import { createPinia, disposePinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -51,6 +52,7 @@ describe('electron auth callback bridge', () => {
     await expect.poll(() => reports).toEqual([{ attemptId: 'attempt-1', error: undefined }])
     expect(boundary.session).toHaveBeenCalledWith('test-token')
     expect(useAuthStore().isAuthenticated).toBe(true)
+    expect(useAuthStore().oidcClientId).toBe(brand.desktopOidcClientId)
   })
 
   it('reports an error when token exchange succeeds but session confirmation returns false', async () => {

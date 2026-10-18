@@ -8,12 +8,16 @@
 
 ## Local Hearing
 
-Stage Pocket exposes Sherpaw models through the shared Vite plugin. The models load from pinned remote URLs when selected.
-Chinese and English start with Paraformer. Other languages use an available model that supports them.
+Stage Pocket bundles the Paraformer recognizer in the application package. Recognition works offline on first start.
+The build bundles it when `SHERPAW_BUNDLE_MODELS=true`. The Android release workflow sets it. A build without it has no recognizer.
+Hearing settings list only the bundled model. The app does not download recognizers at runtime.
 
-Selected remote models download into the WebView origin private file system.
-Sherpaw settings show download state and let users remove stored files.
-Verify origin private file system support on each target device.
+## Built-in Voice
+
+On Android, `LocalSpeechPlugin` runs an offline Chinese Piper voice with sherpa-onnx. The `local-speech` provider calls it through `src/modules/local-speech.ts`.
+The Vite config downloads the sherpa-onnx AAR into `android/app/libs` and extracts the voice into `android/app/src/main/assets/local-tts`. It checks the SHA-256 digest of both files.
+Run a Vite build before Gradle. Without the AAR, the app module does not compile.
+The `tar` command must read bzip2 archives. iOS has no plugin yet, so the voice is not available there.
 
 ## WebSocket Bridge
 

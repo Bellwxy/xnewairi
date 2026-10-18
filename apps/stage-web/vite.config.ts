@@ -20,6 +20,8 @@ import VueRouter from 'vue-router/vite'
 import { tryCatch } from '@moeru/std'
 import { localeRemap, serializeStartupFallbackLocales } from '@proj-airi/i18n'
 import { paraformerBilingualZhEn, xAsrBilingualZhEnInt8, zipformerMultilingual } from '@proj-airi/provider-inference/sherpaw-transcription/models'
+import { brandPlugin } from '@proj-airi/stage-shared/brand/build'
+import { resolveBrand } from '@proj-airi/stage-shared/brand/config'
 import { kwsModel } from '@proj-airi/stage-ui/libs/voice/kws-model-info'
 import { Download } from '@proj-airi/unplugin-fetch/vite'
 import { DownloadLive2DSDK } from '@proj-airi/unplugin-live2d-sdk/vite'
@@ -30,6 +32,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 const stageUIAssetsRoot = resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src', 'assets'))
 const sharedCacheDir = resolve(join(import.meta.dirname, '..', '..', '.cache'))
+const brand = resolveBrand(env.AIRI_BRAND_JSON)
 
 function hasFlagEnableMkcert(): boolean {
   if (process.argv.includes('--mkcert')) {
@@ -125,6 +128,7 @@ export default defineConfig({
   },
 
   plugins: [
+    brandPlugin(),
     {
       name: 'airi-startup-locales',
       transformIndexHtml: html => html.replace('__AIRI_STARTUP_LOCALES__', serializeStartupFallbackLocales(messages, localeRemap)),
@@ -198,8 +202,8 @@ export default defineConfig({
           registerType: 'prompt',
           includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
           manifest: {
-            name: 'AIRI',
-            short_name: 'AIRI',
+            name: brand.productName,
+            short_name: brand.productName,
             icons: [
               {
                 src: '/web-app-manifest-192x192.png',

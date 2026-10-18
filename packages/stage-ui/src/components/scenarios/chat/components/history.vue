@@ -83,6 +83,8 @@ const emit = defineEmits<{
   (e: 'replyMessage', payload: ChatHistoryReplyPayload): void
   (e: 'retryMessage', payload: { message: ChatHistoryItem, index: number, key: string | number }): void
   (e: 'toolCallRerun', payload: ChatToolCallRerunEvent): void
+  /** A classified error asks the host to open the settings route that fixes it. */
+  (e: 'configure', route: string): void
 }>()
 
 /** Keeps about two mobile viewports ready so fast flicks do not expose an unmounted gap. */
@@ -298,6 +300,7 @@ function emitToolCallRerun(
               @copy="emitCopyMessage(message, index)"
               @retry="emitRetryMessage(message, index)"
               @delete="emitDeleteMessage(message, index)"
+              @configure="emit('configure', $event)"
             />
             <ChatAssistantItem
               v-else-if="message.role === 'assistant'"

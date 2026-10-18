@@ -167,7 +167,6 @@ function createCard(displayModelId = 'preset-vrm-1'): AiriCard {
       airi: {
         modules: {
           consciousness: { provider: 'openai', model: 'gpt-4o' },
-          vision: { provider: 'ollama', model: 'llava' },
           speech: { provider: 'elevenlabs', model: 'eleven', voice_id: 'alloy', pitch: 1 },
           displayModelId,
           activeBackgroundId: 'background-secret',

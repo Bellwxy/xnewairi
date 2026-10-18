@@ -24,11 +24,6 @@ export interface AiriExtension {
       model: string
     }
 
-    vision: {
-      provider: string
-      model: string
-    }
-
     speech: {
       provider: string
       model: string

@@ -1,7 +1,8 @@
 import { isStageCapacitor } from '@proj-airi/stage-shared'
+import { brand } from '@proj-airi/stage-shared/brand'
 
 const FALLBACK = 'http://localhost'
-const POCKET_CALLBACK_ORIGIN = 'ai.moeru.airi-pocket://links'
+const POCKET_CALLBACK_ORIGIN = `${brand.callbackScheme}://links`
 
 function getRedirectOrigin(): string {
   if (import.meta.env.VITE_OIDC_REDIRECT_URI)
@@ -21,7 +22,6 @@ function getRedirectOrigin(): string {
 
 const origin = getRedirectOrigin()
 
-export const OIDC_CLIENT_ID = import.meta.env.VITE_OIDC_CLIENT_ID
-  || (isStageCapacitor() ? 'airi-stage-pocket' : 'airi-stage-web')
+export const OIDC_CLIENT_ID = isStageCapacitor() ? brand.pocketOidcClientId : brand.webOidcClientId
 
 export const OIDC_REDIRECT_URI = `${origin}/auth/callback`

@@ -26,7 +26,6 @@ export type AiriCardDraftValidationError = 'name' | 'version' | 'invalid_artistr
 /** Module settings owned by the AIRI Card editor form. */
 interface AiriCardEditorModules {
   consciousness: AiriExtension['modules']['consciousness']
-  vision: AiriExtension['modules']['vision']
   speech: Pick<AiriExtension['modules']['speech'], 'provider' | 'model' | 'voice_id'>
   displayModelId?: string
   artistry: Pick<
@@ -49,17 +48,13 @@ interface AiriCardEditorModules {
  */
 export function getAiriCardEditorModuleSettings(
   card: Card | undefined,
-): Pick<AiriCardEditorModules, 'consciousness' | 'vision' | 'speech' | 'displayModelId'> {
+): Pick<AiriCardEditorModules, 'consciousness' | 'speech' | 'displayModelId'> {
   const modules = getAiriCardModules(card?.extensions?.airi)
 
   return {
     consciousness: {
       provider: getModuleString(modules?.consciousness, 'provider'),
       model: getModuleString(modules?.consciousness, 'model'),
-    },
-    vision: {
-      provider: getModuleString(modules?.vision, 'provider'),
-      model: getModuleString(modules?.vision, 'model'),
     },
     speech: {
       provider: getModuleString(modules?.speech, 'provider'),

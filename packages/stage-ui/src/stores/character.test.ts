@@ -72,10 +72,6 @@ describe('store character', () => {
               provider: 'mock-provider',
               model: 'mock-model',
             },
-            vision: {
-              provider: 'mock-vision-provider',
-              model: 'mock-vision-model',
-            },
             speech: {
               provider: 'mock-speech-provider',
               model: 'mock-speech-model',

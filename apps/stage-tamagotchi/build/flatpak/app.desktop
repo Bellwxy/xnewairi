@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=$BRAND_PRODUCT_NAME
+Exec=$BRAND_APP_ID %U
+Terminal=false
+Type=Application
+Icon=$BRAND_APP_ID
+StartupWMClass=$BRAND_PRODUCT_NAME
+Comment=AI companion with Live2D and VRM avatars.
+Categories=Utility;
+

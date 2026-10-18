@@ -20,10 +20,9 @@ Each `createConfig` call declares `owner: 'account'` or `owner: 'device'`. The f
 
 ## Local model files
 
-Sherpaw downloads remote model files into the app user data directory. The main
-process serves installed files to the renderer through `airi-model`. The desktop
-release bundles X-ASR through `airi-sherpaw`. Sherpaw settings control
-remote downloads. The Resource Status Island shows transfer progress and errors.
+The desktop release bundles the X-ASR recognizer and the offline voice in the application package.
+The main process serves the recognizer to the renderer through `airi-sherpaw`.
+Hearing settings list only the bundled model. The app does not download recognizers or voices at runtime.
 
 ## Computer use
 
@@ -37,8 +36,7 @@ The first tool accepts AUV arguments, such as `["invoke", "window.list"]`.
 Use `["invoke", "--help"]` and command-specific help to discover supported operations.
 The image tool returns a screenshot as model image content. It accepts only PNG and JPEG artifacts inside the app's computer-use store.
 Use a model and provider that support tool calls for visual tasks.
-With **Use the vision model for tool images** on, the vision model reads the screenshot first for a chat model whose provider does not report image input.
-The chat model then gets a text description. It has the visible text and layout, but no pixel positions.
+The chat model gets the screenshot itself. The client has no separate image description step.
 Use AUV commands such as `screen.findText` to get coordinates.
 
 Electron starts the matching AUV SDK and CLI 0.0.16 on demand, over a private Unix socket or Windows named pipe.

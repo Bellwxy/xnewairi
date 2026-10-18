@@ -4,7 +4,10 @@ import type { PluginOption } from 'vite'
 
 import process from 'node:process'
 
-import { execSync } from 'node:child_process'
+import { Buffer } from 'node:buffer'
+import { execFileSync, execSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
+import { access, copyFile, mkdir, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
 import VueI18n from '@intlify/unplugin-vue-i18n/vite'
@@ -23,6 +26,8 @@ import VueRouter from 'vue-router/vite'
 import { tryCatch } from '@moeru/std'
 import { localeRemap, serializeStartupFallbackLocales } from '@proj-airi/i18n'
 import { paraformerBilingualZhEn, xAsrBilingualZhEnInt8, zipformerMultilingual } from '@proj-airi/provider-inference/sherpaw-transcription/models'
+import { brandPlugin } from '@proj-airi/stage-shared/brand/build'
+import { androidLocalSpeechModel, androidSherpaOnnxLibrary } from '@proj-airi/stage-shared/local-speech-model'
 import { kwsModel } from '@proj-airi/stage-ui/libs/voice/kws-model-info'
 import { Download } from '@proj-airi/unplugin-fetch/vite'
 import { DownloadLive2DSDK } from '@proj-airi/unplugin-live2d-sdk/vite'
@@ -39,6 +44,58 @@ function isEnvTruthy(value: string | undefined | null): boolean {
 
 const stageUIAssetsRoot = resolve(join(import.meta.dirname, '..', '..', 'packages', 'stage-ui', 'src', 'assets'))
 const sharedCacheDir = resolve(join(import.meta.dirname, '..', '..', '.cache'))
+
+async function exists(path: string) {
+  return await access(path).then(() => true, () => false)
+}
+
+/** Downloads a pinned file into the shared cache once, and rejects a file whose digest changed. */
+async function cachedDownload(file: { url: string, sha256: string }) {
+  const path = join(sharedCacheDir, 'local-speech', file.sha256)
+  if (!await exists(path)) {
+    const response = await fetch(file.url)
+    if (!response.ok)
+      throw new Error(`Failed to download ${file.url}: HTTP ${response.status}`)
+    const data = Buffer.from(await response.arrayBuffer())
+    const digest = createHash('sha256').update(data).digest('hex')
+    if (digest !== file.sha256)
+      throw new Error(`${file.url} has digest ${digest}, expected ${file.sha256}.`)
+    await mkdir(join(sharedCacheDir, 'local-speech'), { recursive: true })
+    await writeFile(path, data)
+  }
+  return path
+}
+
+/**
+ * Places the offline voice for the Android plugin before Gradle runs.
+ * The app module compiles against the sherpa-onnx AAR, so development builds need it too.
+ */
+function LocalSpeechAndroidAssets(): PluginOption {
+  const androidApp = join(import.meta.dirname, 'android', 'app')
+  return {
+    name: 'airi-local-speech-android-assets',
+    async configResolved() {
+      const libraryPath = join(androidApp, 'libs', androidSherpaOnnxLibrary.filename)
+      if (!await exists(libraryPath)) {
+        const cached = await cachedDownload(androidSherpaOnnxLibrary)
+        await mkdir(join(androidApp, 'libs'), { recursive: true })
+        await copyFile(cached, libraryPath)
+      }
+
+      const assetsRoot = join(androidApp, 'src', 'main', 'assets', 'local-tts')
+      if (await exists(join(assetsRoot, androidLocalSpeechModel.directory, androidLocalSpeechModel.model)))
+        return
+      const archive = await cachedDownload(androidLocalSpeechModel.archive)
+      // Node has no bzip2 decoder. The `tar` of macOS, Linux, and Windows 10 and later reads bzip2 archives.
+      await rm(join(assetsRoot, androidLocalSpeechModel.directory), { recursive: true, force: true })
+      await mkdir(assetsRoot, { recursive: true })
+      execFileSync('tar', ['-xjf', archive, '-C', assetsRoot])
+      // A partial extraction leaves no model file, so the next build extracts again.
+      if (!await exists(join(assetsRoot, androidLocalSpeechModel.directory, androidLocalSpeechModel.model)))
+        throw new Error(`The archive ${androidLocalSpeechModel.archive.url} has no ${androidLocalSpeechModel.model}.`)
+    },
+  }
+}
 
 export default defineConfig({
   optimizeDeps: {
@@ -109,6 +166,8 @@ export default defineConfig({
   },
 
   plugins: [
+    brandPlugin(),
+    LocalSpeechAndroidAssets(),
     {
       name: 'airi-startup-locales',
       transformIndexHtml: html => html.replace('__AIRI_STARTUP_LOCALES__', serializeStartupFallbackLocales(messages, localeRemap)),
@@ -124,11 +183,12 @@ export default defineConfig({
         })())],
 
     Info(),
-    // Transcription models stay remote. Pocket bundles the small wake word model, so detection works without a download.
+    // Pocket always bundles the small wake word model. Release builds also bundle Paraformer, the recognizer that mobile selects.
     Sherpaw({
       models: [paraformerBilingualZhEn, zipformerMultilingual, xAsrBilingualZhEnInt8, kwsModel],
       developmentModels: [kwsModel],
-      bundledModels: [kwsModel],
+      // Mobile selects Paraformer for Chinese and English, so release builds package it for offline first use.
+      bundledModels: process.env.SHERPAW_BUNDLE_MODELS === 'true' ? [paraformerBilingualZhEn, kwsModel] : [kwsModel],
       cacheDir: sharedCacheDir,
     }),
 
@@ -157,6 +217,27 @@ export default defineConfig({
             ...base,
             '**/settings/connection/index.vue',
             '**/settings/modules/beat-sync.vue',
+            // Customer builds route every LLM request to the brand gateway. Hide provider and endpoint pages.
+            '**/settings/providers/index.vue',
+            '**/settings/providers/artistry/**',
+            '**/settings/providers/speech/**',
+            '**/settings/providers/transcription/**',
+            '**/settings/providers/vision/**',
+            '**/settings/providers/chat/amazon-bedrock.vue',
+            '**/settings/providers/chat/azure-ai-foundry.vue',
+            '**/settings/providers/chat/cloudflare-workers-ai.vue',
+            '**/settings/providers/chat/lm-studio.vue',
+            '**/settings/providers/chat/ollama.vue',
+            '**/settings/providers/chat/prompt-api.vue',
+            '**/v2/settings/providers.vue',
+            '**/v2/settings/providers/**',
+            // The product has no messaging, social, or game integrations.
+            '**/settings/modules/gaming-factorio.vue',
+            '**/settings/modules/gaming-minecraft.vue',
+            '**/settings/modules/messaging-discord.vue',
+            '**/settings/modules/x.vue',
+            '**/settings/modules/home-assistant.vue',
+            '**/settings/modules/mcp.vue',
           ],
         },
       ],

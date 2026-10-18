@@ -4,7 +4,7 @@ import { errorMessageFrom } from '@moeru/std'
 import { embed, embedMany } from '@xsai/embed'
 
 import { useLLM } from '../ai/chat-llm/llm'
-import { useProviderConfigStore } from '../providers/config'
+import { gatewayProviderDefinitionId, useProviderConfigStore } from '../providers/config'
 import { useMemorySettingsStore } from './memory-settings'
 
 /**
@@ -22,7 +22,11 @@ export interface EmbeddingTarget {
 }
 
 function readEndpoint(providerId: string) {
-  const config = useProviderConfigStore().getProviderConfig(providerId)
+  const provider = useProviderConfigStore().getProvider(providerId)
+  // Embedding is an LLM request, so only the gateway serves it. Another provider falls back to keyword recall.
+  if (provider?.definitionId !== gatewayProviderDefinitionId)
+    return undefined
+  const config = provider.config
   const baseURL = typeof config?.baseUrl === 'string' ? config.baseUrl.trim() : ''
   const apiKey = typeof config?.apiKey === 'string' ? config.apiKey.trim() : ''
   return baseURL ? { baseURL: baseURL.endsWith('/') ? baseURL : `${baseURL}/`, apiKey } : undefined

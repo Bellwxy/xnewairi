@@ -52,6 +52,7 @@ coverage/
 out/
 bundle/
 flatpak/
+!apps/stage-tamagotchi/build/flatpak/
 flatpak-repo/
 .flatpak-builder/
 .flatpak-repo/
@@ -86,6 +87,9 @@ components.d.ts
 **/public/assets/js/*
 **/assets/live2d/models/*
 **/assets/vrm/models/*
+# Offline voice models that builds download
+apps/stage-tamagotchi/local-tts/
+apps/stage-pocket/android/app/src/main/assets/local-tts/
 
 # Serving fonts locally
 **/public/assets/fonts/
@@ -135,7 +139,12 @@ plugins-development
 
 apps/stage-pocket/ios/buildServer.json
 apps/stage-pocket/airi-pocket.jks
+apps/stage-pocket/android/brand.json
+apps/stage-pocket/ios/brand.xcconfig
 apps/stage-tamagotchi/electron.vite.config.*.mjs
+apps/stage-tamagotchi/brand.flatpak.yml
+apps/stage-tamagotchi/brand.desktop
+apps/stage-tamagotchi/brand.metainfo.xml
 docs/superpowers
 docs/research
 

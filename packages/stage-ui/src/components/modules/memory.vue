@@ -2,7 +2,7 @@
 import type { CharacterMemoryDocument, CoreMemoryBlockKey, EpisodeMemory } from '../../stores/memory/memory-document'
 import type { EmbeddingMode } from '../../stores/memory/memory-settings'
 
-import { Button, Callout, Collapsible, DoubleCheckButton, FieldCheckbox, FieldInput, FieldSelect, IconButton, SettingsCard } from '@proj-airi/ui'
+import { Button, Collapsible, DoubleCheckButton, FieldCheckbox, FieldInput, FieldSelect, IconButton, SettingsCard } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -96,23 +96,6 @@ const embeddingModeModel = computed({
   set: (mode: EmbeddingMode) => void settings.setEmbeddingMode(mode),
 })
 
-function overrideField(source: typeof extractionOverride, save: typeof settings.setExtractionOverride, field: 'provider' | 'model') {
-  return computed({
-    get: () => source.value[field],
-    set: (value: string) => void save({ ...source.value, [field]: value }),
-  })
-}
-const extractionProvider = overrideField(extractionOverride, settings.setExtractionOverride, 'provider')
-const extractionModel = overrideField(extractionOverride, settings.setExtractionOverride, 'model')
-const embeddingProvider = overrideField(embeddingOverride, settings.setEmbeddingOverride, 'provider')
-const embeddingModel = overrideField(embeddingOverride, settings.setEmbeddingOverride, 'model')
-const currentSearch = computed(() => {
-  const model = embeddingMode.value === 'off' ? '' : (vectorModel.value?.split('|').at(-1) ?? embeddingDetection.value?.model ?? '')
-  return model
-    ? t('settings.pages.modules.memory-long-term.embedding.current-vector', { model })
-    : t('settings.pages.modules.memory-long-term.embedding.current-keyword')
-})
-
 const chatProviderOfCharacter = computed(() => {
   try {
     return cardStore.getModules(characterId.value).consciousness.provider
@@ -121,9 +104,27 @@ const chatProviderOfCharacter = computed(() => {
     return ''
   }
 })
-const extractionNeedsConsent = computed(() => !!extractionOverride.value.provider
-  && extractionOverride.value.provider !== chatProviderOfCharacter.value
-  && !settings.confirmedExtractionProviders.includes(extractionOverride.value.provider))
+
+/**
+ * Edits the model of an override. The gateway is the only LLM provider, so the override always uses the chat provider of the character.
+ * An empty model also clears the provider, so the automatic value applies again.
+ */
+function overrideModel(source: typeof extractionOverride, save: typeof settings.setExtractionOverride) {
+  return computed({
+    get: () => source.value.model,
+    set: (model: string) => void save({ provider: model.trim() ? chatProviderOfCharacter.value : '', model }),
+  })
+}
+
+const currentSearch = computed(() => {
+  const model = embeddingMode.value === 'off' ? '' : (vectorModel.value?.split('|').at(-1) ?? embeddingDetection.value?.model ?? '')
+  return model
+    ? t('settings.pages.modules.memory-long-term.embedding.current-vector', { model })
+    : t('settings.pages.modules.memory-long-term.embedding.current-keyword')
+})
+
+const extractionModel = overrideModel(extractionOverride, settings.setExtractionOverride)
+const embeddingModel = overrideModel(embeddingOverride, settings.setEmbeddingOverride)
 
 /** Sessions of the character with history that the automatic start skipped, and the batches each would send. */
 const backfillOptions = ref<Array<{ sessionId: string, title: string, batches: number }>>([])
@@ -262,11 +263,7 @@ function exportMemory() {
             <p :class="['text-xs', 'text-neutral-500 dark:text-neutral-400']">
               {{ t('settings.pages.modules.memory-long-term.extraction.description') }}
             </p>
-            <div :class="['grid grid-cols-1 gap-3 sm:grid-cols-2']">
-              <FieldInput v-model="extractionProvider" :label="t('settings.pages.modules.memory-long-term.extraction.provider')" />
-              <FieldInput v-model="extractionModel" :label="t('settings.pages.modules.memory-long-term.extraction.model')" />
-            </div>
-            <Callout v-if="extractionNeedsConsent" theme="orange" :label="t('settings.pages.modules.memory-long-term.extraction.consent-notice')" />
+            <FieldInput v-model="extractionModel" :label="t('settings.pages.modules.memory-long-term.extraction.model')" />
           </section>
 
           <section :class="['flex flex-col gap-3']">
@@ -278,10 +275,7 @@ function exportMemory() {
               :label="t('settings.pages.modules.memory-long-term.embedding.mode')"
               :options="embeddingModeOptions"
             />
-            <div v-if="embeddingMode === 'custom'" :class="['grid grid-cols-1 gap-3 sm:grid-cols-2']">
-              <FieldInput v-model="embeddingProvider" :label="t('settings.pages.modules.memory-long-term.embedding.provider')" />
-              <FieldInput v-model="embeddingModel" :label="t('settings.pages.modules.memory-long-term.embedding.model')" />
-            </div>
+            <FieldInput v-if="embeddingMode === 'custom'" v-model="embeddingModel" :label="t('settings.pages.modules.memory-long-term.embedding.model')" />
             <p :class="['text-xs', 'text-neutral-500 dark:text-neutral-400']">
               {{ currentSearch }}
             </p>

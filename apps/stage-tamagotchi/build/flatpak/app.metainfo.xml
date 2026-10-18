@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>$BRAND_APP_ID</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>$BRAND_PRODUCT_NAME</name>
+  <summary>AI VTuber/Waifu chatbot inspired by Neuro-sama</summary>
+  <description>
+    <p>
+      $BRAND_PRODUCT_NAME is an AI companion with Live2D and VRM avatars.
+    </p>
+  </description>
+  <launchable type="desktop-id">$BRAND_APP_ID.desktop</launchable>
+  <url type="homepage">$BRAND_HOMEPAGE</url>
+  <url type="bugtracker">https://github.com/$BRAND_REPOSITORY/issues</url>
+  <content_rating type="oars-1.1" />
+</component>

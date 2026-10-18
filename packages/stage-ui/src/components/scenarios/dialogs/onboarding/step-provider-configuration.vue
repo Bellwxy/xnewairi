@@ -3,11 +3,13 @@ import type { ProviderMetadata } from '../../../../libs/providers/metadata'
 import type { OnboardingStepNextHandler, OnboardingStepPrevHandler } from './types'
 
 import { errorMessageFrom } from '@moeru/std'
-import { Button, Callout, FieldCheckbox, FieldInput, IconButton, ScrollableArea } from '@proj-airi/ui'
+import { brand } from '@proj-airi/stage-shared/brand'
+import { BasicButton, Button, Callout, FieldCheckbox, FieldInput, IconButton, ScrollableArea } from '@proj-airi/ui'
 import { computedAsync } from '@vueuse/core'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import { classifyProviderError } from '../../../../libs/providers/error-kind'
 import { useProviderConfigStore } from '../../../../stores/providers/config'
 import { useProviderStore } from '../../../../stores/providers/provider'
 import { Alert } from '../../../misc'
@@ -15,6 +17,8 @@ import { Alert } from '../../../misc'
 const props = defineProps<{
   selectedProviderId: string
   selectedProvider: ProviderMetadata | null
+  /** The last save found no chat model. The step stays and offers a retry. */
+  modelCatalogFailed?: boolean
   onNext: OnboardingStepNextHandler
   onPrevious: OnboardingStepPrevHandler
 }>()
@@ -26,13 +30,15 @@ const baseUrl = ref('')
 const enableChatCheck = ref(true)
 const validation = ref<'unchecked' | 'pending' | 'succeed' | 'failed'>('unchecked')
 const validationError = ref<string>()
+// A customer build fixes the endpoint. Customers then enter only the key that the gateway issues.
+const fixedBaseUrl = brand.inferenceBaseUrl
 
-// Returning from model selection restores the leader-owned saved configuration.
+// Returning from a later step restores the leader-owned saved configuration.
 watch(() => props.selectedProvider?.id, (providerId) => {
   if (!providerId)
     return
   const savedConfig = providerConfigStore.getProviderConfig(providerId)
-  baseUrl.value = typeof savedConfig?.baseUrl === 'string' ? savedConfig.baseUrl : ''
+  baseUrl.value = fixedBaseUrl || (typeof savedConfig?.baseUrl === 'string' ? savedConfig.baseUrl : '')
   apiKey.value = typeof savedConfig?.apiKey === 'string' ? savedConfig.apiKey : ''
   validation.value = 'unchecked'
   validationError.value = undefined
@@ -52,6 +58,9 @@ const showChatCheckOption = computedAsync(
     : false,
   false,
 )
+// The plain explanation comes first. The raw validator reason stays available for support.
+const validationErrorKind = computed(() => validationError.value ? classifyProviderError(validationError.value) : undefined)
+const validationDetailsOpen = ref(false)
 const canProceed = computed(() => !!props.selectedProvider && !!apiKey.value.trim() && !!baseUrl.value.trim() && validation.value !== 'pending')
 const primaryActionLabel = computed(() => t(validation.value === 'failed' ? 'settings.dialogs.onboarding.retry' : 'settings.dialogs.onboarding.next'))
 
@@ -86,6 +95,19 @@ async function saveConfiguration() {
     return
   await props.onNext({ apiKey: apiKey.value, baseUrl: baseUrl.value, accountId: '' })
 }
+
+const isRetryingModelCatalog = ref(false)
+
+/** Saves the same configuration again, so onboarding requests the model catalog again. */
+async function retryModelCatalog() {
+  isRetryingModelCatalog.value = true
+  try {
+    await saveConfiguration()
+  }
+  finally {
+    isRetryingModelCatalog.value = false
+  }
+}
 </script>
 
 <template>
@@ -116,6 +138,7 @@ async function saveConfiguration() {
           required
         />
         <FieldInput
+          v-if="!fixedBaseUrl"
           v-model="baseUrl"
           type="url"
           :label="t('settings.dialogs.onboarding.baseUrl')"
@@ -142,7 +165,40 @@ async function saveConfiguration() {
             </div>
           </template>
           <template v-if="validationError" #content>
-            <pre :class="['whitespace-pre-wrap break-all']">{{ validationError }}</pre>
+            <template v-if="validationErrorKind">
+              <p :class="['m-0']">
+                {{ t(`stage.chat.provider-error.${validationErrorKind}`) }}
+              </p>
+              <BasicButton
+                size="unset"
+                :class="['mt-1 text-xs underline']"
+                :aria-expanded="validationDetailsOpen"
+                @click="validationDetailsOpen = !validationDetailsOpen"
+              >
+                {{ t(validationDetailsOpen ? 'stage.chat.error-details.hide' : 'stage.chat.error-details.show') }}
+              </BasicButton>
+              <pre v-if="validationDetailsOpen" :class="['mt-1 whitespace-pre-wrap break-all text-xs']">{{ validationError }}</pre>
+            </template>
+            <pre v-else :class="['whitespace-pre-wrap break-all']">{{ validationError }}</pre>
+          </template>
+        </Alert>
+        <Alert v-if="props.modelCatalogFailed && validation !== 'pending'" type="error">
+          <template #title>
+            <div :class="['w-full flex flex-wrap items-center justify-between gap-2']">
+              <span>{{ t('settings.dialogs.onboarding.model-catalog-failed') }}</span>
+              <Button
+                size="sm"
+                :label="t('settings.dialogs.onboarding.retry')"
+                :loading="isRetryingModelCatalog"
+                :disabled="!canProceed || isRetryingModelCatalog"
+                @click="retryModelCatalog"
+              />
+            </div>
+          </template>
+          <template #content>
+            <p :class="['m-0']">
+              {{ t('settings.dialogs.onboarding.model-catalog-failed-help') }}
+            </p>
           </template>
         </Alert>
       </div>

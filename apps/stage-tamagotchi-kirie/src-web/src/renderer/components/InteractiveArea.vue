@@ -266,6 +266,7 @@ async function handleToolCallRerun(payload: ChatToolCallRerunEvent) {
         @reply-message="handleReplyMessage"
         @retry-message="handleRetryMessage($event.index)"
         @tool-call-rerun="handleToolCallRerun"
+        @configure="route => router.push(route)"
       />
     </template>
 

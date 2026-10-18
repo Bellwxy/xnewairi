@@ -1,8 +1,6 @@
 import type { Conversation, StreamOptions } from '@proj-airi/core-agent'
 import type { GenerationProvider } from '@proj-airi/provider-inference'
 
-import type { DescribeToolImage } from './tool-images'
-
 import { streamFrom as coreStreamFrom, isContentArrayRelatedError, isToolRelatedError, modelKey } from '@proj-airi/core-agent'
 import { listModels } from '@xsai/model'
 import { defineStore } from 'pinia'
@@ -13,23 +11,17 @@ import { resolveLlmTools } from './tool-resolver'
 export type { StreamEvent, StreamOptions } from '@proj-airi/core-agent'
 export { isContentArrayRelatedError, isToolRelatedError } from '@proj-airi/core-agent'
 
-/** Core stream options plus the stage-ui reader of images in tool results. */
-export interface LlmStreamOptions extends StreamOptions {
-  /** Reads the images in tool results as text. See {@link resolveLlmTools}. */
-  describeToolImage?: DescribeToolImage
-}
-
 export const useLLM = defineStore('llm', () => {
   const toolsCompatibility = ref<Map<string, boolean>>(new Map())
   const contentArrayCompatibility = ref<Map<string, boolean>>(new Map())
 
-  async function stream(model: string, chatProvider: GenerationProvider, context: Conversation, options?: LlmStreamOptions) {
+  async function stream(model: string, chatProvider: GenerationProvider, context: Conversation, options?: StreamOptions) {
     // Compatibility belongs to the model that received the failing request.
     // `prepareConversation` runs for every resolved request, so the key follows a step that changes the model.
     let key = modelKey(model, chatProvider.generation(model))
     let toolExecutionStarted = false
-    const { tools: customTools, describeToolImage, ...streamOptions } = options ?? {}
-    const builtinToolsResolver = () => resolveLlmTools({ customTools, describeImage: describeToolImage })
+    const { tools: customTools, ...streamOptions } = options ?? {}
+    const builtinToolsResolver = () => resolveLlmTools({ customTools })
     const resolveStep = streamOptions.resolveStep
 
     const runStream = () => coreStreamFrom({
@@ -40,7 +32,7 @@ export const useLLM = defineStore('llm', () => {
         ...streamOptions,
         // Core uses only the tools of a resolved step, so each step carries the complete tool list.
         resolveStep: resolveStep
-          ? async () => ({ ...await resolveStep(), tools: await resolveLlmTools({ customTools, describeImage: describeToolImage }) })
+          ? async () => ({ ...await resolveStep(), tools: await resolveLlmTools({ customTools }) })
           : undefined,
         prepareConversation: async (conversation, target) => {
           key = modelKey(target.model, target.request)

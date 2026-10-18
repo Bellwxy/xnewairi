@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useAuthStore } from '../stores/auth'
 import { authedFetch } from './auth-fetch'
+import { SERVER_URL } from './server'
 
 const analyticsMocks = vi.hoisted(() => ({
   getAnalyticsIdentitySnapshot: vi.fn<() => { distinctId: string, sessionId: string } | null>(() => ({
@@ -30,7 +31,7 @@ describe('authedFetch', () => {
     const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async () => new Response('{}', { status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
 
-    await authedFetch('https://api.airi.build/api/v1/stripe/checkout', {
+    await authedFetch(`${SERVER_URL}/api/v1/stripe/checkout`, {
       method: 'POST',
     })
 

@@ -12,6 +12,7 @@ import { useContextBridgeStore } from '@proj-airi/stage-ui/stores/mods/api/conte
 import { useDeferredMount } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import ChatPanelHeader from '../Widgets/chat-panel-header.vue'
 import ChatActionButtons from '../Widgets/ChatActionButtons.vue'
@@ -21,6 +22,7 @@ import ChatContainer from '../Widgets/ChatContainer.vue'
 import { useChatToolCallRerun } from '../../composables/useChatToolCallRerun'
 
 const { isReady } = useDeferredMount()
+const router = useRouter()
 const chatOrchestrator = useChatStore()
 const { activeTurns } = storeToRefs(chatOrchestrator)
 const { activeSessionId, messages } = storeToRefs(useChatSessionStore())
@@ -90,6 +92,7 @@ async function handleRetryMessage(index: number) {
             @reply-message="selectReply"
             @retry-message="handleRetryMessage($event.index)"
             @tool-call-rerun="rerunToolCall"
+            @configure="route => router.push(route)"
             @vue:mounted="isLoading = false"
           />
         </div>

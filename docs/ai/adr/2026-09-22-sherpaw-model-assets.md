@@ -15,6 +15,9 @@ The Electron main process downloads remote desktop models outside Vite. Its buil
 Web and Pocket expose remote models and install the selected model in OPFS.
 Desktop development installs selected models in the application user data directory.
 Desktop release workflows set `SHERPAW_BUNDLE_MODELS=true` and package X-ASR. Other models remain remote.
+The Android release workflow sets the same variable and packages Paraformer, because mobile selects Paraformer for Chinese and English. A customer can then use speech recognition offline on first start.
+The stage-ui host lists only bundled models. Hearing settings and Data settings have no download entry, so remote models are not used.
+A build without `SHERPAW_BUNDLE_MODELS=true` bundles no recognizer, so Sherpaw is unavailable in it.
 Vite rewrites bundled model URLs to `airi-sherpaw://assets/` in Electron builds.
 The main process serves bundled model files through this protocol.
 Renderer `fetch()` cannot read the same files through `file://`.
@@ -74,6 +77,8 @@ Startup does not wait for remote model downloads. A download starts when recogni
 | Desktop development | All configured models | None |
 | Pull request CI | All configured models | None |
 | Desktop release | Paraformer and multilingual Zipformer | X-ASR in the application package |
+| Pocket development and pull request CI | All configured models | None |
+| Pocket Android release | X-ASR and multilingual Zipformer | Paraformer in the application package |
 | Unit tests | Fixture metadata only | None |
 
 The profile table describes transcription models. The keyword spotting pack follows this table:

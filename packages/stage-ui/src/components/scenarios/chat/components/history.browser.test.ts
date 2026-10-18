@@ -628,6 +628,26 @@ describe('chat history', () => {
     expect(screen.container.querySelector('pre')?.textContent).toBe(content)
   })
 
+  it('explains a classified provider error and asks the host to open its fix', async () => {
+    const content = 'Remote sent 401 response: {"error":"invalid key"}'
+    const screen = await render(ChatHistory, {
+      props: {
+        messages: [{ role: 'user', content: 'hello' }, { role: 'error', content, kind: 'model' }],
+        style: 'height: 480px; width: 480px; overflow-y: auto;',
+      },
+      global: { plugins: [createEnglishI18n()] },
+    })
+
+    await expect.element(screen.getByText('The service cannot use the selected model. Select a different model.')).toBeInTheDocument()
+    expect(screen.container.textContent).not.toContain('invalid key')
+
+    await screen.getByRole('button', { name: 'Fix it' }).click()
+    expect(screen.emitted('configure')).toEqual([['/settings/modules/consciousness']])
+
+    await screen.getByRole('button', { name: 'Show details' }).click()
+    expect(screen.container.querySelector('pre')?.textContent).toBe(content)
+  })
+
   it('emits retry-message for an error after partial assistant output', async () => {
     const messages: ChatHistoryItem[] = [
       { role: 'user', content: 'hello' },

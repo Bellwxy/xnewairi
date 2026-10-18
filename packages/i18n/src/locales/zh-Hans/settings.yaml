@@ -49,13 +49,15 @@ dialogs:
     buyFlux: 补充 Flux 电量
     select-model: 选择模型
     no-models: 找不到可用模型
+    model-catalog-failed: 找不到聊天模型
+    model-catalog-failed-help: 服务没有返回可用的聊天模型。请检查 API 密钥和网络，然后重试。
     no-models-help: >-
       请返回上一步并检查您的 API Key，或检查网络连接。
     character:
       title: 认识你的角色
       description: 给角色起个名字，再用一句话描述它。其余内容由 AIRI 自动生成。
       model-label: 模型
-      model-description: 用来显示角色的 Live2D 或 VRM 模型。
+      model-description: 用来显示角色的 Live2D 模型。
       name-label: 名字
       name-placeholder: 例如：澪
       summary-label: 一句话描述
@@ -64,6 +66,18 @@ dialogs:
       generating: 正在生成角色…
       create: 创建角色
       skip: 跳过，使用默认角色
+    voice:
+      title: 让 TA 开口说话
+      description: 这些语音功能在你的设备上运行，离线可用，无需下载。
+      speech-label: 声音
+      speech-description: 角色用内置语音朗读回复。
+      hearing-label: 语音输入
+      hearing-description: 直接对角色说话。语音识别只在你的设备上进行。
+      preview: 试听
+      preview-text: 你好呀，我在这里陪着你。今天过得怎么样？
+      preview-failed: '语音无法播放：{error}'
+      finish: 完成
+      skip: 跳过，保持静音
     permissions:
       title: 权限管理
       description: 您现在可以授予所需权限，或继续并稍后在系统设置中配置。
@@ -484,9 +498,6 @@ pages:
       provider: 聊天 / 提供商
     consciousness:
       model: 意识 / 模型
-    vision:
-      provider: 视觉 / 提供商
-      model: 视觉 / 模型
     created_by: 创建者
     creator_notes: 创建者笔记
     delete: 删除
@@ -524,7 +535,6 @@ pages:
         配置此角色卡的模块。留空会继承全局设置。
       sections:
         chat: 聊天
-        vision: 视觉
         speech: 语音
         body: 身体
       use_default: 使用默认
@@ -784,6 +794,10 @@ pages:
       description: 人格设定、使用的模型等配置
       sections:
         section:
+          api-key:
+            title: API 密钥
+            description: 修改服务方发给你的密钥。
+          advanced: 高级
           provider-model-selection:
             collapse: 折叠
             custom_model_placeholder: 输入自订模型名称
@@ -822,7 +836,7 @@ pages:
               required-description: 此模型必须启用思考。
               provider-default-description: AIRI 未提供此模型的推理设置，将使用 OpenRouter 的默认设置。
       title: 意识
-    description: 思维，视觉，言语综合，游戏等
+    description: 思维、语音合成、游戏等模块
     gaming-factorio:
       description: 一起玩 Factorio！
       title: 异星工厂 Factorio
@@ -1056,6 +1070,9 @@ pages:
       token-placeholder: 输入您的Discord机器人令牌
       configured: Discord已正确配置！
     speech:
+      built-in-voice:
+        label: 内置语音
+        description: 角色用应用自带的离线语音朗读回复。
       description: 语音合成
       sections:
         section:
@@ -1101,35 +1118,6 @@ pages:
               label: 选用自定义 SSML
       title: 发声
     title: 机体模块
-    vision:
-      description: 视觉
-      title: 视觉
-      tool-images:
-        label: 使用视觉模型理解工具图片
-        description: 工具返回的图片（例如“使用电脑”的截图）会先由视觉模型读取，再由当前聊天模型回复。聊天模型的服务来源声明支持图片输入时，直接交给它。文字描述不包含像素坐标。
-      capture:
-        title: 视觉捕获频率
-        description: 调整视觉定时器捕获画面的频率。
-        interval:
-          label: 捕获间隔
-          description: 数值越小，捕获越频繁，占用的资源也越多。
-      stats:
-        captures: 捕获次数
-        context-updates: 上下文更新
-        inferences: 图像识别调用
-        inferences-description: 视觉模型的每一次调用，包括聊天图片
-        failed-inferences: 失败次数
-        last-inference: 上次调用
-        error: '错误：'
-        last-update: 上次更新 {time}
-        since-start: 自应用启动以来
-        never: 从未
-      ollama:
-        title: 提供商请求开关
-        description: 控制视觉推理请求中提供商特有的参数。
-        thinking:
-          label: 思考（Ollama）
-          description: '开启时，通过 Ollama 发送的视觉请求带有 `think: true`；关闭时带有 `think: false`。'
     x:
       description: X / Twitter 的浏览和使用
       enable: 启用X / Twitter集成
@@ -1699,9 +1687,6 @@ pages:
       chat:
         title: 聊天
         description: 文本生成模型提供商，例如 OpenRouter、OpenAI、Ollama。
-      vision:
-        title: 视觉
-        description: 用于理解图像的视觉模型提供商。
       speech:
         title: 语音合成
         description: 语音合成（文本转语音）模型提供商，例如 ElevenLabs、Azure Speech。
@@ -1951,6 +1936,9 @@ pages:
           validation:
             error-missing-api-key: 需要填写 API Key 才能用哦！
         title: ElevenLabs (11labs)
+      local-speech:
+        title: 内置语音
+        description: 离线的中文语音，随应用自带，无需下载。
       kokoro-local:
         description: 基于 Kokoro-82M 的本地语音合成
         fields:

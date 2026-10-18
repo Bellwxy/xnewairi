@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const appMock = vi.hoisted(() => ({
   getVersion: vi.fn(() => '0.9.0-beta.4'),
@@ -25,7 +25,7 @@ function createUpdaterMock() {
     autoDownload: true,
     allowPrerelease: false,
     channel: undefined as string | undefined,
-    logger: undefined as any,
+    logger: undefined as unknown,
     forceDevUpdateConfig: false,
     setFeedURL: vi.fn(),
     checkForUpdates: vi.fn().mockResolvedValue(undefined),
@@ -79,6 +79,7 @@ vi.mock('~build/git', () => ({
 }))
 
 describe('setupAutoUpdater', () => {
+  afterEach(() => vi.unstubAllEnvs())
   const expectedChannelByArch = process.arch === 'arm64' ? 'latest-arm64' : 'latest-x64'
 
   const laneReleaseTagMap = {
@@ -119,6 +120,19 @@ describe('setupAutoUpdater', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
+    vi.stubEnv('AIRI_BRAND_JSON', JSON.stringify({
+      productName: 'Customer Companion',
+      desktopAppId: 'com.customer.desktop',
+      pocketAppId: 'com.customer.pocket',
+      callbackScheme: 'com.customer.pocket',
+      serverUrl: 'https://api.customer.example',
+      termsUrl: 'https://customer.example/terms',
+      privacyUrl: 'https://customer.example/privacy',
+      updateRepository: 'customer/companion',
+      desktopOidcClientId: 'customer-desktop',
+      pocketOidcClientId: 'customer-pocket',
+      webOidcClientId: 'customer-web',
+    }))
     updaterState.instance = createUpdaterMock()
     appMock.getVersion.mockReturnValue('0.9.0-beta.4')
     appMock.getPath.mockImplementation((name: string) => name === 'logs' ? '/tmp/airi/logs' : `/tmp/${name}`)
@@ -143,7 +157,7 @@ describe('setupAutoUpdater', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1)
     expect(updaterState.instance.setFeedURL).toHaveBeenCalledWith({
       provider: 'generic',
-      url: 'https://github.com/moeru-ai/airi/releases/download/v0.9.0-beta.6',
+      url: 'https://github.com/customer/companion/releases/download/v0.9.0-beta.6',
     })
     expect(updaterState.instance.channel).toBe(expectedChannelByArch)
   })
@@ -157,7 +171,7 @@ describe('setupAutoUpdater', () => {
 
     expect(updaterState.instance.setFeedURL).toHaveBeenCalledWith({
       provider: 'generic',
-      url: 'https://github.com/moeru-ai/airi/releases/download/v0.9.0-beta.6',
+      url: 'https://github.com/customer/companion/releases/download/v0.9.0-beta.6',
     })
   })
 
@@ -209,7 +223,7 @@ describe('setupAutoUpdater', () => {
 
     expect(updaterState.instance.setFeedURL).toHaveBeenCalledWith({
       provider: 'generic',
-      url: 'https://github.com/moeru-ai/airi/releases/download/v0.8.9',
+      url: 'https://github.com/customer/companion/releases/download/v0.8.9',
     })
   })
 
@@ -224,7 +238,7 @@ describe('setupAutoUpdater', () => {
 
     expect(updaterState.instance.setFeedURL).toHaveBeenCalledWith({
       provider: 'generic',
-      url: `https://github.com/moeru-ai/airi/releases/download/${laneReleaseTagMap[lane]}`,
+      url: `https://github.com/customer/companion/releases/download/${laneReleaseTagMap[lane]}`,
     })
   })
 
@@ -244,7 +258,7 @@ describe('setupAutoUpdater', () => {
 
     expect(updaterState.instance.setFeedURL).toHaveBeenCalledWith({
       provider: 'generic',
-      url: `https://github.com/moeru-ai/airi/releases/download/${laneReleaseTagMap[expectedLane]}`,
+      url: `https://github.com/customer/companion/releases/download/${laneReleaseTagMap[expectedLane]}`,
     })
   })
 
@@ -278,7 +292,7 @@ describe('setupAutoUpdater', () => {
       arch: process.arch,
       channel: expectedChannelByArch,
       executablePath: expect.any(String),
-      logFilePath: expect.stringMatching(/stage-tamagotchi-updater[\\/]updater-log\.txt$/),
+      logFilePath: expect.stringMatching(/com\.customer\.desktop-updater-debug[\\/]updater-log\.txt$/),
       isOverrideActive: false,
     }))
     expect(service.state.diagnostics).not.toHaveProperty('updaterCacheDir')

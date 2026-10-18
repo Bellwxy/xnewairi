@@ -2,10 +2,8 @@
 import { IconStatusItem, RippleGrid } from '@proj-airi/stage-ui/components'
 import { useAnalytics } from '@proj-airi/stage-ui/composables'
 import { useRippleGridState } from '@proj-airi/stage-ui/composables/use-ripple-grid-state'
-import { useProviderConfigStore } from '@proj-airi/stage-ui/stores/providers/config'
 import { useProviderStore } from '@proj-airi/stage-ui/stores/providers/provider'
 import { GhostButton } from '@proj-airi/ui'
-import { storeToRefs } from 'pinia'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -14,14 +12,11 @@ const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const providersStore = useProviderStore()
-const providerConfigStore = useProviderConfigStore()
 const { lastClickedIndex, setLastClickedIndex } = useRippleGridState()
 const { trackProviderClick } = useAnalytics()
-const { replicaSyncState } = storeToRefs(providerConfigStore)
 
 const providerBlocks = computed(() => [
   { id: 'chat', icon: 'i-solar:chat-square-like-bold-duotone', providers: providersStore.allChatProvidersMetadata },
-  { id: 'vision', icon: 'i-solar:eye-bold-duotone', providers: providersStore.allVisionProvidersMetadata },
   { id: 'speech', icon: 'i-solar:user-speak-rounded-bold-duotone', providers: providersStore.allAudioSpeechProvidersMetadata },
   { id: 'transcription', icon: 'i-solar:microphone-3-bold-duotone', providers: providersStore.allAudioTranscriptionProvidersMetadata },
 ].map(block => ({ ...block, title: t(`settings.pages.providers.categories.${block.id}.title`) })))
@@ -69,7 +64,6 @@ async function setActiveTab(id: string) {
           :icon="provider.icon"
           :to="provider.to ?? `/settings/providers/${provider.category}/${provider.id}`"
           :configured="provider.configured"
-          :sync-state="replicaSyncState[provider.id]"
           @click="trackProviderClick(provider.id, provider.category)"
         />
       </template>

@@ -1,21 +1,14 @@
 import type {} from 'pinia-plugin-synced'
 
 import type { InferenceServiceProvider, ProviderValidationStatus } from '../../libs/providers/types'
-import type { ProviderReplicaRow } from '../../services/inference-service-providers'
-import type { ProviderSyncRow, ProviderSyncSnapshot } from './merge'
 
+import { brand } from '@proj-airi/stage-shared/brand'
 import { useAccountLocalStorage } from '@proj-airi/stage-shared/composables'
-import { useDebounceFn, useIntervalFn } from '@vueuse/core'
-import { isEqual } from 'es-toolkit'
 import { nanoid } from 'nanoid'
 import { defineStore } from 'pinia'
-import { computed, shallowRef, watch } from 'vue'
+import { computed } from 'vue'
 
-import { client } from '../../composables/api'
 import { getDefinedProvider } from '../../libs/providers'
-import { inferenceServiceProvidersService as service } from '../../services/inference-service-providers'
-import { useAuthStore } from '../auth'
-import { mergeProviderSync } from './merge'
 
 const providerStorageOptions = {
   // pinia-plugin-synced is the only cross-window propagation channel for this
@@ -24,55 +17,31 @@ const providerStorageOptions = {
   listenToStorageChanges: false,
 } as const
 
-const PUSH_DEBOUNCE_MS = 1000
-/** Same idle interval as VS Code Settings Sync. */
-const PULL_INTERVAL_MS = 5 * 60 * 1000
+/**
+ * The only provider definition that serves LLM requests. Chat, vision, memory, and embedding all use it.
+ * The provider store rejects LLM requests to any other definition, and the settings route opens only this one.
+ */
+export const gatewayProviderDefinitionId = 'openai-compatible'
 
-export type ProviderReplicaSyncState = 'synced' | 'pending' | 'not-uploaded'
-
-const emptyReplicaSyncState: Record<string, ProviderReplicaSyncState> = Object.freeze({})
-
-type StoredProvider = InferenceServiceProvider & {
-  replicaUpdatedAt?: string
-}
-
-function isUserProvider(provider: InferenceServiceProvider) {
-  return provider.configuredBy !== 'authentication'
+/**
+ * Pins the customer gateway into a chat endpoint configuration.
+ *
+ * Chat, vision, and memory read `baseUrl` from the stored configuration, so the store pins it on every write.
+ * A build without `inferenceBaseUrl` keeps the endpoint that the user entered in onboarding.
+ */
+function withGatewayEndpoint(definitionId: string, config: Record<string, unknown>) {
+  if (!brand.inferenceBaseUrl || definitionId !== gatewayProviderDefinitionId)
+    return config
+  return { ...config, baseUrl: brand.inferenceBaseUrl }
 }
 
 /**
- * Local providers are the primary copy. Cloud is a replica: pull on login
- * and every five minutes while signed in, push after a debounce. Upsert only
- * configured rows. Do not upload status. Merge prefers a config that works
- * on this device, then replica time.
+ * Provider configurations of the account. They stay on this device. The first release does not sync them to the cloud.
  */
 export const useProviderConfigStore = defineStore('provider-config', () => {
-  const authStore = useAuthStore()
-  // A signed-in user of another account only starts the account switch. Its cloud data must not meet this page's providers.
-  const canSync = () => authStore.isAuthenticated && authStore.userId !== 'local'
-  const providers = useAccountLocalStorage<Record<string, StoredProvider>>('settings/providers/configured', {}, providerStorageOptions)
+  const providers = useAccountLocalStorage<Record<string, InferenceServiceProvider>>('settings/providers/configured', {}, providerStorageOptions)
   const addedProviders = useAccountLocalStorage<Record<string, boolean>>('settings/providers/added', {}, providerStorageOptions)
-  const pendingDeletes = useAccountLocalStorage<Record<string, string | null>>('settings/providers/pending-deletes', {}, providerStorageOptions)
   const legacyConfigs = useAccountLocalStorage<Record<string, Record<string, unknown>>>('settings/credentials/providers', {}, providerStorageOptions)
-
-  const lastLiveRemote = shallowRef<Record<string, ProviderReplicaRow>>({})
-  let replicaMerged = false
-  let syncInFlight: Promise<void> | undefined
-  const afterSyncHooks: Array<() => void | Promise<void>> = []
-  let remoteWorkingCheck: ((row: ProviderReplicaRow) => Promise<boolean>) | undefined
-
-  function onAfterSync(hook: () => void | Promise<void>) {
-    afterSyncHooks.push(hook)
-    return () => {
-      const index = afterSyncHooks.indexOf(hook)
-      if (index >= 0)
-        afterSyncHooks.splice(index, 1)
-    }
-  }
-
-  function onRemoteWorking(check: (row: ProviderReplicaRow) => Promise<boolean>) {
-    remoteWorkingCheck = check
-  }
 
   // Import the previous provider configuration shape once. Provider ids remain
   // stable, so existing model selections keep pointing at the same provider.
@@ -107,74 +76,8 @@ export const useProviderConfigStore = defineStore('provider-config', () => {
     else if (!provider.configuredBy) {
       provider.configuredBy = 'user'
     }
+    provider.config = withGatewayEndpoint(provider.definitionId, provider.config)
   }
-
-  // Uploaded fields only. status and replicaUpdatedAt stay local; a successful
-  // push writes replicaUpdatedAt and must not look like a new local edit.
-  function replicaBody(row: { definitionId: string, config: Record<string, unknown> }) {
-    return { definitionId: row.definitionId, config: row.config }
-  }
-
-  function snapshotLocal(): ProviderSyncSnapshot {
-    const live: Record<string, ProviderSyncRow> = {}
-    for (const provider of Object.values(providers.value)) {
-      if (!isUserProvider(provider))
-        continue
-      live[provider.id] = {
-        id: provider.id,
-        ...replicaBody(provider),
-        replicaUpdatedAt: provider.replicaUpdatedAt,
-      }
-    }
-    return {
-      live,
-      pendingDeletes: { ...pendingDeletes.value },
-    }
-  }
-
-  function indexAcceptedReplica(merged: ProviderSyncSnapshot, remote: ProviderReplicaRow[]) {
-    const remoteLiveIds = new Set(remote.filter(row => !row.deletedAt).map(row => row.id))
-    const next: Record<string, ProviderReplicaRow> = {}
-    for (const row of Object.values(merged.live)) {
-      if (!remoteLiveIds.has(row.id))
-        continue
-      next[row.id] = {
-        id: row.id,
-        definitionId: row.definitionId,
-        config: { ...row.config },
-        updatedAt: row.replicaUpdatedAt ?? '',
-        deletedAt: null,
-      }
-    }
-    lastLiveRemote.value = next
-  }
-
-  function isDirty(provider: StoredProvider) {
-    const remote = lastLiveRemote.value[provider.id]
-    if (!remote)
-      return true
-    return !isEqual(replicaBody(provider), replicaBody(remote))
-  }
-
-  const schedulePush = useDebounceFn(() => {
-    void pushProviders()
-  }, PUSH_DEBOUNCE_MS)
-
-  // Nested config writes skip actions, so the replica payload is watched.
-  const replicaSignature = computed(() => {
-    const snapshot = snapshotLocal()
-    const live = Object.fromEntries(
-      Object.entries(snapshot.live).map(([id, row]) => [id, replicaBody(row)]),
-    )
-    return JSON.stringify({
-      live,
-      pendingDeletes: snapshot.pendingDeletes,
-    })
-  })
-
-  watch(replicaSignature, () => {
-    void schedulePush()
-  })
 
   const configs = computed(() => Object.fromEntries(
     Object.entries(providers.value).map(([providerId, provider]) => [providerId, provider.config]),
@@ -185,24 +88,6 @@ export const useProviderConfigStore = defineStore('provider-config', () => {
   const configuredProviders = computed(() => Object.fromEntries(
     Object.entries(providers.value).map(([providerId, provider]) => [providerId, provider.status === 'configured']),
   ))
-
-  const replicaSyncState = computed(() => {
-    if (!canSync())
-      return emptyReplicaSyncState
-
-    const states: Record<string, ProviderReplicaSyncState> = {}
-    for (const provider of Object.values(providers.value)) {
-      if (!isUserProvider(provider))
-        continue
-      if (!isDirty(provider))
-        states[provider.id] = 'synced'
-      else if (provider.status === 'configured')
-        states[provider.id] = 'pending'
-      else
-        states[provider.id] = 'not-uploaded'
-    }
-    return Object.keys(states).length === 0 ? emptyReplicaSyncState : states
-  })
 
   function getProvider(providerId: string) {
     return providers.value[providerId]
@@ -221,15 +106,14 @@ export const useProviderConfigStore = defineStore('provider-config', () => {
     if (!definition)
       throw new Error(`Provider definition with id "${definitionId}" not found.`)
 
-    const provider: StoredProvider = {
+    const provider: InferenceServiceProvider = {
       id: providerId,
       definitionId,
-      config,
+      config: withGatewayEndpoint(definitionId, config),
       status: 'unconfigured',
       configuredBy: definition.configuredBy ?? 'user',
     }
     providers.value[providerId] = provider
-    delete pendingDeletes.value[providerId]
     return provider
   }
 
@@ -247,10 +131,6 @@ export const useProviderConfigStore = defineStore('provider-config', () => {
       return
 
     provider.status = status
-    // Config often changes first; validation marks configured later.
-    // Push then, or a finished key never uploads.
-    if (status === 'configured')
-      schedulePush()
   }
 
   /**
@@ -267,7 +147,7 @@ export const useProviderConfigStore = defineStore('provider-config', () => {
 
     providers.value[providerId] = {
       ...provider,
-      config: { ...provider.config, ...patch },
+      config: withGatewayEndpoint(provider.definitionId, { ...provider.config, ...patch }),
     }
     return true
   }
@@ -288,7 +168,6 @@ export const useProviderConfigStore = defineStore('provider-config', () => {
       ...provider,
       config: { ...provider.config, model },
     }
-    schedulePush()
   }
 
   /**
@@ -307,189 +186,20 @@ export const useProviderConfigStore = defineStore('provider-config', () => {
       ...provider,
       config: { ...provider.config, model },
     }
-    schedulePush()
   }
-
-  function applyMerged(merged: ProviderSyncSnapshot) {
-    const previousIds = new Set(Object.keys(providers.value))
-    const next: Record<string, StoredProvider> = {}
-    for (const [id, provider] of Object.entries(providers.value)) {
-      if (!isUserProvider(provider))
-        next[id] = provider
-    }
-
-    for (const [id, provider] of Object.entries(providers.value)) {
-      if (isUserProvider(provider) && !merged.live[id])
-        unmarkProviderAdded(id)
-    }
-
-    for (const [id, row] of Object.entries(merged.live)) {
-      const current = providers.value[id]
-      next[id] = {
-        id: row.id,
-        definitionId: row.definitionId,
-        config: row.config,
-        replicaUpdatedAt: row.replicaUpdatedAt,
-        status: current?.status ?? 'unconfigured',
-        configuredBy: 'user',
-      }
-      if (!previousIds.has(id))
-        markProviderAdded(id)
-    }
-
-    providers.value = next
-    pendingDeletes.value = merged.pendingDeletes
-  }
-
-  function localWorkingIds() {
-    const ids = new Set<string>()
-    for (const provider of Object.values(providers.value)) {
-      if (isUserProvider(provider) && provider.status === 'configured')
-        ids.add(provider.id)
-    }
-    return ids
-  }
-
-  async function remoteWorkingIds(remote: ProviderReplicaRow[]) {
-    const ids = new Set<string>()
-    for (const row of remote) {
-      if (row.deletedAt)
-        continue
-      if (!remoteWorkingCheck) {
-        ids.add(row.id)
-        continue
-      }
-      try {
-        if (await remoteWorkingCheck(row))
-          ids.add(row.id)
-      }
-      catch {}
-    }
-    return ids
-  }
-
-  async function syncProviders() {
-    if (!canSync())
-      return
-
-    if (syncInFlight) {
-      await syncInFlight
-      return syncProviders()
-    }
-
-    syncInFlight = (async () => {
-      try {
-        const remote = await service.listRemote(client)
-        const merged = mergeProviderSync(snapshotLocal(), remote, {
-          local: localWorkingIds(),
-          remote: await remoteWorkingIds(remote),
-        })
-        applyMerged(merged)
-        indexAcceptedReplica(merged, remote)
-        replicaMerged = true
-      }
-      catch {
-        return
-      }
-      await pushProviders()
-      for (const hook of afterSyncHooks)
-        await hook()
-    })()
-
-    try {
-      await syncInFlight
-    }
-    finally {
-      syncInFlight = undefined
-    }
-  }
-
-  async function pushProviders() {
-    if (!canSync())
-      return
-
-    const toUpsert = Object.values(providers.value).filter(provider =>
-      isUserProvider(provider) && isDirty(provider) && provider.status === 'configured',
-    )
-
-    if (!replicaMerged) {
-      if (toUpsert.length === 0 && Object.keys(pendingDeletes.value).length === 0)
-        return
-      return syncProviders()
-    }
-
-    for (const provider of toUpsert) {
-      try {
-        const remote = await service.upsertRemote(client, {
-          id: provider.id,
-          definitionId: provider.definitionId,
-          config: provider.config,
-        })
-        const current = providers.value[provider.id]
-        if (current)
-          current.replicaUpdatedAt = remote.updatedAt
-        lastLiveRemote.value = {
-          ...lastLiveRemote.value,
-          [provider.id]: remote,
-        }
-      }
-      catch {
-        return
-      }
-    }
-
-    for (const id of Object.keys(pendingDeletes.value)) {
-      try {
-        await service.deleteRemote(client, id)
-        delete pendingDeletes.value[id]
-        const nextRemote = { ...lastLiveRemote.value }
-        delete nextRemote[id]
-        lastLiveRemote.value = nextRemote
-      }
-      catch {
-        return
-      }
-    }
-  }
-
-  const periodicSync = useIntervalFn(
-    () => {
-      void syncProviders()
-    },
-    PULL_INTERVAL_MS,
-    { immediate: false },
-  )
-
-  authStore.onAuthenticated(() => {
-    void syncProviders()
-    periodicSync.resume()
-  })
-
-  authStore.onLogout(() => {
-    periodicSync.pause()
-  })
 
   async function addProvider(definitionId: string, initialConfig: Record<string, unknown> = {}) {
     const provider = ensureProvider(nanoid(), definitionId, initialConfig)
     markProviderAdded(provider.id)
-    schedulePush()
     return provider
   }
 
   async function removeProvider(providerId: string) {
-    const provider = providers.value[providerId]
-    if (!provider)
+    if (!providers.value[providerId])
       return
-
-    if (isUserProvider(provider))
-      pendingDeletes.value[providerId] = new Date().toISOString()
 
     delete providers.value[providerId]
     unmarkProviderAdded(providerId)
-    const nextRemote = { ...lastLiveRemote.value }
-    delete nextRemote[providerId]
-    lastLiveRemote.value = nextRemote
-    schedulePush()
   }
 
   async function updateProviderConfig(providerId: string, config: Record<string, unknown>, status: ProviderValidationStatus) {
@@ -497,32 +207,26 @@ export const useProviderConfigStore = defineStore('provider-config', () => {
     if (!provider)
       return
 
-    const next: StoredProvider = {
+    const next: InferenceServiceProvider = {
       ...provider,
-      config: { ...config },
+      config: withGatewayEndpoint(provider.definitionId, { ...config }),
       status,
     }
     providers.value[providerId] = next
-    schedulePush()
     return next
   }
 
   async function resetProviders() {
     providers.value = {}
     addedProviders.value = {}
-    pendingDeletes.value = {}
-    lastLiveRemote.value = {}
-    replicaMerged = false
   }
 
   return {
     providers,
     configs,
     addedProviders,
-    pendingDeletes,
     listedProviders,
     configuredProviders,
-    replicaSyncState,
 
     getProvider,
     getProviderConfig,
@@ -533,14 +237,10 @@ export const useProviderConfigStore = defineStore('provider-config', () => {
     patchProviderConfig,
     setProviderModel,
     setProviderModelIfUnset,
-    syncProviders,
-    pushProviders,
     addProvider,
     removeProvider,
     updateProviderConfig,
     resetProviders,
-    onAfterSync,
-    onRemoteWorking,
   }
 }, {
   synced: {
@@ -552,8 +252,6 @@ export const useProviderConfigStore = defineStore('provider-config', () => {
       'patchProviderConfig',
       'setProviderModel',
       'setProviderModelIfUnset',
-      'syncProviders',
-      'pushProviders',
       'addProvider',
       'removeProvider',
       'updateProviderConfig',

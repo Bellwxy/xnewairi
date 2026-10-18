@@ -9,11 +9,6 @@ const beatSyncPattern = /Beat sync driver|Hit beat|Punchy V|Beat Sync Visualizer
 const websocketInspectorPattern = /Incoming|Outgoing|Filter payload|No messages found|WebSocket Inspector/i
 const pluginHostPattern = /Discovered|Enabled|Loaded|Capabilities|Plugin Host Debug/i
 const screenCapturePattern = /Applications|Displays|Refetch|Share Window|Share Screen|屏幕捕获|Open system preferences|打开系统偏好设置/i
-// NOTICE: Must stay unique to /devtools/vision. The previous step captures
-// /devtools/screen-capture and both pages render `Applications` / `Displays`,
-// so matching against those generics can pass against stale screen-capture DOM
-// and silently produce a mislabeled screenshot.
-const visionCapturePattern = /Capture interval|No vision output yet|vision capture/i
 const navHeaderSettleWaitMs = 1000
 
 export const devtoolsSection: ManualCaptureSection = {
@@ -100,15 +95,6 @@ export const devtoolsSection: ManualCaptureSection = {
       rawCaptureName: '25-devtools-screen-capture',
       docAssetFileName: 'manual-devtools-screen-capture.avif',
       waitMs: 500,
-    },
-    {
-      id: 'vision-capture',
-      kind: 'settings-route',
-      routePath: '/devtools/vision',
-      readyPattern: visionCapturePattern,
-      rawCaptureName: '26-devtools-vision-capture',
-      docAssetFileName: 'manual-devtools-vision-capture.avif',
-      waitMs: navHeaderSettleWaitMs,
     },
   ],
 }

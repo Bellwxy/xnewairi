@@ -4,10 +4,25 @@ Shared core for stage
 
 ## Provider access
 
-Inference uses custom API endpoints. Configure credentials, an endpoint, and a model through Settings > Providers.
-The client catalogs expose only custom endpoints for chat, vision, speech, and transcription. The internal inference adapters remain unchanged.
+Inference uses an OpenAI-compatible gateway. Customers enter only their key. Settings > Consciousness links to the key page.
+The client catalogs expose only custom endpoints for chat, speech, and transcription. The internal inference adapters remain unchanged.
 Custom endpoints use OpenAI-compatible protocols and do not require an AIRI account.
-Onboarding opens custom-provider configuration without a provider selection step. The endpoint starts empty.
+Onboarding opens custom-provider configuration without a provider selection step or a model selection step.
+When the brand sets `inferenceBaseUrl`, onboarding hides the endpoint field. The provider config store then writes this gateway into every chat endpoint configuration.
+Otherwise the endpoint starts empty in onboarding. Settings has no endpoint field.
+Onboarding selects the brand `inferenceModel` without a catalog request. Without it, onboarding selects the first model that the gateway lists.
+With `inferenceModel`, the gateway key check sends one chat request with that model and requests no model catalog.
+When onboarding finishes, it stores the chat provider and model as the card default (`updateDefaultConsciousness`). Skipped steps do not change this.
+When the gateway lists no model, the configuration step shows an error and a retry, and onboarding does not continue.
+The model list is in the collapsed advanced section of Consciousness settings.
+Only the gateway provider (`openai-compatible`) serves LLM requests. `getChatProviderInstance` rejects other providers, and memory embedding falls back to keywords for them.
+The chat provider settings route opens only the gateway. Another provider ID returns to Consciousness settings.
+Speech settings have a **Built-in voice** switch when the host contains the voice. On selects `local-speech`, and off selects no voice.
+Provider configurations stay on the device. They do not sync to the cloud.
+After the character step, onboarding offers the built-in voice (`local-speech`) and the bundled speech recognizer when the host contains them.
+Hearing reports Sherpaw ready when the package contains a bundled recognizer. Sherpaw selects the recognizer from its provider config, so Hearing needs no model.
+Each host registers its native voice with `setLocalSpeechHost`. Web registers none, so it skips the voice step.
+`classifyProviderError` gives a failed chat request a `kind`. The chat error shows a plain explanation and emits `configure` with the settings route that fixes the cause.
 Signing in does not configure inference or complete provider setup.
 The client has no official hosted providers, Flux purchases, Capacitor subscriptions, or RevenueCat SDK.
 Accounts remain available for identity and optional cloud synchronization. The existing hosted backend and database are unchanged.
@@ -196,25 +211,11 @@ JPEG, WebP, and GIF files up to 20 MB each, through file selection or paste.
 Previews own their Object URLs. Session changes discard pending image reads.
 Failed sends restore the draft through the shared composer.
 
-Choose a provider and model in **Settings → Modules → Vision** and enable
-**Use the vision model for chat images**. The vision model describes images before
-the selected chat model replies. This flow runs when the chat provider does not
-report image input for the selected model. Most providers do not report it.
-Local history keeps the images. Provider prompts replace images with descriptions,
-including images from earlier turns and retries. Cloud history currently stores only message text.
-A failed read of an image in the current turn fails the send. The leader keeps a
-failed read of an earlier image in memory for its session and vision selection,
-so later turns do not read that image again.
-
-**Use the vision model for tool images** applies the same flow to images that tools
-return, such as `computer_use_read_image` screenshots and MCP image content. The
-vision model reads each image when the tool runs, and a tool rerun reads it too.
-While the vision model reads tool images, provider prompts replace stored tool
-images with a short note. Stored history keeps the images.
-
-Disable these options to send images directly to a chat model that supports them.
-Without a configured vision model, images also go directly to the chat model.
-Use this flow for chat attachments and tool images, not periodic screen capture.
+The gateway chat model accepts images. Attached images and tool images go directly
+to the chat model of the session character. A queued turn keeps that model when
+another window selects a different character. The client has no separate vision
+module, vision provider, or image description step.
+Local history keeps the images. Cloud history currently stores only message text.
 
 ## Character-card module settings
 
@@ -230,10 +231,10 @@ save cards from watchers: authentication and remote snapshots also trigger them.
 The synchronization leader owns these commands; followers receive snapshots.
 
 Models inherit only within the same provider. Voices also require the same
-model. Selecting a vision provider on the vision page stores the catalog default
-model of that provider on the active card. A different provider without a model stays unconfigured rather than
+model. A different provider without a model stays unconfigured rather than
 receiving an unrelated model id. The editor requires a model for an explicit
-chat or vision provider unless that model can be inherited safely.
+chat provider unless that model can be inherited safely.
+The editor and the stage offer only Live2D models. The stage activates the default Live2D preset in place of a stored model of another format.
 
 Defaults are seeded once from the current runtime on upgrade. This cannot
 recover historical global values that an older card already overwrote.
@@ -329,6 +330,7 @@ compare gesture presentation, not conversation storage behavior.
 ## Local Hearing with Sherpaw
 
 Select **Sherpaw** in Hearing settings. Choose a language to see models that support it, then choose a model.
+The list contains only the models that the host package bundles. Desktop bundles X-ASR, and Stage Pocket bundles Paraformer. The settings do not download models.
 For a new Sherpaw configuration, the interface language sets the filter and selects a compatible model.
 Chinese and English start with X-ASR on desktop and Paraformer on mobile Web or Stage Pocket.
 An existing model selection stays in place. Choosing a language switches to a compatible model when needed.

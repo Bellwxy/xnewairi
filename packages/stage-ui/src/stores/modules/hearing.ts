@@ -21,6 +21,7 @@ import { useAnalytics } from '../../composables/use-analytics'
 import { createHearingTranscriber } from '../../libs/audio/hearing-transcriber'
 import { APPLE_SPEECH_TRANSCRIPTION_PROVIDER_ID, executeAppleSpeechStream } from '../../libs/providers/providers/apple-speech'
 import { executeSherpawStream, SHERPAW_TRANSCRIPTION_PROVIDER_ID } from '../../libs/providers/providers/sherpaw'
+import { availableSherpawModels } from '../../libs/providers/providers/sherpaw/model-resources'
 import { streamTranscription } from '../../libs/providers/stream-transcription'
 import { useAudioContext } from '../audio'
 import { useProviderConfigStore } from '../providers/config'
@@ -390,6 +391,10 @@ export const useHearingStore = defineStore('hearing-store', () => {
     if (activeTranscriptionProvider.value === 'browser-web-speech-api') {
       return true // Web Speech API is ready if provider is selected and available
     }
+
+    // Sherpaw selects a bundled recognizer from its provider configuration, so Hearing needs no model.
+    if (activeTranscriptionProvider.value === SHERPAW_TRANSCRIPTION_PROVIDER_ID)
+      return availableSherpawModels.length > 0
 
     // For OpenAI Compatible providers, check provider config as fallback
     let hasProviderModel = false

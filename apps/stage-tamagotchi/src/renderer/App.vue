@@ -5,10 +5,12 @@ import { defineInvokeHandler } from '@moeru/eventa'
 import { useElectronEventaContext, useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { themeColorFromValue, useThemeColor } from '@proj-airi/stage-layouts/composables/theme-color'
 import { artistrySyncConfig } from '@proj-airi/stage-shared'
+import { localSpeechAvailability, localSpeechSynthesize } from '@proj-airi/stage-shared/local-speech'
 import { AccountSwitchDialog, ToasterRoot } from '@proj-airi/stage-ui/components'
 import { updateModelAssetStatus, useInferencePreload } from '@proj-airi/stage-ui/composables'
 import { usePiniaSynced } from '@proj-airi/stage-ui/libs/pinia'
 import { initializeAnalytics } from '@proj-airi/stage-ui/libs/product-signals'
+import { setLocalSpeechHost } from '@proj-airi/stage-ui/libs/providers/providers/local-speech'
 import { isSherpawModelBundled, setSherpawModelAssetHost } from '@proj-airi/stage-ui/libs/providers/providers/sherpaw/model-assets'
 import { registerAccountHostData } from '@proj-airi/stage-ui/services/account-device-data'
 import { bindAccountToAuthentication } from '@proj-airi/stage-ui/services/account-switch'
@@ -24,7 +26,6 @@ import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
-import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
 import { usePerfTracerBridgeStore } from '@proj-airi/stage-ui/stores/perf-tracer-bridge'
 import { listProvidersForPluginHost, shouldPublishPluginHostCapabilities } from '@proj-airi/stage-ui/stores/plugin-host-capabilities'
 import { useSettings, useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
@@ -117,6 +118,12 @@ setSherpawModelAssetHost({
   remove: removeModelAsset,
   clear: clearModelAssets,
 })
+const getLocalSpeechAvailability = useElectronEventaInvoke(localSpeechAvailability)
+const synthesizeLocalSpeech = useElectronEventaInvoke(localSpeechSynthesize)
+setLocalSpeechHost({
+  availability: () => getLocalSpeechAvailability(),
+  synthesize: request => synthesizeLocalSpeech(request),
+})
 const getMainLocale = useElectronEventaInvoke(i18nGetLocale)
 const setLocale = useElectronEventaInvoke(i18nSetLocale)
 const windowContext = resolveRendererWindowContext()
@@ -179,7 +186,6 @@ function createFullStageRuntime() {
   useHearingStore()
   useSpeechStore()
   useSettingsStageModel()
-  useVisionStore()
 
   const { activeProvider, artistryGlobals, activeModel, defaultPromptPrefix, providerOptions } = storeToRefs(artistryStore)
   const getServerChannelConfig = useElectronEventaInvoke(electronGetServerChannelConfig)

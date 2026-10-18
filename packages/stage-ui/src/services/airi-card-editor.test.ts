@@ -86,7 +86,6 @@ describe('airi card editor validation', () => {
         airi: {
           modules: {
             consciousness: { provider: '', model: '' },
-            vision: { provider: '', model: '' },
             speech: { provider: '', model: '', voice_id: '' },
             displayModelId: '',
           },
@@ -115,7 +114,6 @@ describe('airi card editor validation', () => {
 
     expect(savedCard.description).toBe('Edited imported card')
     expect(savedCard.extensions.airi.modules.consciousness).toEqual({ provider: '', model: '' })
-    expect(savedCard.extensions.airi.modules.vision).toEqual({ provider: '', model: '' })
     expect(savedCard.extensions.airi.modules.speech).toMatchObject({ provider: '', model: '', voice_id: '' })
     expect(savedCard.extensions.airi.modules.displayModelId).toBe('')
   })
@@ -133,7 +131,6 @@ describe('airi card editor validation', () => {
     const existing: AiriExtension = {
       modules: {
         consciousness: { provider: 'old-chat', model: 'old-chat-model' },
-        vision: { provider: 'old-vision', model: 'old-vision-model' },
         speech: {
           provider: 'old-speech',
           model: 'old-speech-model',
@@ -171,7 +168,6 @@ describe('airi card editor validation', () => {
       },
     }, {
       consciousness: { provider: 'new-chat', model: 'new-chat-model' },
-      vision: { provider: 'new-vision', model: 'new-vision-model' },
       speech: { provider: 'new-speech', model: 'new-speech-model', voice_id: 'new-voice' },
       displayModelId: 'new-display-model',
       artistry: {
@@ -191,7 +187,6 @@ describe('airi card editor validation', () => {
     expect(result.extensions.thirdParty).toEqual({ keep: true })
     expect(extension).toHaveProperty('futureRootField', { keep: true })
     expect(extension.modules.consciousness).toEqual({ provider: 'new-chat', model: 'new-chat-model' })
-    expect(extension.modules.vision).toEqual({ provider: 'new-vision', model: 'new-vision-model' })
     expect(extension.modules.speech).toEqual({
       provider: 'new-speech',
       model: 'new-speech-model',
@@ -290,7 +285,6 @@ function createAiriCard(fields: Partial<Card> & { wakeWords?: AiriExtension['wak
         ...(wakeWords ? { wakeWords } : {}),
         modules: {
           consciousness: { provider: '', model: '' },
-          vision: { provider: '', model: '' },
           speech: { provider: '', model: '', voice_id: '' },
         },
         agents: {},

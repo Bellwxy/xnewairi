@@ -14,9 +14,8 @@ import type {
 import { errorMessageFrom } from '@moeru/std'
 import { useElectronEventaContext, useElectronEventaInvoke } from '@proj-airi/electron-vueuse'
 import { ModelSettingsPanel } from '@proj-airi/stage-ui/components/scenarios/settings/model-settings'
-import { useAnalytics } from '@proj-airi/stage-ui/composables'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
-import { Callout, GhostButton } from '@proj-airi/ui'
+import { Callout } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 
@@ -26,9 +25,7 @@ import {
   electronGodotStageGetStatus,
   electronGodotStageGetViewSnapshot,
   electronGodotStageRequestViewSnapshot,
-  electronGodotStageStart,
   electronGodotStageStatusChanged,
-  electronGodotStageStop,
   electronGodotStageViewSnapshotChanged,
   electronGodotStageViewStateError,
 } from '../../../../shared/eventa'
@@ -48,8 +45,6 @@ const applyGodotStageViewPatch = useElectronEventaInvoke(electronGodotStageApply
 const getGodotStageStatus = useElectronEventaInvoke(electronGodotStageGetStatus)
 const getGodotStageViewSnapshot = useElectronEventaInvoke(electronGodotStageGetViewSnapshot)
 const requestGodotStageViewSnapshot = useElectronEventaInvoke(electronGodotStageRequestViewSnapshot)
-const startGodotStage = useElectronEventaInvoke(electronGodotStageStart)
-const stopGodotStage = useElectronEventaInvoke(electronGodotStageStop)
 
 const palette = ref<string[]>([])
 const godotStageError = ref<string>()
@@ -58,7 +53,6 @@ const godotStageStatus = ref<ElectronGodotStageStatus>({
   pid: null,
   updatedAt: 0,
 })
-const switchingGodotStage = ref(false)
 const godotViewError = ref<StageViewErrorPayload>()
 const godotViewSnapshot = ref<StageViewSnapshotPayload | null>(null)
 const { runtimeSnapshot, sendLive2DExpressionCommand } = useModelSettingsRuntimeSnapshot()
@@ -69,10 +63,6 @@ let disposeGodotStageStatusListener: (() => void) | undefined
 let disposeGodotViewSnapshotListener: (() => void) | undefined
 let disposeGodotViewErrorListener: (() => void) | undefined
 
-const usesGodotStage = computed(() => stageModelRenderer.value === 'godot')
-const godotToggleLabel = computed(() => usesGodotStage.value
-  ? 'Back to Built-in Stage'
-  : 'Switch to Godot Stage (Experimental)')
 const godotStatusMessage = computed(() => {
   if (godotStageError.value)
     return godotStageError.value
@@ -273,38 +263,6 @@ async function syncGodotSceneInput(model: DisplayModel) {
   }
 }
 
-const { trackFeatureUsed } = useAnalytics()
-
-async function handleGodotStageToggle() {
-  switchingGodotStage.value = true
-  godotStageError.value = undefined
-  const enablingGodot = !usesGodotStage.value
-
-  try {
-    if (usesGodotStage.value) {
-      applyGodotStageStatus(await stopGodotStage())
-      settingsStore.restoreBuiltInStageModelRenderer()
-      return
-    }
-
-    applyGodotStageStatus(await startGodotStage())
-    settingsStore.setStageModelRenderer('godot')
-  }
-  catch (error) {
-    godotStageError.value = errorMessageFrom(error) ?? 'Failed to switch Godot stage mode.'
-    await refreshGodotStageStatus()
-  }
-  finally {
-    trackFeatureUsed({
-      feature_name: enablingGodot ? 'godot_stage_enabled' : 'godot_stage_disabled',
-      business_domain: 'stage_rendering',
-      entry: 'settings',
-      success: godotStageError.value === undefined,
-    })
-    switchingGodotStage.value = false
-  }
-}
-
 watch(
   [stageModelRenderer, stageModelSelectedDisplayModel, () => godotStageStatus.value.state],
   ([renderer, model, stageState]) => {
@@ -387,18 +345,7 @@ onUnmounted(() => {
         ]"
         @live2d-expression-command="sendLive2DExpressionCommand"
         @patch-godot-view-state="handleGodotViewPatch"
-      >
-        <template #actions>
-          <GhostButton
-
-            :loading="switchingGodotStage"
-            :active="usesGodotStage"
-            @click="handleGodotStageToggle"
-          >
-            {{ godotToggleLabel }}
-          </GhostButton>
-        </template>
-      </ModelSettingsPanel>
+      />
     </div>
   </div>
 

@@ -6,12 +6,11 @@ import { errorMessageFrom } from '@moeru/std'
 import {
   Alert,
   ErrorContainer,
-  RadioCardManySelect,
-  RadioCardSimple,
   TestDummyMarker,
   VoiceCardManySelect,
 } from '@proj-airi/stage-ui/components'
 import { useAnalytics } from '@proj-airi/stage-ui/composables'
+import { useBuiltInVoice } from '@proj-airi/stage-ui/composables/use-built-in-voice'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
 import { useProviderConfigStore } from '@proj-airi/stage-ui/stores/providers/config'
@@ -28,14 +27,12 @@ import { generateSpeech } from '@xsai/generate-speech'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { RouterLink } from 'vue-router'
 
 const { t } = useI18n()
 const providersStore = useProviderStore()
 const providerStore = useProviderConfigStore()
 const speechStore = useSpeechStore()
 const airiCardStore = useAiriCardStore()
-const { allAudioSpeechProvidersMetadata, moduleSpeechProvidersMetadata } = storeToRefs(providersStore)
 const {
   activeSpeechProvider,
   activeSpeechModel,
@@ -43,19 +40,12 @@ const {
   activeSpeechVoiceId,
   pitch,
   isLoadingSpeechProviderVoices,
-  supportsModelListing,
-  providerModels,
-  isLoadingActiveProviderModels,
-  activeProviderModelError,
-  modelSearchQuery,
   speechProviderError,
   ssmlEnabled,
   availableVoices,
 } = storeToRefs(speechStore)
 
 const {
-  trackProviderClick,
-  trackTtsProviderSelected,
   trackVoicePreviewPlayed,
   trackVoiceSelected,
 } = useAnalytics()
@@ -69,41 +59,28 @@ const audioUrl = ref('')
 const audioPlayer = ref<HTMLAudioElement | null>(null)
 const errorMessage = ref('')
 
-const selectableSpeechSources = computed(() => {
-  const configuredSources = moduleSpeechProvidersMetadata.value
-    .filter(metadata =>
-      metadata.id !== 'speech-noop',
-    )
-    .map(metadata => ({
-      id: metadata.id,
-      providerId: metadata.id,
-      title: metadata.localizedName || 'Unknown',
-      description: metadata.localizedDescription,
-    }))
+const builtInVoice = useBuiltInVoice()
+/** Web has no built-in voice, so the switch stays hidden there. */
+const builtInVoiceAvailable = ref(false)
+const isSwitchingBuiltInVoice = ref(false)
 
-  return [
-    ...configuredSources,
-    ...allAudioSpeechProvidersMetadata.value
-      .filter(metadata => metadata.id === 'speech-noop')
-      .map(metadata => ({
-        id: metadata.id,
-        providerId: metadata.id,
-        title: metadata.localizedName || 'Unknown',
-        description: metadata.localizedDescription,
-      })),
-  ]
-})
-
-const displayedSpeechSource = computed({
-  get: () => activeSpeechProvider.value,
-  set: (value: string) => {
-    void selectSpeechSource(value).catch((error) => {
-      errorMessage.value = errorMessageFrom(error) ?? 'An unknown error occurred'
-    })
-  },
-})
-
-const displayedProviderModels = computed(() => providerModels.value)
+/** Turns the built-in voice on or off for the active character. Off selects no voice. */
+async function setBuiltInVoiceEnabled(value: boolean) {
+  isSwitchingBuiltInVoice.value = true
+  errorMessage.value = ''
+  try {
+    if (value)
+      await builtInVoice.enable()
+    else
+      await builtInVoice.disable()
+  }
+  catch (error) {
+    errorMessage.value = errorMessageFrom(error) ?? 'An unknown error occurred'
+  }
+  finally {
+    isSwitchingBuiltInVoice.value = false
+  }
+}
 
 const displayedSpeechModel = computed({
   get: () => activeSpeechModel.value,
@@ -113,11 +90,6 @@ const displayedSpeechModel = computed({
     })
   },
 })
-
-const currentSpeechModelId = computed(() => activeSpeechModel.value || '')
-
-const displayedModelsLoading = computed(() => isLoadingActiveProviderModels.value)
-const displayedModelError = computed(() => activeProviderModelError.value)
 
 const displayedVoiceOptions = computed(() => {
   return (availableVoices.value[activeSpeechProvider.value] ?? [])
@@ -187,22 +159,6 @@ async function selectSpeechVoice(voiceId: string | undefined) {
   })
 }
 
-/** Persists the selection only after the leader commits its provider and model. */
-async function selectSpeechSource(sourceId: string) {
-  const selection = await speechStore.selectProviderModel(sourceId, '')
-  if (!selection)
-    return
-  const providerId = providerStore.providers[sourceId]?.definitionId || sourceId
-  // Use this command's receipt: another selection can reach the store before
-  // this caller resumes, but must not relabel this analytics event.
-  trackTtsProviderSelected({
-    tts_provider_id: providerId,
-    tts_model_id: selection.model || 'unknown',
-    source: 'settings',
-  })
-  await persistSelection()
-}
-
 /** Commits the selected model in the synchronization leader. */
 async function selectSpeechModel(modelId: string) {
   await speechStore.selectProviderModel(activeSpeechProvider.value, modelId)
@@ -225,6 +181,7 @@ async function syncOpenAICompatibleSettings() {
 
 onMounted(async () => {
   try {
+    builtInVoiceAvailable.value = await builtInVoice.isAvailable()
     await providersStore.loadModelsForConfiguredProviders()
     await speechStore.loadVoicesForProvider(activeSpeechProvider.value, activeSpeechModel.value || undefined)
     await syncOpenAICompatibleSettings()
@@ -422,194 +379,21 @@ function updateCustomVoiceName(value: string | undefined) {
 function commitCustomVoiceSelection() {
   selectSpeechVoice(activeSpeechVoiceId.value)
 }
-
-/** Routes manual model edits through the same leader commit as listed models. */
-async function updateCustomModelName(value: string | undefined) {
-  errorMessage.value = ''
-  try {
-    await speechStore.selectProviderModel(activeSpeechProvider.value, value || '')
-    await persistSelection()
-  }
-  catch (error) {
-    errorMessage.value = errorMessageFrom(error) ?? 'An unknown error occurred'
-  }
-}
-
-async function handleDeleteProvider(providerId: string) {
-  if (providerId === 'speech-noop') {
-    return
-  }
-
-  await airiCardStore.clearProviderSelections(providerId)
-  await providersStore.deleteProvider(providerId)
-}
 </script>
 
 <template>
   <ErrorContainer v-if="errorMessage" :error="errorMessage" />
   <div flex="~ col md:row gap-6">
     <SettingsCard class="md:w-[40%]">
-      <div flex="~ col gap-4">
-        <div>
-          <h2 class="text-lg text-neutral-500 md:text-2xl dark:text-neutral-400">
-            {{ t('settings.pages.modules.speech.sections.section.provider-voice-selection.title') }}
-          </h2>
-          <div text="neutral-400 dark:neutral-500">
-            <span>{{ t('settings.pages.modules.speech.sections.section.provider-voice-selection.description') }}</span>
-          </div>
-        </div>
-        <div max-w-full>
-          <fieldset
-            v-if="selectableSpeechSources.length > 0" flex="~ row gap-4"
-            min-w-0 overflow-x-auto scroll-smooth role="radiogroup"
-          >
-            <RadioCardSimple
-              v-for="source in selectableSpeechSources"
-              :id="source.id"
-              :key="source.id"
-              v-model="displayedSpeechSource"
-              name="speech-provider"
-              :value="source.id"
-              :title="source.title"
-              :description="source.description"
-              @click="trackProviderClick(source.providerId || source.id, 'speech')"
-            >
-              <template #topRight>
-                <button
-                  v-if="source.providerId && source.providerId !== 'speech-noop'"
-                  type="button"
-                  class="rounded bg-neutral-100 p-1 text-neutral-600 transition-colors dark:bg-neutral-800/60 hover:bg-neutral-200 dark:text-neutral-300 dark:hover:bg-neutral-700/60"
-                  @click.stop.prevent="handleDeleteProvider(source.providerId)"
-                >
-                  <div i-solar:trash-bin-trash-bold-duotone class="text-base" />
-                </button>
-              </template>
-            </RadioCardSimple>
-            <RouterLink
-              to="/settings/providers#speech"
-              border="2px solid"
-              class="border-neutral-100 bg-white dark:border-neutral-900 hover:border-primary-500/30 dark:bg-neutral-900/20 dark:hover:border-primary-400/30"
-              flex="~ col items-center justify-center"
-              transition="all duration-200 ease-in-out"
-              relative min-w-50 w-fit rounded-xl p-4
-            >
-              <div i-solar:add-circle-line-duotone class="text-2xl text-neutral-500 dark:text-neutral-500" />
-              <div
-                class="bg-dotted-neutral-200/80 dark:bg-dotted-neutral-700/50"
-                absolute inset-0 z--1
-                style="background-size: 10px 10px; mask-image: linear-gradient(165deg, white 30%, transparent 50%);"
-              />
-            </RouterLink>
-          </fieldset>
-          <div v-else>
-            <RouterLink
-              class="flex items-center gap-3 rounded-lg p-4" border="2 dashed neutral-200 dark:neutral-800"
-              bg="neutral-50 dark:neutral-800" transition="colors duration-200 ease-in-out" to="/settings/providers"
-            >
-              <div i-solar:warning-circle-line-duotone class="text-2xl text-amber-500 dark:text-amber-400" />
-              <div class="flex flex-col">
-                <span class="font-medium">No Speech Providers Configured</span>
-                <span class="text-sm text-neutral-400 dark:text-neutral-500">Click here to set up your speech
-                  providers</span>
-              </div>
-              <div i-solar:arrow-right-line-duotone class="ml-auto text-xl text-neutral-400 dark:text-neutral-500" />
-            </RouterLink>
-          </div>
-        </div>
-      </div>
-
-      <!-- Model selection section -->
-      <div v-if="activeSpeechProvider && activeSpeechProvider !== 'speech-noop'">
-        <div flex="~ col gap-4">
-          <div>
-            <h2 class="text-lg md:text-2xl">
-              {{ t('settings.pages.modules.consciousness.sections.section.provider-model-selection.title') }}
-            </h2>
-            <div class="flex flex-col items-start gap-1 text-neutral-400 md:flex-row md:items-center md:justify-between dark:text-neutral-400">
-              <span>{{ t('settings.pages.modules.consciousness.sections.section.provider-model-selection.subtitle') }}</span>
-              <span v-if="currentSpeechModelId" class="text-sm text-neutral-400 font-medium dark:text-neutral-400">{{ t('settings.pages.modules.consciousness.sections.section.provider-model-selection.current_model_label') }} {{ currentSpeechModelId }}</span>
-            </div>
-          </div>
-
-          <!-- Manual input for OpenAI Compatible -->
-          <div v-if="activeSpeechProvider === 'openai-compatible-audio-speech'">
-            <FieldInput
-              :model-value="activeSpeechModel || ''"
-              label="Model"
-              description="Enter the TTS model to use for speech generation"
-              placeholder="tts-1"
-              @update:model-value="updateCustomModelName"
-            />
-          </div>
-
-          <!-- Model listing for other providers -->
-          <div v-else-if="supportsModelListing" class="flex flex-col gap-4">
-            <!-- Loading state -->
-            <div v-if="displayedModelsLoading" class="flex items-center justify-center py-4">
-              <div class="mr-2 animate-spin">
-                <div i-solar:spinner-line-duotone text-xl />
-              </div>
-              <span>{{ t('settings.pages.modules.consciousness.sections.section.provider-model-selection.loading') }}</span>
-            </div>
-
-            <!-- Error state -->
-            <template v-else-if="displayedModelError">
-              <ErrorContainer
-                :title="t('settings.pages.modules.consciousness.sections.section.provider-model-selection.error')"
-                :error="displayedModelError"
-              />
-
-              <FieldInput
-                :model-value="activeSpeechModel || ''"
-                label="Model"
-                description="Enter model name manually if model discovery fails"
-                :placeholder="t('settings.pages.modules.consciousness.sections.section.provider-model-selection.manual_model_placeholder')"
-                @update:model-value="updateCustomModelName"
-              />
-            </template>
-
-            <!-- No models available -->
-            <template v-else-if="displayedProviderModels.length === 0 && !displayedModelsLoading">
-              <Alert type="warning">
-                <template #title>
-                  {{ t('settings.pages.modules.consciousness.sections.section.provider-model-selection.no_models') }}
-                </template>
-                <template #content>
-                  {{ t('settings.pages.modules.consciousness.sections.section.provider-model-selection.no_models_description') }}
-                </template>
-              </Alert>
-
-              <FieldInput
-                :model-value="activeSpeechModel || ''"
-                label="Model"
-                description="Enter model name manually when no models are returned"
-                :placeholder="t('settings.pages.modules.consciousness.sections.section.provider-model-selection.manual_model_placeholder')"
-                @update:model-value="updateCustomModelName"
-              />
-            </template>
-
-            <!-- Using the new RadioCardManySelect component -->
-            <template v-else-if="displayedProviderModels.length > 0">
-              <RadioCardManySelect
-                v-model="displayedSpeechModel"
-                v-model:search-query="modelSearchQuery"
-                :items="displayedProviderModels"
-                :searchable="true"
-                :search-placeholder="t('settings.pages.modules.consciousness.sections.section.provider-model-selection.search_placeholder')"
-                :search-no-results-title="t('settings.pages.modules.consciousness.sections.section.provider-model-selection.no_search_results')"
-                :search-no-results-description="t('settings.pages.modules.consciousness.sections.section.provider-model-selection.no_search_results_description', { query: modelSearchQuery })"
-                :search-results-text="t('settings.pages.modules.consciousness.sections.section.provider-model-selection.search_results', { count: '{count}', total: '{total}' })"
-                :custom-input-placeholder="t('settings.pages.modules.consciousness.sections.section.provider-model-selection.custom_model_placeholder')"
-                :expand-button-text="t('settings.pages.modules.consciousness.sections.section.provider-model-selection.expand')"
-                :collapse-button-text="t('settings.pages.modules.consciousness.sections.section.provider-model-selection.collapse')"
-                expanded-class="mb-12"
-                @update:custom-value="updateCustomModelName"
-              />
-            </template>
-          </div>
-        </div>
-      </div>
-
+      <!-- The built-in voice is the only voice. This page offers no provider or model selection. -->
+      <FieldCheckbox
+        v-if="builtInVoiceAvailable"
+        :model-value="builtInVoice.enabled.value"
+        :label="t('settings.pages.modules.speech.built-in-voice.label')"
+        :description="t('settings.pages.modules.speech.built-in-voice.description')"
+        :disabled="isSwitchingBuiltInVoice"
+        @update:model-value="setBuiltInVoiceEnabled"
+      />
       <!-- Voice Configuration Section -->
       <div v-if="activeSpeechProvider && activeSpeechProvider !== 'speech-noop'">
         <div flex="~ col gap-4">

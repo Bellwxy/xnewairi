@@ -13,10 +13,9 @@ import { DEFAULT_ARTISTRY_WIDGET_INSTRUCTION } from '@proj-airi/stage-ui/constan
 import { applyAiriCardEditorModules, countCodePoints, getAiriCardEditorModuleSettings, isPersonalityOverLimit, mergeCardEdit, personalityLimit, safeParseAiriCardDraft } from '@proj-airi/stage-ui/services/airi-card-editor'
 import { resolveModuleSelection } from '@proj-airi/stage-ui/services/airi-card-modules'
 import { characterPresetIds } from '@proj-airi/stage-ui/services/character-card-generation'
-import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
+import { isLive2DModel, useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
 import { resolveSystemPrompt, useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
-import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
 import { useProviderStore } from '@proj-airi/stage-ui/stores/providers/provider'
 import { Button, Collapsible, FieldInput, FieldValues, GhostButton, IconButton } from '@proj-airi/ui'
 import { ComboboxSelect } from '@proj-airi/ui/components/form'
@@ -69,12 +68,10 @@ const { t } = useI18n()
 const { trackCardEdited } = useAnalytics()
 const cardStore = useAiriCardStore()
 const consciousnessStore = useConsciousnessStore()
-const visionStore = useVisionStore()
 const providersStore = useProviderStore()
 const displayModelsStore = useDisplayModelsStore()
 
 const consciousnessProvider = computed(() => cardStore.moduleDefaults?.consciousness.provider ?? '')
-const visionProvider = computed(() => cardStore.moduleDefaults?.vision.provider ?? '')
 const speechProvider = computed(() => cardStore.moduleDefaults?.speech.provider ?? '')
 const { displayModels } = storeToRefs(displayModelsStore)
 
@@ -85,8 +82,6 @@ const isEditingActiveCard = computed(() => isEditMode.value && props.cardId === 
 // Modules configuration
 const selectedConsciousnessProvider = ref<string>('')
 const selectedConsciousnessModel = ref<string>('')
-const selectedVisionProvider = ref<string>('')
-const selectedVisionModel = ref<string>('')
 const selectedSpeechProvider = ref<string>('')
 const selectedSpeechModel = ref<string>('')
 const selectedSpeechVoiceId = ref<string>('')
@@ -111,8 +106,6 @@ function createInheritableSelection(selection: Ref<string>) {
 
 const consciousnessProviderSelection = createInheritableSelection(selectedConsciousnessProvider)
 const consciousnessModelSelection = createInheritableSelection(selectedConsciousnessModel)
-const visionProviderSelection = createInheritableSelection(selectedVisionProvider)
-const visionModelSelection = createInheritableSelection(selectedVisionModel)
 const speechProviderSelection = createInheritableSelection(selectedSpeechProvider)
 const speechModelSelection = createInheritableSelection(selectedSpeechModel)
 const speechVoiceSelection = createInheritableSelection(selectedSpeechVoiceId)
@@ -148,9 +141,9 @@ function withInheritGlobalSetting(options: ModuleSelectOption[], selected = ''):
   ]
 }
 
-// Computed: available display model options
+// The product renders Live2D only. Models of other formats from earlier imports are not offered.
 const displayModelOptions = computed(() =>
-  withInheritGlobalSetting(displayModels.value.map(model => ({
+  withInheritGlobalSetting(displayModels.value.filter(isLive2DModel).map(model => ({
     value: model.id,
     label: model.name,
   })), selectedDisplayModelId.value),
@@ -174,26 +167,6 @@ const consciousnessModelOptions = computed(() => {
     value: model.id,
     label: model.name || model.id,
   })), selectedConsciousnessModel.value)
-})
-
-// Computed: available vision provider options
-const visionProviderOptions = computed(() => {
-  return withInheritGlobalSetting(providersStore.configuredVisionProvidersMetadata.map(provider => ({
-    value: provider.id,
-    label: provider.localizedName || provider.name,
-  })), selectedVisionProvider.value)
-})
-
-// Computed: available vision models options
-const visionModelOptions = computed(() => {
-  const provider = selectedVisionProvider.value || visionProvider.value
-  if (!provider)
-    return withInheritGlobalSetting([], selectedVisionModel.value)
-  const models = providersStore.getModelsForProvider(provider)
-  return withInheritGlobalSetting(models.map(model => ({
-    value: model.id,
-    label: model.name || model.id,
-  })), selectedVisionModel.value)
 })
 
 // Computed: available speech provider options
@@ -247,10 +220,6 @@ async function loadSelectedModuleOptions() {
   if (consciousnessProviderId)
     loads.push(consciousnessStore.loadModelsForProvider(consciousnessProviderId))
 
-  const visionProviderId = selectedVisionProvider.value || visionProvider.value
-  if (visionProviderId)
-    loads.push(visionStore.loadModelsForProvider(visionProviderId))
-
   const speechProviderId = selectedSpeechProvider.value || speechProvider.value
   if (speechProviderId) {
     if (providersStore.supportsModelListing(speechProviderId))
@@ -276,14 +245,6 @@ watch(selectedConsciousnessProvider, async (newProvider, oldProvider) => {
   if (!isInitializingModuleSelections && newProvider !== oldProvider) {
     selectedConsciousnessModel.value = ''
     await consciousnessStore.loadModelsForProvider(newProvider || consciousnessProvider.value)
-  }
-}, { flush: 'sync' })
-
-// Watch vision provider changes and reload models
-watch(selectedVisionProvider, async (newProvider, oldProvider) => {
-  if (!isInitializingModuleSelections && newProvider !== oldProvider) {
-    selectedVisionModel.value = ''
-    await visionStore.loadModelsForProvider(newProvider || visionProvider.value)
   }
 }, { flush: 'sync' })
 
@@ -313,7 +274,7 @@ interface EditorSection {
   icon: string
 }
 
-// Module section styling shared by the chat / vision / speech / body groups.
+// Module section styling shared by the chat / speech / body groups.
 const moduleSectionClasses = [
   'rounded-xl p-4',
   'bg-neutral-200/40 dark:bg-neutral-800/40',
@@ -446,8 +407,6 @@ function initializeCard(): Card {
   const moduleSettings = getAiriCardEditorModuleSettings(existingCard)
   selectedConsciousnessProvider.value = moduleSettings.consciousness.provider
   selectedConsciousnessModel.value = moduleSettings.consciousness.model
-  selectedVisionProvider.value = moduleSettings.vision.provider
-  selectedVisionModel.value = moduleSettings.vision.model
   selectedSpeechProvider.value = moduleSettings.speech.provider
   selectedSpeechModel.value = moduleSettings.speech.model
   selectedSpeechVoiceId.value = moduleSettings.speech.voice_id
@@ -498,10 +457,6 @@ interface EditorSnapshot {
     provider: string
     model: string
   }
-  vision: {
-    provider: string
-    model: string
-  }
   speech: {
     provider: string
     model: string
@@ -527,10 +482,6 @@ function createEditorSnapshot(): EditorSnapshot {
     consciousness: {
       provider: selectedConsciousnessProvider.value,
       model: selectedConsciousnessModel.value,
-    },
-    vision: {
-      provider: selectedVisionProvider.value,
-      model: selectedVisionModel.value,
     },
     speech: {
       provider: selectedSpeechProvider.value,
@@ -692,10 +643,6 @@ function editorModules(artistryOptions?: Record<string, unknown>) {
       provider: selectedConsciousnessProvider.value,
       model: selectedConsciousnessModel.value,
     },
-    vision: {
-      provider: selectedVisionProvider.value,
-      model: selectedVisionModel.value,
-    },
     speech: {
       provider: selectedSpeechProvider.value,
       model: selectedSpeechModel.value,
@@ -729,10 +676,8 @@ async function handleSave(activate: boolean, conflictChoice?: CardEditConflictCh
     if (defaults) {
       // A card may inherit an unconfigured global module. A different explicit
       // provider must have its own model; global model ids are not portable.
-      const missingModel = [
-        { selection: { provider: selectedConsciousnessProvider.value, model: selectedConsciousnessModel.value }, defaults: defaults.consciousness },
-        { selection: { provider: selectedVisionProvider.value, model: selectedVisionModel.value }, defaults: defaults.vision },
-      ].some(({ selection, defaults }) => selection.provider && !resolveModuleSelection(selection, defaults).model)
+      const selection = { provider: selectedConsciousnessProvider.value, model: selectedConsciousnessModel.value }
+      const missingModel = selection.provider && !resolveModuleSelection(selection, defaults.consciousness).model
       if (missingModel) {
         showError.value = true
         errorMessage.value = t('settings.pages.card.creation.errors.model_required')
@@ -1097,38 +1042,6 @@ function handleBack() {
                     <ComboboxSelect
                       v-model="consciousnessModelSelection"
                       :options="consciousnessModelOptions"
-                      :placeholder="getDefaultPlaceholder()"
-                      class="w-full"
-                    />
-                  </div>
-                </div>
-              </section>
-
-              <!-- Vision -->
-              <section :class="moduleSectionClasses">
-                <div :class="moduleSectionHeaderClasses">
-                  <div i-lucide:eye :class="['text-base text-primary-500 dark:text-primary-400']" />
-                  {{ t('settings.pages.card.creation.sections.vision') }}
-                </div>
-                <div :class="['grid grid-cols-1 gap-4', 'sm:grid-cols-2']">
-                  <div :class="['flex flex-col gap-1.5']">
-                    <label :class="moduleFieldLabelClasses">
-                      {{ t('settings.pages.card.vision.provider') }}
-                    </label>
-                    <ComboboxSelect
-                      v-model="visionProviderSelection"
-                      :options="visionProviderOptions"
-                      :placeholder="getDefaultPlaceholder()"
-                      class="w-full"
-                    />
-                  </div>
-                  <div :class="['flex flex-col gap-1.5']">
-                    <label :class="moduleFieldLabelClasses">
-                      {{ t('settings.pages.card.vision.model') }}
-                    </label>
-                    <ComboboxSelect
-                      v-model="visionModelSelection"
-                      :options="visionModelOptions"
                       :placeholder="getDefaultPlaceholder()"
                       class="w-full"
                     />

@@ -6,6 +6,7 @@ import { MotionPlugin } from '@vueuse/motion'
 import { createPinia, disposePinia } from 'pinia'
 import { createSyncedPiniaPlugin } from 'pinia-plugin-synced'
 import { afterEach, expect, it, vi } from 'vitest'
+import { page } from 'vitest/browser'
 import { createApp, h } from 'vue'
 import { createI18n } from 'vue-i18n'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -13,19 +14,20 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import SpeechSettings from '../../../../stage-pages/src/pages/settings/modules/speech.vue'
 
 import { injectKeyPiniaSynced } from '../../libs/pinia/synced-context'
-import { captureAnalyticsEvent, enableAnalyticsCapture, isAnalyticsAvailableInBuild } from '../../libs/product-signals/client'
+import { setLocalSpeechHost } from '../../libs/providers/providers/local-speech'
+import { useDisplayModelsStore } from '../display-models'
 import { useProviderConfigStore } from '../providers/config'
 import { useProviderStore } from '../providers/provider'
+import { useSettingsStageModel } from '../settings/stage-model'
+import { useAiriCardStore } from './airi-card'
+import { useArtistryStore } from './artistry'
+import { useConsciousnessStore } from './consciousness'
 import { useSpeechStore } from './speech'
-
-// Analytics delivery is external IO. Exercise the real page and stores while
-// recording its outgoing payload instead of sending product events.
-vi.mock('../../libs/product-signals/client', { spy: true })
 
 const cleanups: Array<() => void> = []
 
 /** Mounts a real renderer with a separate Pinia and BroadcastChannel runtime. */
-function mountRenderer(namespace: string, page?: Component) {
+function mountRenderer(namespace: string, page?: Component, options: { withCards?: boolean } = {}) {
   const pinia = createPinia()
   const runtime = createSyncedPiniaPlugin({ namespace, leadership: page ? 'follower-only' : 'leader-only' })
   pinia.use(runtime.plugin)
@@ -34,6 +36,15 @@ function mountRenderer(namespace: string, page?: Component) {
   const app = createApp({
     setup() {
       useSpeechStore()
+      // The card store owns the voice of the active character. Its dependencies call `useI18n`, so they start in setup.
+      if (options.withCards) {
+        useProviderStore()
+        useConsciousnessStore()
+        useArtistryStore()
+        useSettingsStageModel()
+        useDisplayModelsStore()
+        useAiriCardStore()
+      }
       return () => page ? h(page) : null
     },
   })
@@ -106,68 +117,26 @@ it.each(['mount', 'provider change'])('handles interrupted model discovery after
   await vi.waitFor(() => expect(follower.container.textContent).toContain('Pinia sync runtime was disposed before the RPC completed.'))
 })
 
-// https://github.com/moeru-ai/airi/pull/2490#discussion_r3964866483
-// ROOT CAUSE: The click handler read the old model before the leader RPC
-// committed the provider. Analytics must use the completed selection receipt.
-it('reports the committed provider and model after a settings-page click', async () => {
+it('turns the built-in voice on and off from the settings page', async () => {
   localStorage.clear()
-  vi.mocked(captureAnalyticsEvent).mockReset().mockReturnValue(true)
-  vi.mocked(enableAnalyticsCapture).mockReturnValue(true)
-  vi.mocked(isAnalyticsAvailableInBuild).mockReturnValue(true)
-  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => Response.json({ object: 'list', data: [{ id: 'custom-tts' }] })))
-  const namespace = `speech-settings:${crypto.randomUUID()}`
-  const leader = mountRenderer(namespace)
-  await vi.waitFor(() => expect(leader.runtime.isLeader()).toBe(true))
-  const providerId = 'openai-compatible-audio-speech'
-  await useProviderConfigStore(leader.pinia).ensureProvider(providerId, providerId, {
-    apiKey: 'key',
-    baseUrl: 'https://voices.invalid/v1/',
-  })
-  await useProviderStore(leader.pinia).forceProviderConfigured(providerId)
-  await leader.speech.selectProviderModel('speech-noop', 'previous-model')
-  const follower = mountRenderer(namespace, SpeechSettings)
-  await vi.waitFor(() => expect(follower.speech.activeSpeechModel).toBe('previous-model'))
-  await vi.waitFor(() => expect(follower.container.querySelector(`input[value="${providerId}"]`)).not.toBeNull())
-  const input = follower.container.querySelector<HTMLInputElement>(`input[value="${providerId}"]`)!
-  input.click()
-  await vi.waitFor(() => expect(vi.mocked(captureAnalyticsEvent).mock.calls.filter(([name]) => name === 'tts_provider_selected')).toHaveLength(1))
-  expect(captureAnalyticsEvent).toHaveBeenCalledWith('tts_provider_selected', expect.objectContaining({
-    tts_provider_id: providerId,
-    tts_model_id: 'custom-tts',
-    source: 'settings',
-  }))
-  expect(follower.speech.activeSpeechProvider).toBe(providerId)
-})
-
-// https://github.com/moeru-ai/airi/pull/2490#discussion_r3967708960
-// ROOT CAUSE: Manual input bypassed the guarded computed setter. A rejected
-// leader RPC reached Vue's global handler instead of the page error display.
-it('shows a manual model transport failure in the settings page', async () => {
-  localStorage.clear()
+  // The native voice is an Electron or Capacitor boundary. This host reports a voice and never synthesizes.
+  setLocalSpeechHost({ availability: async () => ({ available: true }), synthesize: vi.fn() })
+  cleanups.push(() => setLocalSpeechHost({ availability: async () => ({ available: false }), synthesize: vi.fn() }))
   vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => Response.json({ voices: [], data: [] })))
   const namespace = `speech-settings:${crypto.randomUUID()}`
-  const leader = mountRenderer(namespace)
+  const leader = mountRenderer(namespace, undefined, { withCards: true })
   await vi.waitFor(() => expect(leader.runtime.isLeader()).toBe(true))
-  const provider = 'openai-compatible-audio-speech'
-  await useProviderConfigStore(leader.pinia).ensureProvider(provider, provider, { apiKey: 'key', baseUrl: 'https://voices.invalid/v1/' })
-  await useProviderStore(leader.pinia).forceProviderConfigured(provider)
-  await leader.speech.selectProviderModel(provider, 'tts-1')
-  const follower = mountRenderer(namespace, SpeechSettings)
-  await vi.waitFor(() => expect(follower.container.querySelector('input[placeholder="tts-1"]')).not.toBeNull())
-  await new Promise(resolve => setTimeout(resolve, 100))
-  const globalErrors = vi.fn()
-  follower.app.config.errorHandler = globalErrors
-  const postMessage = BroadcastChannel.prototype.postMessage
-  vi.spyOn(BroadcastChannel.prototype, 'postMessage').mockImplementation(function (this: BroadcastChannel, message) {
-    if (JSON.stringify(message).includes('selectProviderModel'))
-      throw new Error('Model selection transport unavailable')
-    postMessage.call(this, message)
-  })
-  const input = follower.container.querySelector<HTMLInputElement>('input[placeholder="tts-1"]')!
-  input.value = 'custom-model'
-  input.dispatchEvent(new Event('input', { bubbles: true }))
-  await new Promise(resolve => setTimeout(resolve, 100))
-  expect(globalErrors).not.toHaveBeenCalled()
-  expect(follower.container.textContent).toContain('Model selection transport unavailable')
-  expect(leader.speech.activeSpeechModel).toBe('tts-1')
+  await useAiriCardStore(leader.pinia).initialize()
+  mountRenderer(namespace, SpeechSettings)
+
+  const toggle = page.getByRole('switch', { name: /Built-in voice/ })
+  await toggle.click()
+
+  await vi.waitFor(() => expect(leader.speech.activeSpeechProvider).toBe('local-speech'))
+  expect(leader.speech.activeSpeechModel).toBe('built-in')
+  expect(leader.speech.activeSpeechVoiceId).toBe('built-in')
+
+  await toggle.click()
+
+  await vi.waitFor(() => expect(leader.speech.activeSpeechProvider).toBe('speech-noop'))
 })

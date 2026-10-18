@@ -32,8 +32,8 @@ pnpm exec vishot capture --target electron ./packages/scenarios-stage-tamagotchi
 
 Expected result:
 
-- `27` raw files in `packages/scenarios-stage-tamagotchi-browser/artifacts/raw`
-- names like `00-stage-tamagotchi.avif` ... `26-devtools-vision-capture.avif`
+- `25` raw files in `packages/scenarios-stage-tamagotchi-browser/artifacts/raw`
+- names like `00-stage-tamagotchi.avif` ... `25-devtools-screen-capture.avif`. The numbers skip `16`.
 
 ### Capture a local display model
 

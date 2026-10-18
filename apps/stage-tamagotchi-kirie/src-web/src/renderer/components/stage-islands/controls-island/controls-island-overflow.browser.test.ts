@@ -8,7 +8,6 @@ import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
-import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision/store'
 import { useSettings } from '@proj-airi/stage-ui/stores/settings'
 import { useSettingsStageModel } from '@proj-airi/stage-ui/stores/settings/stage-model'
 import { createPinia } from 'pinia'
@@ -96,7 +95,6 @@ function mountControlsIsland(dock: ControlsIslandDock, size: typeof sizes[number
           useConsciousnessStore()
           useSpeechStore()
           useSettingsStageModel()
-          useVisionStore()
           const defaultCard = {
             name: 'ReLU',
             version: '1.0.0',
@@ -104,7 +102,6 @@ function mountControlsIsland(dock: ControlsIslandDock, size: typeof sizes[number
               airi: {
                 modules: {
                   consciousness: { provider: '', model: '' },
-                  vision: { provider: '', model: '' },
                   speech: { provider: '', model: '', voice_id: '' },
                 },
                 agents: {},

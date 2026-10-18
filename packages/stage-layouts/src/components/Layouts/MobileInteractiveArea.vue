@@ -381,6 +381,7 @@ onUnmounted(() => {
             @reply-message="handleReplyMessage"
             @retry-message="handleRetryMessage($event.index)"
             @tool-call-rerun="rerunToolCall"
+            @configure="route => router.push(route)"
           />
         </Transition>
       </KeepAlive>
@@ -418,7 +419,7 @@ onUnmounted(() => {
       <ChatProviderSetupCallout
         v-if="!chatReady"
         :class="['mx-3']"
-        @configure="router.push('/settings/providers')"
+        @configure="router.push('/settings/modules/consciousness')"
       />
       <div
         ref="messageComposer"

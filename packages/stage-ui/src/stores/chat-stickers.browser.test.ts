@@ -39,7 +39,6 @@ function setupChat() {
 function storeDefaultCharacter(provider: string, model: string) {
   const modules = {
     consciousness: { provider, model },
-    vision: { provider: '', model: '' },
     speech: { provider: '', model: '', voice_id: '' },
   }
   localStorage.setItem(accountStorageKey('airi-cards'), JSON.stringify([['default', { name: 'Character', version: '1.0', extensions: { airi: { agents: {}, modules } } }]]))

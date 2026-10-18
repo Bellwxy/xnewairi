@@ -57,6 +57,8 @@ dialogs:
     buyFlux: Charge Flux
     select-model: Choose model
     no-models: No available models
+    model-catalog-failed: No chat model found
+    model-catalog-failed-help: The service listed no chat model. Check your API key and network, then try again.
     no-models-help: >-
       Please return to the previous step and check your API key, or check the
       network connection.
@@ -64,7 +66,7 @@ dialogs:
       title: Meet your character
       description: Give your character a name and describe it in one sentence. AIRI writes the rest.
       model-label: Model
-      model-description: The Live2D or VRM model that shows your character.
+      model-description: The Live2D model that shows your character.
       name-label: Name
       name-placeholder: For example, Mio
       summary-label: One sentence
@@ -73,6 +75,18 @@ dialogs:
       generating: Writing your character…
       create: Create character
       skip: Skip and use the default character
+    voice:
+      title: Let your character speak
+      description: These voice features run on your device. They work offline and need no download.
+      speech-label: Voice
+      speech-description: Your character reads replies aloud with the built-in voice.
+      hearing-label: Voice input
+      hearing-description: Talk to your character. Speech recognition stays on your device.
+      preview: Listen
+      preview-text: Hi, I am here with you. How was your day?
+      preview-failed: 'The voice could not play: {error}'
+      finish: Finish
+      skip: Skip, keep it silent
     permissions:
       title: Permission management
       description: You can grant the required permissions now or continue and configure them later.
@@ -515,9 +529,6 @@ pages:
       provider: Chat / Provider
     consciousness:
       model: Consciousness / Model
-    vision:
-      provider: Vision / Provider
-      model: Vision / Model
     created_by: created by
     creator_notes: Creator Notes
     delete: Delete
@@ -555,7 +566,6 @@ pages:
         Configure modules for this character card. Empty fields inherit global settings.
       sections:
         chat: Chat
-        vision: Vision
         speech: Speech
         body: Body
       use_default: Use default
@@ -826,6 +836,10 @@ pages:
       description: Personality, desired model, etc.
       sections:
         section:
+          api-key:
+            title: API key
+            description: Change the key that your service gave you.
+          advanced: Advanced
           provider-model-selection:
             collapse: Collapse
             custom_model_placeholder: Enter custom model name...
@@ -865,7 +879,7 @@ pages:
               required-description: This model requires Thinking.
               provider-default-description: AIRI has no reasoning settings for this model. OpenRouter applies its default.
       title: Consciousness
-    description: Thinking, vision, speech synthesis, gaming, etc.
+    description: Thinking, speech synthesis, gaming, and other modules.
     gaming-factorio:
       description: Playing Factorio!
       title: Factorio
@@ -1109,6 +1123,9 @@ pages:
       token-placeholder: Enter your Discord bot token
       configured: Discord is properly configured!
     speech:
+      built-in-voice:
+        label: Built-in voice
+        description: Your character reads replies aloud with the offline voice in the app.
       description: Speech synthesis
       sections:
         section:
@@ -1157,35 +1174,6 @@ pages:
               label: Use Custom SSML
       title: Speech
     title: Modules
-    vision:
-      description: Vision
-      title: Vision
-      tool-images:
-        label: Use the vision model for tool images
-        description: The vision model reads the images that tools return, such as screenshots from Use computer, before your chat model replies. The chat model gets them directly when its provider reports image input. A description has no pixel positions.
-      capture:
-        title: Vision capture cadence
-        description: Tune how often the vision ticker captures a frame.
-        interval:
-          label: Capture interval
-          description: A lower value captures more often and uses more resources.
-      stats:
-        captures: Captures
-        context-updates: Context updates
-        inferences: Image recognition calls
-        inferences-description: Every call to the vision model, chat images included
-        failed-inferences: Failed calls
-        last-inference: Last call
-        error: 'Error:'
-        last-update: Last update {time}
-        since-start: Since the app started
-        never: Never
-      ollama:
-        title: Provider request toggles
-        description: Control provider-specific request flags for vision inference.
-        thinking:
-          label: Thinking (Ollama)
-          description: 'When on, vision requests through Ollama include `think: true`. When off, they include `think: false`.'
     x:
       description: X / Twitter browsing and usage
       title: X / Twitter
@@ -1771,9 +1759,6 @@ pages:
       chat:
         title: Chat
         description: Text generation model providers. e.g. OpenRouter, OpenAI, Ollama.
-      vision:
-        title: Vision
-        description: Vision model providers for image understanding.
       speech:
         title: Speech
         description: Speech (text-to-speech) model providers. e.g. ElevenLabs, Azure Speech.
@@ -2072,6 +2057,9 @@ pages:
           validation:
             error-missing-api-key: Please enter an API key to test the voice.
         title: ElevenLabs
+      local-speech:
+        title: Built-in voice
+        description: An offline Chinese voice. It is part of the app, so you do not need to download it.
       kokoro-local:
         description: Local text-to-speech using Kokoro-82M.
         fields:

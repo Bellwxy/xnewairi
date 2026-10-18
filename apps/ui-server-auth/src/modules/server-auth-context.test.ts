@@ -1,51 +1,62 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { getServerAuthBootstrapContext, resolveStandaloneServerAuthContext } from './server-auth-context'
 
+// The trusted API origin comes from the build identity, so it must exist before the module loads.
+vi.hoisted(() => {
+  vi.stubEnv('AIRI_BRAND_JSON', JSON.stringify({
+    productName: 'Customer Companion',
+    desktopAppId: 'com.customer.desktop',
+    pocketAppId: 'com.customer.pocket',
+    callbackScheme: 'com.customer.pocket',
+    serverUrl: 'https://api.customer.example',
+    termsUrl: 'https://customer.example/terms',
+    privacyUrl: 'https://customer.example/privacy',
+    updateRepository: 'customer/companion',
+    desktopOidcClientId: 'customer-desktop',
+    pocketOidcClientId: 'customer-pocket',
+    webOidcClientId: 'customer-web',
+  }))
+})
+
 describe('ui-server-auth bootstrap context', () => {
-  it('uses the trusted API server origin carried by standalone server redirects', () => {
-    expect(resolveStandaloneServerAuthContext(
-      'https://accounts.airi.build/ui/sign-in?api_server_url=https%3A%2F%2Fapi-dev.airi.build%2Fapi%2Fauth&client_id=airi-stage-web',
-      'https://api.airi.build',
-    )).toEqual({
-      apiServerUrl: 'https://api-dev.airi.build',
-      currentUrl: 'https://accounts.airi.build/ui/sign-in?api_server_url=https%3A%2F%2Fapi-dev.airi.build%2Fapi%2Fauth&client_id=airi-stage-web',
+  it('uses the configured API server origin carried by standalone server redirects', () => {
+    const currentUrl = 'https://accounts.customer.example/ui/sign-in?api_server_url=https%3A%2F%2Fapi.customer.example%2Fapi%2Fauth&client_id=customer-web'
+
+    expect(resolveStandaloneServerAuthContext(currentUrl, 'https://api.customer.example')).toEqual({
+      apiServerUrl: 'https://api.customer.example',
+      currentUrl,
     })
   })
 
-  it('uses the trusted new Go backend origin carried by standalone server redirects', () => {
-    const currentUrl = 'https://auth.airi.build/ui/sign-in?api_server_url=https%3A%2F%2Fairi-server-next.up.railway.app&client_id=airi-stage-pocket'
-
+  it('ignores upstream API server origins', () => {
     expect(resolveStandaloneServerAuthContext(
-      currentUrl,
-      'https://api.airi.build',
-    )).toEqual({
-      apiServerUrl: 'https://airi-server-next.up.railway.app',
-      currentUrl,
-    })
+      'https://accounts.customer.example/ui/sign-in?api_server_url=https%3A%2F%2Fapi-dev.airi.build&client_id=customer-web',
+      'https://api.customer.example',
+    )).toBeNull()
   })
 
   it('ignores untrusted API server origins from crafted standalone auth URLs', () => {
     expect(resolveStandaloneServerAuthContext(
-      'https://accounts.airi.build/ui/sign-in?api_server_url=https%3A%2F%2Fevil.example&client_id=airi-stage-web',
-      'https://api.airi.build',
+      'https://accounts.customer.example/ui/sign-in?api_server_url=https%3A%2F%2Fevil.example&client_id=customer-web',
+      'https://api.customer.example',
     )).toBeNull()
   })
 
   it('allows localhost API origins for local development', () => {
     expect(resolveStandaloneServerAuthContext(
       'http://localhost:5173/ui/sign-in?api_server_url=http%3A%2F%2F127.0.0.1%3A3000',
-      'https://api.airi.build',
+      'https://api.customer.example',
     )?.apiServerUrl).toBe('http://127.0.0.1:3000')
   })
 
-  it('normalizes known production API hosts to HTTPS when typed with HTTP', () => {
+  it('normalizes the configured API host to HTTPS when typed with HTTP', () => {
     expect(resolveStandaloneServerAuthContext(
-      'https://accounts.airi.build/ui/sign-in?api_server_url=http%3A%2F%2Fapi.airi.build',
+      'https://accounts.customer.example/ui/sign-in?api_server_url=http%3A%2F%2Fapi.customer.example',
       'http://localhost:3000',
-    )?.apiServerUrl).toBe('https://api.airi.build')
+    )?.apiServerUrl).toBe('https://api.customer.example')
   })
 
   it('falls back to the standalone query context when the static placeholder script is still present', () => {
@@ -53,9 +64,9 @@ describe('ui-server-auth bootstrap context', () => {
     window.history.replaceState(
       null,
       '',
-      '/ui/sign-in?api_server_url=https%3A%2F%2Fapi-dev.airi.build',
+      '/ui/sign-in?api_server_url=https%3A%2F%2Fapi.customer.example',
     )
 
-    expect(getServerAuthBootstrapContext()?.apiServerUrl).toBe('https://api-dev.airi.build')
+    expect(getServerAuthBootstrapContext()?.apiServerUrl).toBe('https://api.customer.example')
   })
 })

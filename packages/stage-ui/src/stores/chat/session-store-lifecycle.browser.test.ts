@@ -139,7 +139,6 @@ beforeEach(() => {
       version: '1.0',
       extensions: { airi: { agents: {}, modules: {
         consciousness: { provider: '', model: '' },
-        vision: { provider: '', model: '' },
         speech: { provider: '', model: '', voice_id: '' },
       } } },
     })

@@ -9,7 +9,8 @@ env:
   DEB_BUNDLE_NAME: ''
   RPM_BUNDLE_NAME: ''
   FLATPAK_BUNDLE_NAME: ''
-  PRODUCT_NAME: 'AIRI'
+  AIRI_BRAND_JSON: ${{ vars.AIRI_BRAND_JSON }}
+  PRODUCT_NAME: ${{ fromJSON(vars.AIRI_BRAND_JSON || '{}').productName }}
   SHERPAW_BUNDLE_MODELS: 'true'
   VERSION: ''
 
@@ -207,6 +208,8 @@ jobs:
         run: pnpm run -F @proj-airi/stage-tamagotchi build && pnpm -F @proj-airi/stage-tamagotchi exec electron-builder build ${{ matrix.builder-args }} --publish=${{ (inputs.build_only || inputs.artifacts_only) && 'never' || 'onTagOrDraft' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
 
       - name: Build (macOS Only) # macOS
         if: matrix.os == 'macos-15-intel' || matrix.os == 'macos-26'
@@ -241,11 +244,13 @@ jobs:
         working-directory: ./apps/stage-tamagotchi
         run: |
           mkdir -p dist
+          pnpm exec tsx scripts/prepare-flatpak.ts
           # Auto-install required SDK/Platform/BaseApp from Flathub in user scope
-          flatpak-builder --user --install-deps-from=flathub ./flatpak ai.moeru.airi.flatpak.yml --force-clean
+          flatpak-builder --user --install-deps-from=flathub ./flatpak brand.flatpak.yml --force-clean
           flatpak build-export ./flatpak-repo ./flatpak
           export FLATPAK_OUTPUT_NAME=$(pnpm exec tsx scripts/artifacts-metadata.ts ${{ matrix.target }} --get-output-filename flatpak)
-          flatpak build-bundle ./flatpak-repo dist/${FLATPAK_OUTPUT_NAME} ai.moeru.airi
+          APP_ID=$(node -p 'JSON.parse(process.env.AIRI_BRAND_JSON).desktopAppId')
+          flatpak build-bundle ./flatpak-repo "dist/${FLATPAK_OUTPUT_NAME}" "$APP_ID"
 
       # ---------
       # Nightly (schedule) builds only
@@ -312,58 +317,6 @@ jobs:
           name: ${{ env.FLATPAK_BUNDLE_NAME }}
           path: apps/stage-tamagotchi/bundle/${{ env.FLATPAK_BUNDLE_NAME }}
 
-      - name: Sign Windows Artifacts with SignPath (Nightly + Windows Only)
-        id: signpath-nightly-windows
-        continue-on-error: true
-        uses: signpath/github-action-submit-signing-request@v2
-        if: ${{ github.event_name == 'schedule' && (matrix.os == 'windows-latest' && github.repository == 'moeru-ai/airi') }}
-        with:
-          api-token: '${{ secrets.SIGNPATH_API_TOKEN }}'
-          organization-id: '${{ secrets.SIGNPATH_ORGANIZATION_ID }}'
-          project-slug: 'airi'
-          signing-policy-slug: 'test-signing'
-          artifact-configuration-slug: ci-github-actions-artifacts-windows
-          github-artifact-id: '${{ steps.unsigned-artifacts-nightly.outputs.artifact-id }}'
-          wait-for-completion: true
-          wait-for-completion-timeout-in-seconds: 900 # 15 minutes
-          download-signed-artifact-timeout-in-seconds: 900 # 15 minutes
-          output-artifact-directory: apps/stage-tamagotchi/bundle/signed/windows/
-
-      - name: Warn When Windows Signing Fails (Nightly)
-        if: ${{ github.event_name == 'schedule' && matrix.os == 'windows-latest' && steps.signpath-nightly-windows.outcome != 'success' }}
-        run: |
-          echo "::warning::SignPath Windows signing failed for nightly build. Continuing with unsigned artifact at apps/stage-tamagotchi/bundle/${{ env.BUNDLE_NAME }}."
-
-      - name: Upload Signed Artifacts (Nightly + Non-Linux)
-        if: ${{ github.event_name == 'schedule' && matrix.os == 'windows-latest' && steps.signpath-nightly-windows.outcome == 'success' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ env.BUNDLE_NAME }}
-          path: apps/stage-tamagotchi/bundle/signed/windows/${{ env.BUNDLE_NAME }}
-          overwrite: true
-
-      - name: Upload Unsigned Windows Artifacts Fallback (Nightly)
-        if: ${{ github.event_name == 'schedule' && matrix.os == 'windows-latest' && steps.signpath-nightly-windows.outcome != 'success' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ env.BUNDLE_NAME }}
-          path: apps/stage-tamagotchi/bundle/${{ env.BUNDLE_NAME }}
-          overwrite: true
-
-      # NOTICE: Electron Builder generates latest-x64.yml during the build step, before this workflow
-      # submits the Windows installer to SignPath. SignPath re-signs the .exe and changes its bytes,
-      # which changes the updater hashes too. Regenerating latest-x64.yml from the signed installer keeps
-      # the published Windows update metadata aligned with the final released artifact.
-      - name: Regenerate Windows latest-x64.yml (Nightly + Windows Only)
-        if: ${{ github.event_name == 'schedule' && matrix.os == 'windows-latest' && steps.signpath-nightly-windows.outcome == 'success' }}
-        run: |
-          pnpm -F @proj-airi/stage-tamagotchi run regenerate-windows-latest --input apps/stage-tamagotchi/bundle/signed/windows/${{ env.BUNDLE_NAME }} --output apps/stage-tamagotchi/bundle/latest-x64.yml --version ${{ env.VERSION }}
-
-      - name: Regenerate Windows latest-x64.yml From Unsigned Artifact (Nightly Fallback)
-        if: ${{ github.event_name == 'schedule' && matrix.os == 'windows-latest' && steps.signpath-nightly-windows.outcome != 'success' }}
-        run: |
-          pnpm -F @proj-airi/stage-tamagotchi run regenerate-windows-latest --input apps/stage-tamagotchi/bundle/${{ env.BUNDLE_NAME }} --output apps/stage-tamagotchi/bundle/latest-x64.yml --version ${{ env.VERSION }}
-
       # ---------
       # Workflow Dispatch only
       # ---------
@@ -429,49 +382,6 @@ jobs:
           name: ${{ env.FLATPAK_BUNDLE_NAME }}
           path: apps/stage-tamagotchi/bundle/${{ env.FLATPAK_BUNDLE_NAME }}
 
-      - name: Sign Windows Artifacts with SignPath (Manual + Windows Only)
-        id: signpath-manual-windows
-        continue-on-error: true
-        uses: signpath/github-action-submit-signing-request@v2
-        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.build_only && inputs.artifacts_only && (matrix.os == 'windows-latest' && github.repository == 'moeru-ai/airi') }}
-        with:
-          api-token: '${{ secrets.SIGNPATH_API_TOKEN }}'
-          organization-id: '${{ secrets.SIGNPATH_ORGANIZATION_ID }}'
-          project-slug: 'airi'
-          signing-policy-slug: 'test-signing'
-          artifact-configuration-slug: ci-github-actions-artifacts-windows
-          github-artifact-id: '${{ steps.unsigned-artifacts-workflow-dispatch.outputs.artifact-id }}'
-          wait-for-completion: true
-          wait-for-completion-timeout-in-seconds: 900 # 15 minutes
-          download-signed-artifact-timeout-in-seconds: 900 # 15 minutes
-          output-artifact-directory: apps/stage-tamagotchi/bundle/signed/windows/
-
-      - name: Warn When Windows Signing Fails (Manual)
-        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.build_only && inputs.artifacts_only && matrix.os == 'windows-latest' && steps.signpath-manual-windows.outcome != 'success' }}
-        run: |
-          echo "::warning::SignPath Windows signing failed for workflow_dispatch artifact build. Continuing with unsigned artifact at apps/stage-tamagotchi/bundle/${{ env.BUNDLE_NAME }}."
-
-      - name: Move Signed Artifacts (Manual + Release + Windows Only)
-        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.build_only && inputs.artifacts_only && matrix.os == 'windows-latest' && steps.signpath-manual-windows.outcome == 'success' }}
-        run: |
-          Move-Item -Force apps/stage-tamagotchi/bundle/signed/windows/${{ env.BUNDLE_NAME }} apps/stage-tamagotchi/bundle/${{ env.BUNDLE_NAME }}
-
-      - name: Upload Signed Artifacts (Manual + Windows Only)
-        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.build_only && inputs.artifacts_only && (matrix.os == 'windows-latest') }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ env.BUNDLE_NAME }}
-          path: apps/stage-tamagotchi/bundle/${{ env.BUNDLE_NAME }}
-          overwrite: true
-
-      # NOTICE: Electron Builder already wrote latest-x64.yml before SignPath signed the installer.
-      # After the signed .exe replaces the unsigned one, we must rebuild latest-x64.yml so its hashes
-      # describe the final Windows artifact that users will actually download.
-      - name: Regenerate Windows latest-x64.yml (Manual + Windows Only)
-        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.build_only && inputs.artifacts_only && matrix.os == 'windows-latest' }}
-        run: |
-          pnpm -F @proj-airi/stage-tamagotchi run regenerate-windows-latest --input apps/stage-tamagotchi/bundle/${{ env.BUNDLE_NAME }} --output apps/stage-tamagotchi/bundle/latest-x64.yml --version ${{ env.VERSION }}
-
       - name: Upload To GitHub Releases (Manual + Release + Overwrite Release)
         if: ${{ github.event_name == 'workflow_dispatch' && !inputs.build_only && !inputs.artifacts_only }}
         uses: softprops/action-gh-release@v2
@@ -516,42 +426,6 @@ jobs:
         with:
           name: ${{ env.BUNDLE_NAME }}
           path: apps/stage-tamagotchi/bundle/${{ env.BUNDLE_NAME }}
-
-      - name: Sign Windows Artifacts with SignPath (Nightly + Windows Only)
-        id: signpath-release-windows
-        continue-on-error: true
-        uses: signpath/github-action-submit-signing-request@v2
-        if: ${{ github.event_name == 'release' && (matrix.os == 'windows-latest' && github.repository == 'moeru-ai/airi') }}
-        with:
-          api-token: '${{ secrets.SIGNPATH_API_TOKEN }}'
-          organization-id: '${{ secrets.SIGNPATH_ORGANIZATION_ID }}'
-          project-slug: 'airi'
-          signing-policy-slug: 'test-signing'
-          artifact-configuration-slug: ci-github-actions-artifacts-windows
-          github-artifact-id: '${{ steps.unsigned-artifacts-release.outputs.artifact-id }}'
-          wait-for-completion: true
-          wait-for-completion-timeout-in-seconds: 900 # 15 minutes
-          download-signed-artifact-timeout-in-seconds: 900 # 15 minutes
-          output-artifact-directory: apps/stage-tamagotchi/bundle/signed/windows/
-
-      - name: Warn When Windows Signing Fails (Release)
-        if: ${{ github.event_name == 'release' && matrix.os == 'windows-latest' && steps.signpath-release-windows.outcome != 'success' }}
-        run: |
-          echo "::warning::SignPath Windows signing failed for release build. Continuing with unsigned artifact at apps/stage-tamagotchi/bundle/${{ env.BUNDLE_NAME }}."
-
-      - name: Move Signed Artifacts (Automatic + Windows Only)
-        if: ${{ github.event_name == 'release' && matrix.os == 'windows-latest' && steps.signpath-release-windows.outcome == 'success' }}
-        run: |
-          Move-Item -Force apps/stage-tamagotchi/bundle/signed/windows/${{ env.BUNDLE_NAME }} apps/stage-tamagotchi/bundle/${{ env.BUNDLE_NAME }}
-
-      # NOTICE: The root cause here is the build/signing order: latest-x64.yml is produced by Electron
-      # Builder before SignPath re-signs the installer. That post-build signing step mutates the .exe,
-      # so the updater metadata becomes stale. Recomputing latest-x64.yml after the signed file is moved
-      # into its final bundle path makes the release upload self-consistent again.
-      - name: Regenerate Windows latest manifest (Automatic + Windows Only)
-        if: ${{ github.event_name == 'release' && matrix.os == 'windows-latest' }}
-        run: |
-          pnpm -F @proj-airi/stage-tamagotchi run regenerate-windows-latest --input apps/stage-tamagotchi/bundle/${{ env.BUNDLE_NAME }} --output apps/stage-tamagotchi/bundle/latest-x64.yml --version ${{ env.VERSION }}
 
       - name: Upload Distribution Artifact (Automatic + macOS arm64 Only)
         if: ${{ github.event_name == 'release' && matrix.os == 'macos-26' }}
@@ -626,7 +500,7 @@ jobs:
   publish-distribution:
     name: Publish Distribution
     needs: build
-    if: ${{ github.event_name == 'release' }}
+    if: ${{ github.event_name == 'release' && fromJSON(vars.AIRI_BRAND_JSON || '{}').itchTarget != '' }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -659,6 +533,8 @@ jobs:
 
       # https://itch.io/docs/butler/pushing.html
       - name: Publish distribution artifact to itch.io
-        run: butler push "${{ env.ARTIFACT_PATH }}" nekomeowww/airi:${{ matrix.platform }} --userversion "${{ env.VERSION }}"
+        run: butler push "${ARTIFACT_PATH}" "${ITCH_TARGET}:${PLATFORM}" --userversion "${VERSION}"
         env:
           BUTLER_API_KEY: ${{ secrets.GAME_PUBLISHING_ITCHIO }}
+          ITCH_TARGET: ${{ fromJSON(vars.AIRI_BRAND_JSON || '{}').itchTarget }}
+          PLATFORM: ${{ matrix.platform }}

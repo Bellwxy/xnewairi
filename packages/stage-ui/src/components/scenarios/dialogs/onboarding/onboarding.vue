@@ -7,15 +7,17 @@ import type {
   ProviderConfigData,
 } from './types'
 
+import { brand } from '@proj-airi/stage-shared/brand'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref } from 'vue'
 
 import StepCharacter from './step-character.vue'
-import StepModelSelection from './step-model-selection.vue'
 import StepProviderConfiguration from './step-provider-configuration.vue'
+import StepVoice from './step-voice.vue'
 import StepWelcome from './step-welcome.vue'
 
 import { useAnalytics } from '../../../../composables/use-analytics'
+import { useAiriCardStore } from '../../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../../stores/modules/consciousness'
 import { useProviderConfigStore } from '../../../../stores/providers/config'
 import { useProviderStore } from '../../../../stores/providers/provider'
@@ -34,15 +36,19 @@ const emit = defineEmits<Emits>()
 const step = ref(0)
 const direction = ref<'next' | 'previous'>('next')
 const pendingProviderConfig = ref<ProviderConfigData | null>(null)
+/** Set when onboarding found no chat model. The configuration step shows it with a retry and does not continue. */
+const modelCatalogFailed = ref(false)
 const { trackOnboardingCompleted, trackOnboardingStarted, trackOnboardingStepCompleted } = useAnalytics()
 
 const providersStore = useProviderStore()
 
 const providerStore = useProviderConfigStore()
 const { allChatProvidersMetadata } = storeToRefs(providersStore)
+const cardStore = useAiriCardStore()
 const consciousnessStore = useConsciousnessStore()
 const {
   activeProvider,
+  activeModel,
 } = storeToRefs(consciousnessStore)
 
 const selectedProviderId = 'openai-compatible'
@@ -59,9 +65,37 @@ const requestNextStep: OnboardingStepNextHandler = async (configData?: ProviderC
   await navigateNext()
 }
 
+/**
+ * Selects the chat model, because onboarding has no model step.
+ * Returns false when no model is available, so the configuration step keeps the user and offers a retry.
+ */
+async function selectChatModel(providerId: string) {
+  // The brand fixes the model, so onboarding needs no catalog request.
+  if (brand.inferenceModel) {
+    activeModel.value = brand.inferenceModel
+    return true
+  }
+
+  // The leader loads the catalog. Its result arrives before the replicated runtime state reaches this window.
+  // A failed request also returns an empty catalog.
+  let firstListedModel: string | undefined
+  try {
+    const catalog = await providersStore.fetchModelsForProvider(providerId)
+    firstListedModel = catalog.models[0]?.id
+  }
+  catch (err) {
+    console.error('[onboarding] Failed to load models for provider:', err)
+  }
+
+  if (!firstListedModel)
+    return false
+  activeModel.value = firstListedModel
+  return true
+}
+
 async function saveProviderConfiguration(data: ProviderConfigData) {
   if (!selectedProvider.value)
-    return
+    return false
 
   const config: Record<string, unknown> = {}
 
@@ -87,12 +121,8 @@ async function saveProviderConfiguration(data: ProviderConfigData) {
 
   activeProvider.value = selectedProvider.value.id
 
-  try {
-    await consciousnessStore.loadModelsForProvider(selectedProvider.value.id)
-  }
-  catch (err) {
-    console.error('[onboarding] Failed to load models for provider:', err)
-  }
+  modelCatalogFailed.value = !await selectChatModel(selectedProvider.value.id)
+  return !modelCatalogFailed.value
 }
 
 const allSteps = computed<OnboardingStep[]>(() => {
@@ -107,14 +137,15 @@ const allSteps = computed<OnboardingStep[]>(() => {
       props: () => ({
         selectedProviderId,
         selectedProvider: selectedProvider.value,
+        modelCatalogFailed: modelCatalogFailed.value,
       }),
       beforeNext: async () => {
         if (!pendingProviderConfig.value)
           return false
 
-        await saveProviderConfiguration(pendingProviderConfig.value)
+        const saved = await saveProviderConfiguration(pendingProviderConfig.value)
         pendingProviderConfig.value = null
-        return true
+        return saved
       },
     },
     ...props.extraSteps.map(step => ({
@@ -123,14 +154,15 @@ const allSteps = computed<OnboardingStep[]>(() => {
         ...step.props?.(),
       }),
     })),
-    {
-      id: 'model-selection',
-      component: StepModelSelection,
-    },
-    // Generation needs the chat model of the previous step, so this step comes last.
+    // Generation needs the chat model that the configuration step selected.
     {
       id: 'character',
       component: StepCharacter,
+    },
+    // The voice belongs to the active card, so this step comes after the card exists.
+    {
+      id: 'voice',
+      component: StepVoice,
     },
   ]
 
@@ -142,6 +174,8 @@ const isLastStep = computed(() => step.value === allSteps.value.length - 1)
 const currentStepProps = computed(() => currentStep.value?.props?.() ?? {})
 
 async function handleSave() {
+  // A chat reads the character selection, which inherits the card defaults. Store the selection whichever steps the user skipped.
+  await cardStore.updateDefaultConsciousness({ provider: activeProvider.value, model: activeModel.value })
   trackOnboardingStepCompleted(currentStep.value?.id ?? 'unknown')
   trackOnboardingCompleted({
     selected_provider_type: 'custom',

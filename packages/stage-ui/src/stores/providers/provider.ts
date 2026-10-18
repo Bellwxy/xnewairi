@@ -24,7 +24,7 @@ import {
 import { selectProviderMetadata, selectProvidersMetadata } from '../../libs/providers/metadata'
 import { getSchemaDefault } from '../../libs/zod'
 import { useAuthStore } from '../auth'
-import { useProviderConfigStore } from './config'
+import { gatewayProviderDefinitionId, useProviderConfigStore } from './config'
 import { normalizeProviderConfigDefaults } from './config-defaults'
 
 export type { ModelInfo, VoiceInfo } from '../../libs/providers/types'
@@ -515,13 +515,7 @@ export const useProviderStore = defineStore('provider', () => {
     startPeriodicRuntimeValidation()
   }
 
-  providerConfigStore.onRemoteWorking(async (row) => {
-    const result = await validateProviderConfig(row.definitionId, row.config, { skipChatPingCheck: true })
-    return result.valid
-  })
-
-  // Follower windows never run onAfterSync. Drop stale local clients when
-  // replicated credentials change.
+  // Drop stale local clients when replicated credentials change.
   watch(providerCredentials, () => {
     for (const providerId of [...providerInstanceCache.keys()]) {
       const current = providerCredentials.value[providerId]
@@ -530,8 +524,6 @@ export const useProviderStore = defineStore('provider', () => {
       void disposeProviderInstance(providerId)
     }
   }, { deep: true, flush: 'sync' })
-
-  providerConfigStore.onAfterSync(refreshListedProviderValidation)
 
   // Available providers (only those that are properly configured)
   const availableProviders = computed(() => Object.values(providerConfigStore.providers)
@@ -987,6 +979,10 @@ export const useProviderStore = defineStore('provider', () => {
     providerId: string,
     options?: ChatRequestOptions,
   ): Promise<GenerationProvider> {
+    // Every LLM request goes to the gateway. Hidden settings do not stop an old profile, a card, or a typed route from naming another provider.
+    if (getProviderDefinitionId(providerId) !== gatewayProviderDefinitionId)
+      throw new Error(`Provider ${providerId} is not the gateway. LLM requests use only the gateway provider.`)
+
     const provider = getGenerationProvider(await getProviderInstance(providerId))
     if (!provider)
       throw new Error(`Provider ${providerId} does not support generation`)
@@ -1133,14 +1129,6 @@ export const useProviderStore = defineStore('provider', () => {
     )
   })
 
-  const moduleVisionProvidersMetadata = computed(() => {
-    return allVisionProvidersMetadata.value.filter(metadata =>
-      isProviderConfiguredForModule(metadata.id)
-      || (providerConfiguredBy(metadata.id) !== 'authentication' && shouldListProvider(metadata.id))
-      || isProviderAvailableWithoutConfiguration(metadata.id),
-    )
-  })
-
   const persistedProvidersMetadata = computed(() => {
     return availableProvidersMetadata.value.filter(metadata => shouldListProvider(metadata.id))
   })
@@ -1198,7 +1186,6 @@ export const useProviderStore = defineStore('provider', () => {
     moduleChatProvidersMetadata,
     moduleSpeechProvidersMetadata,
     moduleTranscriptionProvidersMetadata,
-    moduleVisionProvidersMetadata,
     persistedChatProvidersMetadata,
     persistedVisionProvidersMetadata,
   }

@@ -123,12 +123,6 @@ const menu = computed(() => [
     to: '/devtools/live2d-ambient-light',
   },
   {
-    title: 'Vision Capture',
-    description: 'Capture a screen frame and inspect the output payload',
-    icon: 'i-solar:eye-closed-bold-duotone',
-    to: '/devtools/vision',
-  },
-  {
     title: 'Global Shortcut',
     description: 'Register/unregister global shortcuts and watch trigger events fire',
     icon: 'i-solar:keyboard-bold-duotone',

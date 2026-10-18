@@ -17,8 +17,14 @@ import OnboardingDialog from './onboarding.vue'
 import StepProviderConfiguration from './step-provider-configuration.vue'
 
 import { useAuthStore } from '../../../../stores/auth'
+import { useDisplayModelsStore } from '../../../../stores/display-models'
+import { useAiriCardStore } from '../../../../stores/modules/airi-card'
+import { useArtistryStore } from '../../../../stores/modules/artistry'
+import { useConsciousnessStore } from '../../../../stores/modules/consciousness'
+import { useSpeechStore } from '../../../../stores/modules/speech'
 import { useProviderConfigStore } from '../../../../stores/providers/config'
 import { useProviderStore } from '../../../../stores/providers/provider'
+import { useSettingsStageModel } from '../../../../stores/settings/stage-model'
 
 import '@unocss/reset/tailwind.css'
 import 'virtual:uno.css'
@@ -29,7 +35,7 @@ const syncedContexts: Array<{
   runtime: SyncedPiniaRuntime
 }> = []
 
-function createSyncedContext(namespace: string, leadership: LeadershipMode) {
+function createSyncedContext(namespace: string, leadership: LeadershipMode, options: { withCards?: boolean } = {}) {
   const pinia = createPinia()
   const runtime = createSyncedPiniaPlugin({
     callTimeout: 1000,
@@ -43,6 +49,15 @@ function createSyncedContext(namespace: string, leadership: LeadershipMode) {
     setup() {
       providerStore = useProviderStore()
       providerConfigStore = useProviderConfigStore()
+      // The card store owns the chat defaults. Its dependencies call `useI18n`, so they start in setup.
+      if (options.withCards) {
+        useConsciousnessStore()
+        useSpeechStore()
+        useArtistryStore()
+        useSettingsStageModel()
+        useDisplayModelsStore()
+        useAiriCardStore()
+      }
       return () => null
     },
   })
@@ -163,12 +178,14 @@ it('persists configured credentials through the leader and loads the model list'
   })
 
   // The model list loads through the leader and becomes visible in the
-  // follower's replicated runtime state and in the step UI.
+  // follower's replicated runtime state.
   await expect.poll(
     () => follower.providerStore.getModelsForProvider(providerId).map(model => model.id),
     { timeout: 10_000 },
   ).toContain('grok-4.6')
-  await expect.element(screen.getByText('grok-4.6')).toBeInTheDocument()
+  // Onboarding has no model step. Without a brand model, it selects the first model that the gateway lists.
+  await expect.poll(() => useConsciousnessStore(follower.pinia).activeModel).toBe('grok-4.6')
+  await expect.element(screen.getByText('grok-4.5')).not.toBeInTheDocument()
 })
 
 // ROOT CAUSE:
@@ -204,4 +221,68 @@ it('rehydrates the configuration form from the saved provider configuration', as
 
   await expect.element(page.getByPlaceholder('API Key')).toHaveValue('sk-saved-key')
   await expect.element(page.getByPlaceholder('https://api.example.com/v1/')).toHaveValue('https://saved.example.com/v1')
+})
+
+it('stays on the configuration step with a retry when the gateway lists no chat model', async () => {
+  let listedModels: Array<{ id: string }> = []
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input: RequestInfo | URL) => {
+    const url = String(input instanceof Request ? input.url : input)
+    if (url.includes('/chat/completions'))
+      return Response.json({ error: { message: 'no model' } }, { status: 404 })
+    return Response.json({ object: 'list', data: listedModels })
+  }))
+  const namespace = `onboarding-empty-catalog:${crypto.randomUUID()}`
+  const leader = createSyncedContext(namespace, 'leader-only')
+  await expect.poll(() => leader.runtime.isLeader()).toBe(true)
+  const follower = createSyncedContext(namespace, 'follower-only')
+  await expect.poll(() => follower.runtime.getLeaderId()).toBe(leader.runtime.participantId)
+  const screen = await render(OnboardingDialog, {
+    global: { plugins: [follower.pinia, PiniaColada, createTestI18n()] },
+  })
+
+  await screen.getByRole('button', { name: 'Setup with your provider' }).click()
+  await page.getByPlaceholder('API Key').fill('sk-test-onboarding')
+  await page.getByPlaceholder('https://api.example.com/v1/').fill('https://gateway.example.test/v1/')
+  await screen.getByRole('button', { name: 'Next' }).click()
+  await screen.getByRole('button', { name: 'Continue anyway' }).click()
+
+  await expect.element(screen.getByText('No chat model found')).toBeInTheDocument()
+  await expect.element(screen.getByRole('heading', { name: 'Configure Custom Provider' })).toBeInTheDocument()
+  expect(useConsciousnessStore(follower.pinia).activeModel).toBe('')
+
+  listedModels = [{ id: 'grok-4.6' }]
+  // The alert retries the catalog. The main button would run the failing validation again.
+  await screen.getByRole('button', { name: 'Retry', exact: true }).first().click()
+
+  await expect.poll(() => useConsciousnessStore(follower.pinia).activeModel).toBe('grok-4.6')
+  await expect.element(screen.getByRole('heading', { name: 'Configure Custom Provider' })).not.toBeInTheDocument()
+})
+
+it('gives the first chat the selected model after the character and voice steps are skipped', async () => {
+  const namespace = `onboarding-skip-steps:${crypto.randomUUID()}`
+  const leader = createSyncedContext(namespace, 'leader-only', { withCards: true })
+  await expect.poll(() => leader.runtime.isLeader()).toBe(true)
+  // The app initializes the cards at startup, before onboarding selects a model.
+  await useAiriCardStore(leader.pinia).initialize()
+  const follower = createSyncedContext(namespace, 'follower-only')
+  await expect.poll(() => follower.runtime.getLeaderId()).toBe(leader.runtime.participantId)
+  const onConfigured = vi.fn()
+  const screen = await render(OnboardingDialog, {
+    props: { onConfigured },
+    global: { plugins: [follower.pinia, PiniaColada, createTestI18n()] },
+  })
+
+  await screen.getByRole('button', { name: 'Setup with your provider' }).click()
+  await page.getByPlaceholder('API Key').fill('sk-test-onboarding')
+  await page.getByPlaceholder('https://api.example.com/v1/').fill('https://gateway.example.test/v1/')
+  await screen.getByRole('button', { name: 'Next' }).click()
+  await screen.getByRole('button', { name: 'Skip and use the default character' }).click()
+  // This browser has no built-in voice and no bundled recognizer, so the voice step finishes by itself.
+  await vi.waitFor(() => expect(onConfigured).toHaveBeenCalledOnce())
+
+  // A chat reads the character selection, which inherits the card defaults.
+  await expect.poll(() => useAiriCardStore(leader.pinia).getModules('default').consciousness).toEqual({
+    provider: 'openai-compatible',
+    model: 'grok-4.6',
+  })
 })

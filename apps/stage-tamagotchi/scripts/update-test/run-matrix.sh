@@ -5,7 +5,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
-APP_BIN="${APP_DIR}/dist/mac-arm64/airi.app/Contents/MacOS/airi"
+# The packaged macOS app and its executable use the product name from the build identity.
+PRODUCT_NAME="$(node -p 'JSON.parse(process.env.AIRI_BRAND_JSON).productName')"
+APP_BIN="${APP_DIR}/dist/mac-arm64/${PRODUCT_NAME}.app/Contents/MacOS/${PRODUCT_NAME}"
 
 PORT="${PORT:-8787}"
 RUN_SECONDS="${RUN_SECONDS:-18}"

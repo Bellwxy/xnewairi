@@ -9,6 +9,7 @@ import { Keyboard } from '@capacitor/keyboard'
 import { autoAnimatePlugin } from '@formkit/auto-animate/vue'
 import { errorMessageFrom } from '@moeru/std'
 import { isEnvTruthy } from '@proj-airi/stage-shared'
+import { brand } from '@proj-airi/stage-shared/brand'
 import { trackButtonPlugin } from '@proj-airi/stage-ui/directives/track-button'
 import { browserAuthorizationHandler, registerAuthorizationHandler } from '@proj-airi/stage-ui/libs/auth'
 import { setupSynced } from '@proj-airi/stage-ui/libs/pinia'
@@ -52,7 +53,7 @@ if (Capacitor.isNativePlatform()) {
       url.searchParams.set('provider', provider)
 
     return await WebAuthentication.authenticate({
-      callbackScheme: 'ai.moeru.airi-pocket',
+      callbackScheme: brand.callbackScheme,
       url: url.toString(),
     })
   })

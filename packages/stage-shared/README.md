@@ -2,6 +2,15 @@
 
 Shared contracts and runtime-neutral helpers for AIRI stage applications and UI packages.
 
+## Build identity
+
+The `brand/config` entrypoint validates `AIRI_BRAND_JSON` without platform dependencies.
+The `brand` entrypoint reads the public identity that the build injects.
+The Node-only `brand/build` entrypoint provides the Vite plugin for this injection.
+
+Production stage builds require a complete customer identity. Development without configuration uses isolated local identifiers and services.
+See [Customer builds](../../docs/ai/customer-builds.md) for the fields and signing requirements.
+
 ## Use this package
 
 Use this package when a type or behavior must cross stage application boundaries without depending on Electron, browser-only code, or a feature UI package.
@@ -15,6 +24,9 @@ import type { PluginHostDebugSnapshot } from '@proj-airi/stage-shared/plugin-hos
 The `model-assets` entrypoint owns model file manifests, download status, and
 the storage adapter contract. Use a platform adapter to store and open files.
 It does not own a recognizer or Worker.
+
+The `local-speech` entrypoint defines the Eventa contract between the renderer and the native offline voice.
+The `local-speech-model` entrypoint names the pinned voice files: MeloTTS for desktop, and a faster Piper voice and the sherpa-onnx AAR for Android. Build configs download them, and native runtimes read them.
 
 ## Account scope
 

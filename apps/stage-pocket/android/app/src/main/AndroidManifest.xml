@@ -3,15 +3,15 @@
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
+        android:label="${brandProductName}"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:usesCleartextTraffic="true"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
-            android:name=".MainActivity"
-            android:label="@string/title_activity_main"
+            android:name="ai.moeru.airi_pocket.MainActivity"
+            android:label="${brandProductName}"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
             android:exported="true">
@@ -26,7 +26,7 @@
 
                 <!-- Custom Protocol Configuration -->
                 <data
-                    android:scheme="ai.moeru.airi-pocket"
+                    android:scheme="${brandCallbackScheme}"
                     android:host="links" />
             </intent-filter>
         </activity>

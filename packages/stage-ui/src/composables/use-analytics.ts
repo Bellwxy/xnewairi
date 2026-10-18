@@ -3,12 +3,10 @@ import type { SpeechOutputStopReason } from '../stores/speech-output-control'
 
 import { isStageCapacitor, isStageTamagotchi } from '@proj-airi/stage-shared'
 import { computed } from 'vue'
-import { useI18n } from 'vue-i18n'
 
 import { captureAnalyticsEvent, enableAnalytics, getAnalytics, getAnalyticsPrivacyPolicyUrl, isAnalyticsAvailableInBuild } from '../libs/product-signals'
 import { captureTrackButtonEvent } from '../libs/product-signals/events/interaction'
 import { useSettingsAnalytics } from '../stores/settings/analytics'
-import { useSettingsGeneral } from '../stores/settings/general'
 
 /**
  * User-facing chat surfaces that can emit product analytics.
@@ -114,10 +112,8 @@ export function getConversationAnalyticsSurface(): ConversationAnalyticsSurface 
 export function useAnalytics() {
   const analytics = getAnalytics()
   const settingsAnalytics = useSettingsAnalytics()
-  const settingsGeneral = useSettingsGeneral()
-  const { locale } = useI18n()
 
-  const privacyPolicyUrl = computed(() => getAnalyticsPrivacyPolicyUrl(locale.value || settingsGeneral.language))
+  const privacyPolicyUrl = computed(() => getAnalyticsPrivacyPolicyUrl())
 
   const isAnalyticsEnabled = computed(() => isAnalyticsAvailableInBuild() && settingsAnalytics.analyticsEnabled)
 

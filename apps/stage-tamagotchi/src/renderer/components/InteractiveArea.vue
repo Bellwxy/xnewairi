@@ -402,6 +402,7 @@ defineExpose({
         @reply-message="handleReplyMessage"
         @retry-message="handleRetryMessage($event.index)"
         @tool-call-rerun="handleToolCallRerun"
+        @configure="route => openSettings({ route })"
       />
     </template>
 
@@ -424,7 +425,7 @@ defineExpose({
       <ChatProviderSetupCallout
         v-if="!chatReady"
         :class="['mx-2 mb-1']"
-        @configure="openSettings({ route: '/settings/providers' })"
+        @configure="openSettings({ route: '/settings/modules/consciousness' })"
       />
       <div
         :class="[

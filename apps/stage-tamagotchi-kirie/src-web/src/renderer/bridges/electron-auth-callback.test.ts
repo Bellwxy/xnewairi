@@ -1,3 +1,4 @@
+import { brand } from '@proj-airi/stage-shared/brand'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -64,7 +65,7 @@ describe('electron auth callback bridge', () => {
       refreshToken: 'new-refresh-token',
       idToken: 'new-id-token',
       expiresIn: 3600,
-      clientId: 'airi-stage-electron',
+      clientId: brand.desktopOidcClientId,
     })
     expect(eventHandlers.has(electronAuthCallbackError)).toBe(true)
   })

@@ -10,6 +10,7 @@ import Layouts from 'vite-plugin-vue-layouts'
 import VueMacros from 'vue-macros/vite'
 import VueRouter from 'vue-router/vite'
 
+import { brandPlugin } from '@proj-airi/stage-shared/brand/build'
 import { defineConfig, loadEnv } from 'vite'
 
 // NOTICE:
@@ -86,6 +87,8 @@ const config = defineConfig({
   },
 
   plugins: [
+    brandPlugin(),
+
     Info(),
 
     Yaml(),

@@ -2,6 +2,7 @@
 import { AccountSwitchDialog, OnboardingDialog, OnboardingStepAnalyticsNotice, StartupOverlay, ToasterRoot } from '@proj-airi/stage-ui/components'
 import { useStartupResourceTimeout } from '@proj-airi/stage-ui/composables/use-startup-resource-timeout'
 import { initializeAnalytics, isAnalyticsAvailableInBuild } from '@proj-airi/stage-ui/libs/product-signals'
+import { setLocalSpeechHost } from '@proj-airi/stage-ui/libs/providers/providers/local-speech'
 import { bindAccountToAuthentication } from '@proj-airi/stage-ui/services/account-switch'
 import { useAuthStore } from '@proj-airi/stage-ui/stores/auth'
 import { useCharacterOrchestratorStore } from '@proj-airi/stage-ui/stores/character'
@@ -15,7 +16,6 @@ import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
-import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
 import { useOnboardingStore } from '@proj-airi/stage-ui/stores/onboarding'
 import { useSettings, useSettingsAudioDevice } from '@proj-airi/stage-ui/stores/settings'
 import { useSettingsStageModel } from '@proj-airi/stage-ui/stores/settings/stage-model'
@@ -31,6 +31,7 @@ import { toast, Toaster } from 'vue-sonner'
 import OnboardingPermissionsStep from './components/onboarding/step-permissions.vue'
 
 import { useProactiveNotifications } from './composables/proactive-notifications'
+import { createLocalSpeechHost } from './modules/local-speech'
 import { getHostWebSocketConnector } from './modules/websocket-bridge'
 
 const contextBridgeStore = useContextBridgeStore()
@@ -50,6 +51,9 @@ const { showingSetup } = storeToRefs(onboardingStore)
 const { isDark } = useTheme()
 const cardStore = useAiriCardStore()
 const startup = useStartupResourcesStore()
+const localSpeechHost = createLocalSpeechHost()
+if (localSpeechHost)
+  setLocalSpeechHost(localSpeechHost)
 startup.reset()
 startup.register(['auth', 'modelIndex', 'card', 'services', 'modelData', 'modelSelection', 'audio', 'route', 'model'])
 useStartupResourceTimeout('model', 120_000, () => i18n.t('stage.startup.model-timeout'))
@@ -63,7 +67,6 @@ useConsciousnessStore()
 useHearingStore()
 useSpeechStore()
 useSettingsStageModel()
-useVisionStore()
 
 const primaryColor = computed(() => {
   return isDark.value

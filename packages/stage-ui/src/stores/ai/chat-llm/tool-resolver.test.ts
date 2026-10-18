@@ -57,11 +57,10 @@ describe('toolNameFrom', () => {
 })
 
 describe('resolveLlmTools', () => {
-  it('reads the images of every tool when it receives an image reader', async () => {
+  it('returns tool images unchanged, because the chat model reads them', async () => {
     const screenshot = [{ type: 'image_url', image_url: { url: 'data:image/png;base64,aW1hZ2U=' } }]
     const builtInTool = { ...createTool('builtIn_mcpCallTool'), execute: async () => screenshot }
     const customTool = { ...createTool('computer_use_read_image'), execute: async () => screenshot }
-    const describeImage = vi.fn(async () => 'A window.')
 
     const tools = await resolveLlmTools({
       builtInTools: [builtInTool],
@@ -70,15 +69,10 @@ describe('resolveLlmTools', () => {
       webSearchTools: [],
       customTools: [customTool],
       activeTools: [],
-      describeImage,
     })
     const results = await Promise.all(tools.map(tool => tool.execute({}, { messages: [], toolCallId: 'call-1' })))
 
-    expect(results).toEqual([
-      [expect.objectContaining({ type: 'text' })],
-      [expect.objectContaining({ type: 'text' })],
-    ])
-    expect(describeImage).toHaveBeenCalledTimes(2)
+    expect(results).toEqual([screenshot, screenshot])
   })
 
   it('prefers a later runtime tool with the same name over an earlier built-in tool', async () => {

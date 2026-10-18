@@ -3,9 +3,12 @@ import type { ChatHistoryItem, ErrorMessage } from '../../../../types/chat'
 
 import { isStageCapacitor, isStageWeb } from '@proj-airi/stage-shared'
 import { BasicButton, IconButton } from '@proj-airi/ui'
+import { storeToRefs } from 'pinia'
 import { computed, shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import { providerErrorFixRoute } from '../../../../libs/providers/error-kind'
+import { useConsciousnessStore } from '../../../../stores/modules/consciousness'
 import { MarkdownRenderer } from '../../../markdown'
 import { getChatHistoryItemCopyText } from '../utils'
 import { ChatActionMenu } from './action-menu'
@@ -32,17 +35,26 @@ const emit = defineEmits<{
   (e: 'copy'): void
   (e: 'retry'): void
   (e: 'delete'): void
+  /** The host opens this settings route. Each host has its own way to open settings. */
+  (e: 'configure', route: string): void
 }>()
 const { t } = useI18n()
+const { activeProvider } = storeToRefs(useConsciousnessStore())
 const detailsOpen = shallowRef(false)
 
+// A classified error shows a plain explanation first. The raw provider response stays in the details.
+const fixRoute = computed(() => props.message.kind ? providerErrorFixRoute(props.message.kind, activeProvider.value) : undefined)
+
 const summary = computed(() => {
+  if (props.message.kind)
+    return t(`stage.chat.provider-error.${props.message.kind}`)
+
   const firstLine = props.message.content.trim().split(/\r?\n/u, 1)[0]
   const payloadStart = firstLine.indexOf(': {')
   const text = payloadStart >= 0 ? firstLine.slice(0, payloadStart) : firstLine
   return text.length > 160 ? `${text.slice(0, 157)}…` : text
 })
-const hasDetails = computed(() => props.message.content.length > 240 || props.message.content.split(/\r?\n/u).length > 4)
+const hasDetails = computed(() => !!props.message.kind || props.message.content.length > 240 || props.message.content.split(/\r?\n/u).length > 4)
 
 const boxClasses = computed(() => {
   if (props.surface === 'opaque')
@@ -111,6 +123,14 @@ const copyText = computed(() => getChatHistoryItemCopyText(props.message as Chat
                 ]"
               >{{ message.content }}</pre>
             </template>
+            <BasicButton
+              v-if="fixRoute && !showPlaceholder"
+              size="unset"
+              :class="['mt-2 rounded-lg bg-primary-500 px-3 py-1 text-sm text-white']"
+              @click.stop="emit('configure', fixRoute)"
+            >
+              {{ t('stage.chat.provider-error.fix') }}
+            </BasicButton>
           </div>
           <BasicButton
             v-if="hasDetails && !showPlaceholder"

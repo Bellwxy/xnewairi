@@ -3,18 +3,17 @@ import type { App } from 'vue'
 import en from '@proj-airi/i18n/locales/en'
 
 import { PiniaColada } from '@pinia/colada'
-import { useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
+import { DisplayModelFormat, useDisplayModelsStore } from '@proj-airi/stage-ui/stores/display-models'
 import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useArtistryStore } from '@proj-airi/stage-ui/stores/modules/artistry'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useSpeechStore } from '@proj-airi/stage-ui/stores/modules/speech'
-import { useVisionStore } from '@proj-airi/stage-ui/stores/modules/vision'
 import { useProviderStore } from '@proj-airi/stage-ui/stores/providers/provider'
 import { useSettingsStageModel } from '@proj-airi/stage-ui/stores/settings/stage-model'
 import { createPinia, disposePinia } from 'pinia'
 import { afterEach, beforeEach, expect, it } from 'vitest'
 import { render } from 'vitest-browser-vue'
-import { page } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { createApp } from 'vue'
 import { createI18n } from 'vue-i18n'
 
@@ -37,7 +36,6 @@ async function createCardContext() {
       // which only works inside a component setup, so they are created here first.
       useProviderStore()
       useConsciousnessStore()
-      useVisionStore()
       useSpeechStore()
       useArtistryStore()
       useSettingsStageModel()
@@ -61,7 +59,6 @@ async function createCardContext() {
       airi: {
         modules: {
           consciousness: { provider: '', model: '' },
-          vision: { provider: '', model: '' },
           speech: { provider: '', model: '', voice_id: '' },
         },
         agents: {},
@@ -152,4 +149,28 @@ it('replaces only the draft when the user applies a preset', async () => {
 
   await expect.element(personality).toHaveValue('You are cheerful, curious, and full of energy. You like jokes and small surprises. You speak with feeling. You stay kind when you tease the user.')
   expect(cards.getCard(cardId)?.personality).toBe('Calm.')
+})
+
+it('offers only Live2D models as the body model', async () => {
+  const { pinia, cardId } = await createCardContext()
+  // An earlier version imported VRM and MMD models. They stay stored after the product dropped those renderers.
+  useDisplayModelsStore(pinia).displayModels = [
+    { id: 'display-model-live2d', format: DisplayModelFormat.Live2dZip, type: 'url', url: 'https://example.com/live2d.zip', name: 'Imported Live2D', importedAt: 3 },
+    { id: 'display-model-vrm', format: DisplayModelFormat.VRM, type: 'url', url: 'https://example.com/model.vrm', name: 'Imported VRM', importedAt: 2 },
+    { id: 'display-model-mmd', format: DisplayModelFormat.PMXZip, type: 'url', url: 'https://example.com/model.zip', name: 'Imported MMD', importedAt: 1 },
+  ]
+  await render(CardEditor, {
+    props: { cardId, initialSection: 'modules' },
+    global: { plugins: [pinia, PiniaColada, createTestI18n()] },
+  })
+
+  const bodyField = page.getByText('Body / Display Model').element().parentElement
+  const bodyCombobox = bodyField?.querySelector<HTMLElement>('[role="combobox"]')
+  if (!bodyCombobox)
+    throw new Error('The body model field has no combobox')
+  await userEvent.click(bodyCombobox)
+
+  await expect.element(page.getByRole('option', { name: 'Imported Live2D' })).toBeInTheDocument()
+  await expect.element(page.getByRole('option', { name: 'Imported VRM' })).not.toBeInTheDocument()
+  await expect.element(page.getByRole('option', { name: 'Imported MMD' })).not.toBeInTheDocument()
 })

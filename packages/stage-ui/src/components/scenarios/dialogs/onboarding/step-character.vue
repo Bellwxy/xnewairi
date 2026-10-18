@@ -13,7 +13,7 @@ import { useI18n } from 'vue-i18n'
 
 import { useCharacterCardGeneration } from '../../../../composables/use-character-card-generation'
 import { characterPresetIds } from '../../../../services/character-card-generation'
-import { useDisplayModelsStore } from '../../../../stores/display-models'
+import { isLive2DModel, useDisplayModelsStore } from '../../../../stores/display-models'
 import { useAiriCardStore } from '../../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../../stores/modules/consciousness'
 import { useSettingsStageModel } from '../../../../stores/settings/stage-model'
@@ -29,6 +29,8 @@ const cardStore = useAiriCardStore()
 const { activeProvider, activeModel } = storeToRefs(useConsciousnessStore())
 const displayModelsStore = useDisplayModelsStore()
 const { displayModels } = storeToRefs(displayModelsStore)
+/** The product renders Live2D only. Models from other formats stay out of the choice. */
+const live2dModels = computed(() => displayModels.value.filter(isLive2DModel))
 const { stageModelSelected } = storeToRefs(useSettingsStageModel())
 const { generate } = useCharacterCardGeneration()
 
@@ -88,7 +90,6 @@ async function createCharacter() {
       // Empty module selections inherit the chat model that onboarding just selected.
       modules: {
         consciousness: { provider: '', model: '' },
-        vision: { provider: '', model: '' },
         speech: { provider: '', model: '', voice_id: '' },
         displayModelId: displayModelId.value,
       },
@@ -118,6 +119,9 @@ onMounted(async () => {
   // The onboarding window of the desktop app can open before any page loads the models.
   if (displayModels.value.length === 0)
     await displayModelsStore.loadDisplayModelsFromIndexedDB()
+  // The current stage model can be another format. The character then starts with the first Live2D model.
+  if (!live2dModels.value.some(model => model.id === displayModelId.value))
+    displayModelId.value = live2dModels.value[0]?.id ?? displayModelId.value
 })
 
 onBeforeUnmount(() => {
@@ -175,7 +179,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div v-if="displayModels.length > 0" :class="['flex flex-col gap-2']">
+        <div v-if="live2dModels.length > 0" :class="['flex flex-col gap-2']">
           <div :class="['flex flex-col gap-1']">
             <span :class="['text-sm font-medium', 'text-neutral-800 dark:text-neutral-100']">
               {{ t('settings.dialogs.onboarding.character.model-label') }}
@@ -186,7 +190,7 @@ onBeforeUnmount(() => {
           </div>
           <div :class="['grid grid-cols-1 gap-2 sm:grid-cols-2']">
             <RadioCardSimple
-              v-for="model in displayModels"
+              v-for="model in live2dModels"
               :id="`onboarding-character-model-${model.id}`"
               :key="model.id"
               v-model="displayModelId"

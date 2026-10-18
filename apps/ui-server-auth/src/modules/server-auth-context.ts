@@ -1,3 +1,4 @@
+import { brand } from '@proj-airi/stage-shared/brand'
 import { SERVER_URL } from '@proj-airi/stage-ui/libs/server'
 
 export interface ServerAuthBootstrapContext {
@@ -14,18 +15,8 @@ export interface ServerAuthBootstrapContext {
 const SCRIPT_ID = 'airi-server-auth-context'
 const API_SERVER_URL_QUERY_PARAM = 'api_server_url'
 
-const TRUSTED_STANDALONE_API_SERVER_ORIGINS = [
-  'https://api.airi.build',
-  'https://api-dev.airi.build',
-  'https://airi-server-next.up.railway.app',
-]
-
-const TRUSTED_HTTPS_API_SERVER_HOSTS = new Map(
-  TRUSTED_STANDALONE_API_SERVER_ORIGINS.map((origin) => {
-    const url = new URL(origin)
-    return [url.hostname, origin]
-  }),
-)
+// The customer build trusts only its configured API server and local development servers.
+const trustedApiServerUrl = new URL(brand.serverUrl)
 
 const TRUSTED_LOCAL_API_SERVER_ORIGIN_PATTERNS = [
   /^http:\/\/localhost(:\d+)?$/,
@@ -65,13 +56,11 @@ export function getServerAuthBootstrapContext(): ServerAuthBootstrapContext | nu
  * Resolves API-server context carried by server redirects into static auth UI.
  *
  * Use when:
- * - The standalone auth UI serves more than one AIRI environment from the same
- *   Pages deployment, such as production `accounts.airi.build` handling server-dev
- *   OIDC redirects.
+ * - The server-owned `/auth/*` redirect tells the static auth UI which API server to use.
  *
  * Expects:
  * - The server-owned `/auth/*` redirect sets `api_server_url`.
- * - Only known AIRI API origins and localhost development origins are accepted.
+ * - Only the configured customer API origin and localhost development origins are accepted.
  *
  * Returns:
  * - A bootstrap context using the trusted API origin, or null when no trusted
@@ -98,17 +87,14 @@ function normalizeTrustedApiServerUrl(value: string | null): string | null {
 
   try {
     const url = new URL(value)
-    const normalizedHttpsOrigin = TRUSTED_HTTPS_API_SERVER_HOSTS.get(url.hostname)
-    if (normalizedHttpsOrigin)
-      return normalizedHttpsOrigin
+    // Local servers keep their own port. Check them first, because the development
+    // identity also points at localhost and must not rewrite other local ports.
+    if (TRUSTED_LOCAL_API_SERVER_ORIGIN_PATTERNS.some(pattern => pattern.test(url.origin)))
+      return url.origin
 
-    const origin = url.origin
-
-    if (TRUSTED_STANDALONE_API_SERVER_ORIGINS.includes(origin))
-      return origin
-
-    if (TRUSTED_LOCAL_API_SERVER_ORIGIN_PATTERNS.some(pattern => pattern.test(origin)))
-      return origin
+    // A redirect can carry the customer host with HTTP or a path. Use the configured HTTPS origin.
+    if (url.hostname === trustedApiServerUrl.hostname)
+      return trustedApiServerUrl.origin
 
     return null
   }

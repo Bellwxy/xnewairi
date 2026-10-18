@@ -24,9 +24,9 @@ chat:
     text: Text
     voice: Voice
   provider-configuration:
-    title: Chat provider isn't configured
-    description: Choose and validate a provider in Settings before sending a message.
-    action: Open provider settings
+    title: Chat is not set up
+    description: Enter your API key in Settings before you send a message.
+    action: Open chat settings
   voice-message:
     recording: Recording
     starting: Starting microphone
@@ -92,10 +92,15 @@ chat:
   error-details:
     show: Show details
     hide: Hide details
+  provider-error:
+    endpoint: Cannot connect to the service. Check your network, then check the service address.
+    auth: The service did not accept your API key. Enter the correct key.
+    model: The service cannot use the selected model. Select a different model.
+    quota: Your balance is empty. Add credit, then try again.
+    rate-limit: There are too many requests. Wait a moment, then try again.
+    fix: Fix it
   images:
     empty: Share a thought or a picture.
-    use-vision: Use the vision model for chat images
-    use-vision-description: Choose a provider and model below. It reads attached images before your chat model replies. Without a vision model, images go directly to the chat model.
     attach: 'Attach images'
     remove: 'Remove {name}'
     unsupported: 'Use PNG, JPEG, WebP, or GIF images.'
@@ -103,7 +108,6 @@ chat:
     too-many: 'Attach up to {count} images at a time.'
     total-too-large: 'All attached images together must be 3 MB or smaller.'
     read-failed: 'Could not read this image. Try again.'
-    no-description: 'The vision model returned no image description. Check Settings → Modules → Vision and try again.'
     reading: 'Reading images…'
     description: 'Image attachment'
   actions:

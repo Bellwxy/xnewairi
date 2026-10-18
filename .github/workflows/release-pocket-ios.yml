@@ -25,7 +25,9 @@ jobs:
     name: Build iOS
     runs-on: macos-26
     env:
-      PRODUCT_NAME: 'AIRI'
+      AIRI_BRAND_JSON: ${{ vars.AIRI_BRAND_JSON }}
+      PRODUCT_NAME: ${{ fromJSON(vars.AIRI_BRAND_JSON || '{}').productName }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_DEVELOPER_TEAM_ID }}
       VITE_ENABLE_ANALYTICS: 'true'
       UPLOAD_TESTFLIGHT: ${{ github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.testflight) }}
       RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
@@ -80,6 +82,14 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp "$PROFILE_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/
 
+          security cms -D -i "$PROFILE_PATH" -o "$RUNNER_TEMP/profile.plist"
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' "$RUNNER_TEMP/profile.plist")
+          echo "PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
+          POCKET_APP_ID=$(node -p 'JSON.parse(process.env.AIRI_BRAND_JSON).pocketAppId')
+          cp apps/stage-pocket/ios/ExportOptions.plist "$RUNNER_TEMP/ExportOptions.plist"
+          /usr/libexec/PlistBuddy -c "Add :teamID string $APPLE_TEAM_ID" "$RUNNER_TEMP/ExportOptions.plist"
+          /usr/libexec/PlistBuddy -c "Add :provisioningProfiles:$POCKET_APP_ID string $PROFILE_UUID" "$RUNNER_TEMP/ExportOptions.plist"
+
       - name: Read version from Xcode project
         run: |
           PBXPROJ="apps/stage-pocket/ios/App/App.xcodeproj/project.pbxproj"
@@ -97,14 +107,15 @@ jobs:
             -configuration Release \
             -destination "generic/platform=iOS" \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
-            CURRENT_PROJECT_VERSION=${{ env.BUILD_NUMBER }}
+            CURRENT_PROJECT_VERSION=${{ env.BUILD_NUMBER }} \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_UUID"
 
       - name: Export IPA
         run: |
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
             -exportPath "$RUNNER_TEMP/output" \
-            -exportOptionsPlist apps/stage-pocket/ios/ExportOptions.plist
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
 
       - name: Rename IPA for distribution
         run: |

@@ -79,45 +79,48 @@ describe('settings stage model store', () => {
     expect(resetLegacyModelIdentity).not.toHaveBeenCalled()
   })
 
-  it('routes Tachie archives to the Tachie renderer', async () => {
-    const tachieModel: DisplayModelURL = {
-      id: 'tachie-model',
-      format: DisplayModelFormat.TachieZip,
+  it.each([
+    { format: DisplayModelFormat.VRM, url: 'https://example.com/character.vrm' },
+    { format: DisplayModelFormat.TachieZip, url: 'https://example.com/character.tachie.zip' },
+    { format: DisplayModelFormat.PMXZip, url: 'https://example.com/character.zip' },
+  ])('activates the default Live2D preset in place of an earlier $format import', async ({ format, url }) => {
+    // The product renders Live2D only. Earlier versions could import other formats, and their ids stay selected.
+    const defaultModel: DisplayModelURL = {
+      id: 'preset-live2d-1',
+      format: DisplayModelFormat.Live2dZip,
       type: 'url',
-      url: 'https://example.com/character.tachie.zip',
-      name: 'Tachie character',
+      url: 'https://example.com/preset-live2d.zip',
+      name: 'Preset Live2D',
       importedAt: 1,
     }
+    const earlierImport: DisplayModelURL = { id: 'display-model-earlier', format, type: 'url', url, name: 'Earlier import', importedAt: 2 }
     const displayModelsStore = useDisplayModelsStore()
-    vi.spyOn(displayModelsStore, 'getDisplayModel').mockResolvedValue(tachieModel)
-
-    vi.stubGlobal('window', {})
-    initialStageModelId.value = tachieModel.id
+    vi.spyOn(displayModelsStore, 'getDisplayModel').mockImplementation(async id => id === earlierImport.id ? earlierImport : defaultModel)
+    initialStageModelId.value = earlierImport.id
     const store = useSettingsStageModel()
 
     await store.initializeStageModel()
 
-    expect(store.stageModelSelectedDisplayModel).toEqual(tachieModel)
-    expect(store.stageModelSelectedUrl).toBe(tachieModel.url)
-    expect(store.stageModelRenderer).toBe('tachie')
-    expect(resetLegacyModelIdentity).toHaveBeenCalledOnce()
-    expect(resetLegacyModelIdentity).toHaveBeenCalledWith()
+    expect(store.stageModelSelected).toBe(defaultModel.id)
+    expect(store.stageModelSelectedDisplayModel).toEqual(defaultModel)
+    expect(store.stageModelSelectedUrl).toBe(defaultModel.url)
+    expect(store.stageModelRenderer).toBe('live2d')
   })
 
   it('resets the legacy model identity before publishing the startup model', async () => {
-    const vrmModel: DisplayModelURL = {
-      id: 'vrm-model',
-      format: DisplayModelFormat.VRM,
+    const live2dModel: DisplayModelURL = {
+      id: 'display-model-live2d',
+      format: DisplayModelFormat.Live2dZip,
       type: 'url',
-      url: 'https://example.com/character.vrm',
-      name: 'VRM character',
+      url: 'https://example.com/character.zip',
+      name: 'Live2D character',
       importedAt: 1,
     }
     const displayModelsStore = useDisplayModelsStore()
-    vi.spyOn(displayModelsStore, 'getDisplayModel').mockResolvedValue(vrmModel)
+    vi.spyOn(displayModelsStore, 'getDisplayModel').mockResolvedValue(live2dModel)
 
     vi.stubGlobal('window', {})
-    initialStageModelId.value = vrmModel.id
+    initialStageModelId.value = live2dModel.id
     const store = useSettingsStageModel()
 
     resetLegacyModelIdentity.mockImplementationOnce(() => {
@@ -128,7 +131,7 @@ describe('settings stage model store', () => {
     await store.initializeStageModel()
 
     expect(resetLegacyModelIdentity).toHaveBeenCalledWith()
-    expect(store.stageModelRenderer).toBe('vrm')
-    expect(store.stageModelSelectedUrl).toBe(vrmModel.url)
+    expect(store.stageModelRenderer).toBe('live2d')
+    expect(store.stageModelSelectedUrl).toBe(live2dModel.url)
   })
 })

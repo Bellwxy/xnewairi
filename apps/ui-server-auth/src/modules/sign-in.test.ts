@@ -80,20 +80,22 @@ describe('ui-server-auth sign-in flow helpers', () => {
     })
   })
 
-  it('keeps trusted standalone admin redirects on the admin origin', () => {
+  it('rejects absolute redirects to upstream admin origins', () => {
     expect(createServerSignInContext(
       'https://accounts.airi.build/ui/sign-in?redirect=https%3A%2F%2Fadmin.airi.build%2Fllm-router%3Fapi_server_url%3Dhttps%253A%252F%252Fapi-dev.airi.build',
       'https://api.airi.test',
     )).toEqual({
-      callbackURL: 'https://admin.airi.build/llm-router?api_server_url=https%3A%2F%2Fapi-dev.airi.build',
+      callbackURL: '/',
       requestedProvider: null,
     })
+  })
 
+  it('rejects absolute redirects to local origins', () => {
     expect(createServerSignInContext(
       'https://accounts.airi.build/ui/sign-in?redirect=http%3A%2F%2F127.0.0.1%3A5178%2Fllm-router%3Fapi_server_url%3Dhttp%253A%252F%252F127.0.0.1%253A3000',
       'https://api.airi.test',
     )).toEqual({
-      callbackURL: 'http://127.0.0.1:5178/llm-router?api_server_url=http%3A%2F%2F127.0.0.1%3A3000',
+      callbackURL: '/',
       requestedProvider: null,
     })
   })

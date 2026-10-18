@@ -39,13 +39,16 @@ AUTH_CLOUDFLARE_API_TOKEN=...
 
 `apps/ui-server-auth/wrangler.toml` remains available for Workers Static Assets deployments, but production CI uses Cloudflare Pages direct upload.
 
-Production expects:
+Production builds need these variables:
 
 ```sh
-VITE_SERVER_URL=https://api.airi.build
-VITE_WEB_APP_URL=https://airi.moeru.ai/
+AIRI_BRAND_JSON="$(cat brand.local.json)"
+VITE_WEB_APP_URL=https://app.customer.example/
 ```
+
+The default API server is the `serverUrl` field of `AIRI_BRAND_JSON`. The build stops if this variable is missing.
+`VITE_SERVER_URL` no longer selects the API server. See [Customer builds](../../docs/ai/customer-builds.md).
 
 The server redirects historical `/auth/*` URLs to `AUTH_UI_URL`, which defaults to `https://accounts.airi.build/ui`.
 
-The `server-dev` workflow deploys a Cloudflare Pages branch build at `https://server-dev.airi-server-auth.pages.dev/ui/`. That build sets `VITE_SERVER_URL` to `https://api-dev.airi.build`. Both auth UI builds set `VITE_WEB_APP_URL` for the verification-success destination. Local development must provide `VITE_WEB_APP_URL` too. When the server-dev auth redirect chain must stay on server-dev, set `AUTH_UI_URL` to `https://server-dev.airi-server-auth.pages.dev/ui`.
+The `server-dev` workflow deploys a Cloudflare Pages branch build at `https://server-dev.airi-server-auth.pages.dev/ui/`. Both auth UI builds set `VITE_WEB_APP_URL` for the verification-success destination. Local development must provide `VITE_WEB_APP_URL` too. When the server-dev auth redirect chain must stay on server-dev, set `AUTH_UI_URL` to `https://server-dev.airi-server-auth.pages.dev/ui`.

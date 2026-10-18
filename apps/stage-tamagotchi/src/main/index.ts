@@ -14,6 +14,7 @@ import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { Format, LogLevel, setGlobalFormat, setGlobalHookPostLog, setGlobalLogLevel, useLogg } from '@guiiai/logg'
 import { createContext } from '@moeru/eventa/adapters/electron/main'
 import { hasSelectedScreenCaptureSource, initScreenCaptureForMain } from '@proj-airi/electron-screen-capture/main'
+import { brand } from '@proj-airi/stage-shared/brand'
 import { app, ipcMain, protocol, session } from 'electron'
 import { noop } from 'es-toolkit'
 import { createLoggLogger, injeca, lifecycle } from 'injeca'
@@ -40,6 +41,7 @@ import { setupGodotStageManager } from './services/airi/godot-stage'
 import { setupHomeAssistant } from './services/airi/home-assistant'
 import { setupBuiltInServer } from './services/airi/http-server'
 import { IOTraceRecordingService } from './services/airi/io-trace-recording'
+import { setupLocalSpeech } from './services/airi/local-speech'
 import { setupMcpManager } from './services/airi/mcp-servers'
 import { setupExtensionHost } from './services/airi/plugins'
 import { setupArtistryBridge } from './services/airi/widgets/artistry-bridge'
@@ -84,7 +86,8 @@ setupDebugger()
 
 const log = useLogg('main').useGlobalConfig()
 
-const appUserDataPath = env.APP_USER_DATA_PATH?.trim()
+app.setName(brand.productName)
+const appUserDataPath = env.APP_USER_DATA_PATH?.trim() || join(app.getPath('appData'), brand.desktopAppId)
 if (appUserDataPath) {
   app.setPath('userData', appUserDataPath)
 }
@@ -151,7 +154,7 @@ if (isLinux) {
 // Dev runs use the Electron default icon, so replace it with a marked dev icon.
 if (is.dev)
   app.dock?.setIcon(devIcon)
-electronApp.setAppUserModelId('ai.moeru.airi')
+electronApp.setAppUserModelId(brand.desktopAppId)
 
 // Track the real user-facing AIRI window because the process also owns hidden utility windows.
 // The second-instance handler should restore the main UI instead of accidentally surfacing internals.
@@ -393,6 +396,7 @@ app.whenReady().then(async () => {
       const { context } = createContext(ipcMain)
       setupComputerUse(context)
       setupHomeAssistant(context)
+      setupLocalSpeech(context)
       await setupArtistryBridge({
         widgetsManager: deps.widgetsWindow,
         context,

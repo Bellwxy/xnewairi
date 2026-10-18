@@ -3,8 +3,8 @@ import type { VoicePluginHandle } from '@proj-airi/core-agent'
 
 import { errorMessageFrom } from '@moeru/std'
 import { encodeWav } from '@proj-airi/audio/encoding'
-import { Alert, ErrorContainer, LevelMeter, RadioCardManySelect, RadioCardSimple, TestDummyMarker, ThresholdMeter, TimeSeriesChart } from '@proj-airi/stage-ui/components'
-import { useAnalytics, useHearingPlaygroundSegments } from '@proj-airi/stage-ui/composables'
+import { Alert, ErrorContainer, LevelMeter, RadioCardManySelect, TestDummyMarker, ThresholdMeter, TimeSeriesChart } from '@proj-airi/stage-ui/components'
+import { useHearingPlaygroundSegments } from '@proj-airi/stage-ui/composables'
 import { useVoiceController } from '@proj-airi/stage-ui/composables/audio/voice-controller'
 import { hearingProviderViewContextKey } from '@proj-airi/stage-ui/libs'
 import { createVoiceActivityPlugin } from '@proj-airi/stage-ui/libs/voice/voice-activity-plugin'
@@ -37,9 +37,7 @@ const {
 } = storeToRefs(hearingStore)
 const providersStore = useProviderStore()
 const providerStore = useProviderConfigStore()
-const { moduleTranscriptionProvidersMetadata } = storeToRefs(providersStore)
 
-const { trackProviderClick } = useAnalytics()
 const settingsAudioDeviceStore = useSettingsAudioDevice()
 const { audioInputOptions, selectedAudioInput } = storeToRefs(settingsAudioDeviceStore)
 const supportsStreamInput = computed(() => providersStore.getTranscriptionFeatures(activeTranscriptionProvider.value).supportsStreamInput)
@@ -356,74 +354,7 @@ onUnmounted(() => {
           layout="vertical"
         />
 
-        <div :class="['flex flex-col gap-4']">
-          <div>
-            <h2 :class="['text-lg text-neutral-500 md:text-2xl dark:text-neutral-500']">
-              {{ t('settings.pages.providers.title') }}
-            </h2>
-            <div :class="['text-neutral-400 dark:text-neutral-400']">
-              <span>{{ t('settings.pages.modules.hearing.sections.section.provider-selection.description') }}</span>
-            </div>
-          </div>
-          <div :class="['max-w-full']">
-            <!--
-            fieldset has min-width set to --webkit-min-container, in order to use over flow scroll,
-            we need to set the min-width to 0.
-            See also: https://stackoverflow.com/a/33737340
-          -->
-            <fieldset
-              v-if="moduleTranscriptionProvidersMetadata.length > 0"
-              :class="['flex flex-row gap-4 min-w-0 overflow-x-auto scroll-smooth']"
-              role="radiogroup"
-            >
-              <RadioCardSimple
-                v-for="metadata in moduleTranscriptionProvidersMetadata"
-                :id="metadata.id"
-                :key="metadata.id"
-                v-model="activeTranscriptionProvider"
-                name="provider"
-                :value="metadata.id"
-                :title="metadata.localizedName || 'Unknown'"
-                :description="metadata.localizedDescription"
-                @click="trackProviderClick(metadata.id, 'hearing')"
-              />
-              <RouterLink
-                to="/settings/providers#transcription"
-                :class="[
-                  'relative min-w-50 w-fit flex flex-col items-center justify-center rounded-xl p-4',
-                  'border-2 border-solid border-neutral-100 bg-white dark:border-neutral-900 dark:bg-neutral-900/20',
-                  'hover:border-primary-500/30 dark:hover:border-primary-400/30',
-                  'transition-all duration-200 ease-in-out',
-                ]"
-              >
-                <div :class="['i-solar:add-circle-line-duotone text-2xl text-neutral-500 dark:text-neutral-500']" />
-                <div
-                  :class="['absolute inset-0 z--1 bg-dotted-neutral-200/80 dark:bg-dotted-neutral-700/50']"
-                  style="background-size: 10px 10px; mask-image: linear-gradient(165deg, white 30%, transparent 50%);"
-                />
-              </RouterLink>
-            </fieldset>
-            <div v-else>
-              <RouterLink
-                to="/settings/providers"
-                :class="[
-                  'flex items-center gap-3 rounded-lg p-4',
-                  'border-2 border-dashed border-neutral-200 dark:border-neutral-800',
-                  'bg-neutral-50 dark:bg-neutral-800',
-                  'transition-colors duration-200 ease-in-out',
-                ]"
-              >
-                <div :class="['i-solar:warning-circle-line-duotone text-2xl text-amber-500 dark:text-amber-400']" />
-                <div :class="['flex flex-col']">
-                  <span :class="['font-medium']">No Providers Configured</span>
-                  <span :class="['text-sm text-neutral-400 dark:text-neutral-500']">Click here to set up your Transcription providers</span>
-                </div>
-                <div :class="['i-solar:arrow-right-line-duotone ml-auto text-xl text-neutral-400 dark:text-neutral-500']" />
-              </RouterLink>
-            </div>
-          </div>
-        </div>
-
+        <!-- Onboarding selects the bundled recognizer. This page offers no provider selection. -->
         <component
           :is="activeProviderHearingView"
           v-if="activeProviderHearingView"

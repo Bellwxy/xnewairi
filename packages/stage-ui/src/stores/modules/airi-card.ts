@@ -32,12 +32,10 @@ import { useAuthStore } from '../auth'
 import { useCharacterStateStore } from '../character/state'
 import { useFeatureFlagsStore } from '../feature-flags'
 import { useProviderConfigStore } from '../providers/config'
-import { useProviderStore } from '../providers/provider'
 import { useSettingsStageModel } from '../settings/stage-model'
 import { useArtistryStore } from './artistry'
 import { useConsciousnessStore } from './consciousness'
 import { useSpeechStore } from './speech'
-import { useVisionStore } from './vision'
 
 export type { AiriCard, AiriExtension } from '../../types/airiCard'
 
@@ -134,15 +132,13 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       consciousness: useConsciousnessStore(),
       speech: useSpeechStore(),
       stageModel: useSettingsStageModel(),
-      vision: useVisionStore(),
     }
   }
 
   function readRuntimeModules(): CardModuleDefaults {
-    const { consciousness, vision, speech, stageModel } = useRuntimeModuleStores()
+    const { consciousness, speech, stageModel } = useRuntimeModuleStores()
     return {
       consciousness: { provider: consciousness.activeProvider, model: consciousness.activeModel },
-      vision: { provider: vision.activeProvider, model: vision.activeModel },
       speech: { provider: speech.activeSpeechProvider, model: speech.activeSpeechModel, voice_id: speech.activeSpeechVoiceId },
       displayModelId: stageModel.stageModelSelected,
     }
@@ -161,7 +157,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     // A user can change an inherited setting through a module surface. Retain
     // those changes, but never promote the previous card's overrides to defaults.
     const next = structuredClone(toRaw(defaults))
-    for (const module of ['consciousness', 'vision', 'speech'] as const) {
+    for (const module of ['consciousness', 'speech'] as const) {
       const previous = appliedModules[module]
       if (previous.provider)
         continue
@@ -180,13 +176,11 @@ export const useAiriCardStore = defineStore('airi-card', () => {
 
   /** Applies card speech through the leader command so catalog invalidation precedes its saved voice. */
   async function writeRuntimeModules(modules: CardModuleDefaults) {
-    const { consciousness, vision, speech, stageModel } = useRuntimeModuleStores()
+    const { consciousness, speech, stageModel } = useRuntimeModuleStores()
     // Provider changes synchronously clear dependent selections. Assign the
     // resolved model and voice afterwards, including empty values.
     consciousness.activeProvider = modules.consciousness.provider
     consciousness.activeModel = modules.consciousness.model
-    vision.activeProvider = modules.vision.provider
-    vision.activeModel = modules.vision.model
     await speech.selectProviderModel(modules.speech.provider, modules.speech.model, modules.speech.voice_id)
     if (modules.displayModelId !== undefined)
       stageModel.stageModelSelected = modules.displayModelId
@@ -294,27 +288,20 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     return updated
   }
 
-  async function updateActiveCardVision(vision: AiriExtension['modules']['vision']) {
-    const updated = updateActiveCardModules(() => ({ vision }))
-    if (updated)
-      await applyActiveCardSettings()
-    return updated
-  }
-
   /**
-   * Selects a vision provider for the active card with its catalog default.
+   * Stores the chat selection that cards without their own selection inherit, and applies the active card.
    *
-   * Only this explicit selection applies the default, and the card stores it,
-   * so the runtime and the card keep the same model. A provider without a
-   * default keeps an empty model until the user selects one.
+   * Onboarding calls it when it finishes. A skipped step applies no card, so nothing else stores the selected model.
    */
-  async function selectActiveCardVisionProvider(provider: string) {
-    const vision = useVisionStore()
-    vision.activeProvider = provider
-    vision.resetModelSelection()
-    await vision.loadModelsForProvider(provider)
-    const model = useProviderStore().getDefaultModelForProvider(provider) ?? ''
-    return await updateActiveCardVision({ provider, model })
+  async function updateDefaultConsciousness(consciousness: AiriExtension['modules']['consciousness']) {
+    rememberInheritedSettings()
+    const defaults = moduleDefaults.value
+    if (!defaults)
+      return
+    moduleDefaults.value = { ...structuredClone(toRaw(defaults)), consciousness: { ...consciousness } }
+    // The runtime of this window can still hold the previous selection. Without applied modules, the next apply keeps this default.
+    appliedModules = undefined
+    await applyActiveCardSettings()
   }
 
   async function updateActiveCardSpeech(speech: Pick<AiriExtension['modules']['speech'], 'provider' | 'model' | 'voice_id'>) {
@@ -336,7 +323,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     if (!defaults)
       return
     const next = structuredClone(toRaw(defaults))
-    for (const module of ['consciousness', 'vision', 'speech'] as const) {
+    for (const module of ['consciousness', 'speech'] as const) {
       if (next[module].provider === providerId) {
         next[module].provider = module === 'speech' ? 'speech-noop' : ''
         next[module].model = ''
@@ -347,7 +334,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     moduleDefaults.value = next
     updateActiveCardModules(({ modules }) => ({
       consciousness: modules.consciousness.provider === providerId ? { provider: '', model: '' } : modules.consciousness,
-      vision: modules.vision.provider === providerId ? { provider: '', model: '' } : modules.vision,
       speech: modules.speech.provider === providerId ? { ...modules.speech, provider: '', model: '', voice_id: '' } : modules.speech,
     }))
     appliedModules = undefined
@@ -363,7 +349,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     // Create default modules config
     const defaultModules = {
       consciousness: { provider: '', model: '' },
-      vision: { provider: '', model: '' },
       speech: { provider: '', model: '', voice_id: '' },
       displayModelId: '',
       artistry: {
@@ -398,11 +383,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
           ...existingExtension.modules?.consciousness,
           provider: existingExtension.modules?.consciousness?.provider ?? defaultModules.consciousness.provider,
           model: existingExtension.modules?.consciousness?.model ?? defaultModules.consciousness.model,
-        },
-        vision: {
-          ...existingExtension.modules?.vision,
-          provider: existingExtension.modules?.vision?.provider ?? defaultModules.vision.provider,
-          model: existingExtension.modules?.vision?.model ?? defaultModules.vision.model,
         },
         speech: {
           ...existingExtension.modules?.speech,
@@ -499,7 +479,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         modules: {
           consciousness: { provider: '', model: '' },
           speech: { provider: '', model: '', voice_id: '' },
-          vision: { provider: '', model: '' },
         },
         agents: {},
       },
@@ -885,7 +864,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     const speechSelection = resolveModuleSelection(modules.speech, defaults.speech)
     const resolved: CardModuleDefaults = {
       consciousness: resolveModuleSelection(modules.consciousness, defaults.consciousness),
-      vision: resolveModuleSelection(modules.vision, defaults.vision),
       speech: {
         ...speechSelection,
         voice_id: modules.speech.voice_id || (
@@ -897,7 +875,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       displayModelId: modules.displayModelId || defaults.displayModelId,
     }
     const providers = useProviderConfigStore().providers
-    for (const module of ['consciousness', 'vision', 'speech'] as const) {
+    for (const module of ['consciousness', 'speech'] as const) {
       const provider = providers[resolved[module].provider]
       // Logout disables authenticated providers without deleting card choices.
       if (provider?.configuredBy === 'authentication' && provider.status === 'unconfigured') {
@@ -983,8 +961,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     updateActiveCardConsciousness,
     updateActiveCardDisplayModel,
     updateActiveCardSpeech,
-    updateActiveCardVision,
-    selectActiveCardVisionProvider,
+    updateDefaultConsciousness,
     getCard,
     getModules,
     getSystemPrompt,
@@ -998,17 +975,12 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         consciousness,
         speech,
         stageModel,
-        vision,
       } = useRuntimeModuleStores()
 
       return {
         consciousness: {
           provider: consciousness.activeProvider,
           model: consciousness.activeModel,
-        },
-        vision: {
-          provider: vision.activeProvider,
-          model: vision.activeModel,
         },
         speech: {
           provider: speech.activeSpeechProvider,
@@ -1032,8 +1004,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
       'updateActiveCardConsciousness',
       'updateActiveCardDisplayModel',
       'updateActiveCardSpeech',
-      'updateActiveCardVision',
-      'selectActiveCardVisionProvider',
+      'updateDefaultConsciousness',
       'updateCard',
       'restoreCardVersion',
       'restoreDeletedCard',

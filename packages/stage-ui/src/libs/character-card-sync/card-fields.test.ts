@@ -16,7 +16,6 @@ const card: AiriCard = {
       wakeWords: [],
       modules: {
         consciousness: { provider: 'openai', model: 'gpt' },
-        vision: { provider: '', model: '' },
         speech: { provider: 'azure', model: 'neural', voice_id: 'aria', pitch: undefined },
         displayModelId: 'display-model-1',
       },
@@ -37,7 +36,6 @@ describe('splitCard', () => {
       '/extensions/airi/wakeWords': [],
       '/extensions/airi/agents': {},
       '/extensions/airi/modules/consciousness': { provider: 'openai', model: 'gpt' },
-      '/extensions/airi/modules/vision': { provider: '', model: '' },
       '/extensions/airi/modules/speech': { provider: 'azure', model: 'neural', voice_id: 'aria' },
       '/extensions/airi/modules/displayModelId': 'display-model-1',
     })
@@ -71,7 +69,7 @@ describe('the built-in card', () => {
     name: 'ReLU',
     version: '1.0.0',
     description: 'Built-in description',
-    extensions: { airi: { modules: { consciousness: { provider: '', model: '' }, speech: { provider: '', model: '', voice_id: '' }, vision: { provider: '', model: '' } }, agents: {} } },
+    extensions: { airi: { modules: { consciousness: { provider: '', model: '' }, speech: { provider: '', model: '', voice_id: '' } }, agents: {} } },
   }
 
   it('leaves out the parts that equal the built-in card', () => {

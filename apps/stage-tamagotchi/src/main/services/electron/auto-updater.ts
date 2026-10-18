@@ -18,6 +18,7 @@ import { useLogg } from '@guiiai/logg'
 import { defineInvokeHandler } from '@moeru/eventa'
 import { tryCatch } from '@moeru/std'
 import { errorMessageFromValue } from '@proj-airi/stage-shared'
+import { brand } from '@proj-airi/stage-shared/brand'
 import { committerDate } from '~build/git'
 import { app } from 'electron'
 import { Semaphore } from 'es-toolkit'
@@ -36,9 +37,9 @@ function getReleaseChannelName() {
   return process.arch === 'arm64' ? 'latest-arm64' : 'latest-x64'
 }
 
-const GITHUB_RELEASES_API_URL = 'https://api.github.com/repos/moeru-ai/airi/releases?per_page=100'
-const GITHUB_RELEASES_ATOM_URL = 'https://github.com/moeru-ai/airi/releases.atom'
-const GITHUB_RELEASE_DOWNLOAD_BASE_URL = 'https://github.com/moeru-ai/airi/releases/download'
+const GITHUB_RELEASES_API_URL = `https://api.github.com/repos/${brand.updateRepository}/releases?per_page=100`
+const GITHUB_RELEASES_ATOM_URL = `https://github.com/${brand.updateRepository}/releases.atom`
+const GITHUB_RELEASE_DOWNLOAD_BASE_URL = `https://github.com/${brand.updateRepository}/releases/download`
 const UPDATE_CHANNEL_ENV_KEY = 'AIRI_UPDATE_CHANNEL'
 
 function getCacheRoot() {
@@ -58,10 +59,10 @@ function getLegacyCacheRoot() {
   }
 }
 
-const UPDATER_DEBUG_CACHE_DIR = join(getCacheRoot(), 'stage-tamagotchi-updater')
+const UPDATER_DEBUG_CACHE_DIR = join(getCacheRoot(), `${brand.desktopAppId}-updater-debug`)
 const UPDATER_LOG_FILE = join(UPDATER_DEBUG_CACHE_DIR, 'updater-log.txt')
-const OFFICIAL_UPDATER_CACHE_DIR = join(getCacheRoot(), 'ai.moeru.airi-updater')
-const LEGACY_OFFICIAL_UPDATER_CACHE_DIR = join(getLegacyCacheRoot(), 'ai.moeru.airi-updater')
+const OFFICIAL_UPDATER_CACHE_DIR = join(getCacheRoot(), `${brand.desktopAppId}-updater`)
+const LEGACY_OFFICIAL_UPDATER_CACHE_DIR = join(getLegacyCacheRoot(), `${brand.desktopAppId}-updater`)
 const OFFICIAL_UPDATER_CACHE_DIRS = Array.from(new Set([
   OFFICIAL_UPDATER_CACHE_DIR,
   LEGACY_OFFICIAL_UPDATER_CACHE_DIR,
@@ -182,18 +183,11 @@ function selectLatestTagForLane(releases: GitHubReleaseRecord[], lane: UpdateLan
 }
 
 /**
- * Extract release tags from GitHub releases Atom feed without adding XML-parser dependencies.
- *
- * The current feed contains entries like:
- * `<entry><link rel="alternate" type="text/html" href="https://github.com/moeru-ai/airi/releases/tag/v0.9.0-beta.6"/></entry>`
- * and
- * `<entry><id>tag:github.com,2008:Repository/963495975/v0.9.0-alpha.36</id></entry>`
- *
- * We intentionally scan for `/moeru-ai/airi/releases/tag/` so we only consume actual release tag links.
+ * Extracts release tag links only from the configured repository.
  */
 function extractReleaseTagsFromAtom(atom: string) {
   const tags: string[] = []
-  const marker = '/moeru-ai/airi/releases/tag/'
+  const marker = `/${brand.updateRepository}/releases/tag/`
   let offset = 0
 
   while (offset < atom.length) {
@@ -306,7 +300,7 @@ function createDisabledAutoUpdater(options: AutoUpdaterOptions): AutoUpdater {
 }
 
 export function setupAutoUpdater(options: AutoUpdaterOptions = {}): AutoUpdater {
-  if (options.enabled === false)
+  if (options.enabled === false || (!brand.updateRepository && !getUpdateServerOverride()))
     return createDisabledAutoUpdater(options)
 
   const semaphore = new Semaphore(1)
