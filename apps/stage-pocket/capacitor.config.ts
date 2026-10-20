@@ -27,13 +27,18 @@ const config: CapacitorConfig = {
   appId: brand.pocketAppId,
   appName: brand.productName,
   webDir: 'dist',
-  server: serverURL
-    ? {
-        url: serverURL,
-        cleartext: false,
-      }
-    : undefined,
+  server: {
+    // Built from webview-outdated.html. Capacitor opens it when the WebView is older than `minWebViewVersion`.
+    errorPath: 'webview-outdated.html',
+    ...serverURL ? { url: serverURL, cleartext: false } : {},
+  },
   android: {
+    // NOTICE:
+    // Below this version, Capacitor shows the error page instead of a broken app.
+    // Vite 8 builds for Chrome 111, so older WebViews cannot parse the bundle.
+    // Source: ESBUILD_BASELINE_WIDELY_AVAILABLE_TARGET in vite/dist/node/chunks/node.js.
+    // Change this value when the Vite build target changes.
+    minWebViewVersion: 111,
     buildOptions: {
       keystorePath: env.CAPACITOR_ANDROID_KEYSTORE_PATH,
       keystoreAlias: env.CAPACITOR_ANDROID_KEYSTORE_ALIAS,

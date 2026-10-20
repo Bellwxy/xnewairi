@@ -171,6 +171,7 @@ startup:
     route: 页面
     model: 角色模型
   model-timeout: 角色模型加载超时，请检查网络连接后重试。
+  webview-outdated: 这台手机的 Android System WebView 版本太旧。请在应用商店更新 Android System WebView，然后重新打开应用。
 message: 说点什么...
 theme:
   title: 主题

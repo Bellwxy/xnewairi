@@ -155,6 +155,13 @@ export default defineConfig({
   },
   build: {
     sourcemap: true,
+    rolldownOptions: {
+      input: {
+        'main': resolve(import.meta.dirname, 'index.html'),
+        // Capacitor `server.errorPath` opens this page on an outdated Android System WebView.
+        'webview-outdated': resolve(import.meta.dirname, 'webview-outdated.html'),
+      },
+    },
   },
   worker: {
     format: 'es',

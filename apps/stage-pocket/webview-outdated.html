@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>AIRI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <!--
+      Capacitor opens this page instead of the app when the Android System WebView is older than
+      `android.minWebViewVersion` in capacitor.config.ts. It runs on that old WebView, so its script uses ES5 only.
+    -->
+    <style>
+      html, body { margin: 0; height: 100%; }
+      body {
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        padding: 24px;
+        background: #fff;
+        color: #262626;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        text-align: center;
+      }
+      img { width: 96px; height: 96px; }
+      p { max-width: 320px; margin: 0; font-size: 15px; line-height: 1.6; }
+      @media (prefers-color-scheme: dark) {
+        body { background: #171717; color: #f5f5f5; }
+      }
+    </style>
+  </head>
+  <body>
+    <img src="/favicon.svg" alt="" />
+    <p id="message" role="alert">Android System WebView on this phone is too old. Update Android System WebView in the app store, then open the app again.</p>
+    <script id="boot-splash-locales" type="application/json">__AIRI_STARTUP_LOCALES__</script>
+    <script>
+      ;(function () {
+        var data = JSON.parse(document.getElementById('boot-splash-locales').textContent)
+        // The language setting belongs to the current account. See packages/stage-shared/src/account-scope.
+        var account = encodeURIComponent(localStorage.getItem('airi/account/current') || 'local')
+        var preferred = localStorage.getItem('account/' + account + '/settings/language') || navigator.language
+        var locale = data.localeRemap[preferred] || preferred
+        var labels = data.labels[locale] || data.labels.en
+        document.getElementById('message').textContent = labels.webviewOutdated
+      })()
+    </script>
+  </body>
+</html>

@@ -161,6 +161,7 @@ startup:
   retry: Retry
   continue-without-model: Continue Anyway
   model-timeout: The character model took too long to load. Check your connection and retry.
+  webview-outdated: Android System WebView on this phone is too old. Update Android System WebView in the app store, then open the app again.
   resources:
     auth: account settings
     modelIndex: model list

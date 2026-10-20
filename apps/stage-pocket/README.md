@@ -19,6 +19,13 @@ The Vite config downloads the sherpa-onnx AAR into `android/app/libs` and extrac
 Run a Vite build before Gradle. Without the AAR, the app module does not compile.
 The `tar` command must read bzip2 archives. iOS has no plugin yet, so the voice is not available there.
 
+## Minimum WebView
+
+The app needs Android System WebView 111 or later, because Vite 8 builds for Chrome 111.
+On an older WebView, Capacitor opens `webview-outdated.html`, which tells the user to update the WebView.
+When the Vite build target changes, change `android.minWebViewVersion` in `capacitor.config.ts` to match.
+Huawei WebView uses its own version numbers. The app keeps the Capacitor default for it, so this check does not cover Huawei devices.
+
 ## WebSocket Bridge
 
 Stage Pocket adds a host-backed WebSocket bridge for `@proj-airi/server-sdk`.
