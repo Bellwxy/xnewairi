@@ -44,6 +44,17 @@ cert*/
 *.cer
 *.key
 *.p12
+*.pfx
+*.jks
+*.keystore
+keystore.properties
+
+# Android release packages
+*.apk
+*.aab
+
+# Customer legal pages. They contain the contact email and the gateway host.
+legal/
 
 # Test coverage
 coverage/
