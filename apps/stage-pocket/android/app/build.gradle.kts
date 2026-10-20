@@ -49,6 +49,11 @@ android {
         versionCode = androidVersionCode
         versionName = androidVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        ndk {
+            // The app ships for 64-bit ARM phones only. Each other ABI adds 24 to 41 MB of native libraries.
+            // Emulators on Apple silicon also run arm64-v8a.
+            abiFilters += listOf("arm64-v8a")
+        }
     }
 
     buildTypes {

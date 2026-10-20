@@ -19,6 +19,11 @@ The Vite config downloads the sherpa-onnx AAR into `android/app/libs` and extrac
 Run a Vite build before Gradle. Without the AAR, the app module does not compile.
 The `tar` command must read bzip2 archives. iOS has no plugin yet, so the voice is not available there.
 
+## Supported Devices
+
+The Android build includes native libraries for `arm64-v8a` only. It does not install on 32-bit ARM or x86 devices.
+Each other ABI adds 24 to 41 MB. To add one, edit `abiFilters` in `android/app/build.gradle.kts`.
+
 ## Minimum WebView
 
 The app needs Android System WebView 111 or later, because Vite 8 builds for Chrome 111.
