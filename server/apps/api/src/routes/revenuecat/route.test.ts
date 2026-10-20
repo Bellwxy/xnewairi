@@ -190,7 +190,8 @@ describe('revenuecat routes', () => {
     entitlements['user-1'] = [{
       entitlementId: 'airi_plus',
       productId: 'rc_plus_monthly',
-      purchasedAt: new Date('2026-10-15T00:00:00.000Z'),
+      // The upgrade must start after the first grant. A fixed date fails when it passes.
+      purchasedAt: new Date(Date.now() + 1000),
       accessUntil: goEntitlement.accessUntil,
     }]
     await postWebhook(app, webhookBody({ id: 'sub-event-2', type: 'PRODUCT_CHANGE', product_id: 'rc_go_monthly' }))

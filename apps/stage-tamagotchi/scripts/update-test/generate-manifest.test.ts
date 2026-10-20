@@ -1,7 +1,9 @@
 import { mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { env } from 'node:process'
 
+import { resolveBrand } from '@proj-airi/stage-shared/brand/config'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import * as yaml from 'yaml'
@@ -30,6 +32,8 @@ describe('generateManifestFixtures', () => {
     const root = await mkdtemp(join(tmpdir(), 'airi-update-test-'))
     roots.push(root)
 
+    // The installer name starts with the brand product name from electron-builder.config.ts.
+    const artifactFilename = `${resolveBrand(env.AIRI_BRAND_JSON).productName}-9.9.9-test.1-windows-x64-setup.exe`
     const result = await generateManifestFixtures({
       rootDir: root,
       channel: 'stable',
@@ -41,16 +45,16 @@ describe('generateManifestFixtures', () => {
 
     expect(result.channelDir).toBe(join(root, 'stable'))
     expect(result.latestFilename).toBe('latest-x64.yml')
-    expect(result.artifactFilename).toBe('AIRI-9.9.9-test.1-windows-x64-setup.exe')
+    expect(result.artifactFilename).toBe(artifactFilename)
 
     const manifest = yaml.parse(await readFile(result.manifestPath, 'utf8'))
     expect(manifest).toMatchObject({
       version: '9.9.9-test.1',
-      path: 'AIRI-9.9.9-test.1-windows-x64-setup.exe',
+      path: artifactFilename,
       releaseNotes: 'Mock update for AIRI local updater verification.',
       files: [
         {
-          url: 'AIRI-9.9.9-test.1-windows-x64-setup.exe',
+          url: artifactFilename,
         },
       ],
     })
