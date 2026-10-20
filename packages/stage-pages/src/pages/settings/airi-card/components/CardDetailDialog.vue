@@ -23,6 +23,7 @@ import { computed, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 
+import CardRegeneration from './card-regeneration.vue'
 import DeleteCardDialog from './DeleteCardDialog.vue'
 import RestoreVersionDialog from './RestoreVersionDialog.vue'
 
@@ -220,6 +221,12 @@ const tabs = computed<Tab[]>(() => {
       icon: 'i-solar:user-rounded-linear',
     })
   }
+
+  availableTabs.push({
+    id: 'regenerate',
+    label: t('settings.pages.card.generation.tab'),
+    icon: 'i-solar:magic-stick-3-linear',
+  })
 
   // Modules tab - always show
   availableTabs.push({
@@ -536,6 +543,8 @@ function getModuleDisplayValue(value: string | undefined): string {
                 </template>
               </div>
             </div>
+
+            <CardRegeneration v-if="activeTab === 'regenerate'" :card-id="cardId" />
 
             <!-- Modules -->
             <div v-if="activeTab === 'modules'">

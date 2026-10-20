@@ -1,10 +1,11 @@
 import type { Conversation } from '@proj-airi/core-agent'
 
+import type { AiriCard } from '../types/airiCard'
 import type { RequestReply } from './character-card-generation'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { generateCharacterFields } from './character-card-generation'
+import { applyGeneratedFields, generateCharacterFields } from './character-card-generation'
 
 const brief = { name: 'Mio', summary: 'A gentle senior who teases a little.', language: 'zh-Hans' }
 
@@ -109,5 +110,48 @@ describe('generateCharacterFields', () => {
     const requestReply = vi.fn<RequestReply>(() => new Promise<string>(() => {}))
 
     await expect(generateCharacterFields(brief, requestReply, { signal: controller.signal })).rejects.toThrow('Step closed')
+  })
+})
+
+describe('applyGeneratedFields', () => {
+  const card: AiriCard = {
+    name: 'Mio',
+    version: '1.0.0',
+    description: 'Old description.',
+    personality: 'Old personality.',
+    scenario: 'Old scenario.',
+    greetings: ['Old greeting.', 'Alternate greeting.'],
+    systemPrompt: 'Kept prompt.',
+    extensions: {
+      airi: {
+        wakeWords: [],
+        generation: { summary: 'Old summary.' },
+        modules: {
+          consciousness: { provider: 'gateway', model: 'chat' },
+          speech: { provider: 'local-speech', model: 'melo', voice_id: 'zh' },
+          displayModelId: 'hiyori',
+        },
+        agents: {},
+      },
+    },
+  }
+
+  it('replaces the generated fields and the first greeting, and keeps every other field', () => {
+    const result = applyGeneratedFields(card, validFields, 'New summary.')
+
+    expect(result).toEqual({
+      ...card,
+      description: validFields.description,
+      personality: validFields.personality,
+      scenario: validFields.scenario,
+      greetings: [validFields.greeting, 'Alternate greeting.'],
+      extensions: { airi: { ...card.extensions.airi, generation: { summary: 'New summary.' } } },
+    })
+  })
+
+  it('adds the greeting to a card without greetings', () => {
+    const result = applyGeneratedFields({ ...card, greetings: undefined }, validFields, 'New summary.')
+
+    expect(result.greetings).toEqual([validFields.greeting])
   })
 })

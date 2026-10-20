@@ -251,6 +251,8 @@ The user can skip the step. The built-in `default` card then stays active.
 - `useCharacterCardGeneration` sends that request through the chat model that it receives, with tools disabled.
 - If generation fails or times out, onboarding uses the personality template of the last chosen preset. The step always finishes.
 - The new card inherits every module selection, except the display model that the user chose. `extensions.airi.generation.summary` keeps the summary.
+- The Regenerate tab of the card dialog in `stage-pages` sends a summary again, with the chat model of that card. The user compares the result with the card before it changes. A failure shows an error and keeps the card. Regeneration has no preset fallback.
+- `applyGeneratedFields` puts the result into the latest stored card. It replaces the first greeting and keeps alternate greetings and all other fields.
 
 Use `generateCharacterFields` when a flow writes card text from a summary. Do not use it to edit a card that the user wrote, because it replaces the description, personality, scenario, and greeting.
 

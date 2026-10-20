@@ -472,6 +472,21 @@ pages:
           你冷静、沉稳、善于思考。你先想清楚再回答。你说话清楚、简短。你给出诚实的建议，并尊重用户的选择。
     generation:
       fallback-description: '你的名字是{name}。{summary}'
+      tab: 重新生成
+      description: 用一句话描述角色。AIRI 会重新写出描述、性格、场景和开场白，其他设置不变。
+      summary-label: 一句话描述
+      summary-placeholder: 例如：一个温柔、偶尔爱开玩笑的学姐。
+      regenerate: 重新生成
+      generating: 生成中…
+      preview-title: 对比后选择
+      preview-description: 替换之前，角色卡不会改变。
+      current: 当前
+      generated: 新生成
+      greeting: 开场白
+      apply: 替换
+      discard: 保留当前
+      applied: 已重新生成 {name}。
+      failed: '重新生成失败，角色卡没有改变。错误：{error}'
     presets_label: 预设
     personality_kept_over_limit: 导入的性格超过 {limit} 个字符。在你修改之前，它会保持原样。
     preset_preview:

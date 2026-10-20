@@ -1,5 +1,7 @@
 import type { Conversation } from '@proj-airi/core-agent'
 
+import type { AiriCard } from '../types/airiCard'
+
 import { check, minLength, object, parse, pipe, string, trim } from 'valibot'
 
 import { personalityLimit } from './airi-card-editor'
@@ -136,5 +138,26 @@ export async function generateCharacterFields(
   }
   finally {
     clearTimeout(timer)
+  }
+}
+
+/**
+ * Puts regenerated text into a card and saves the summary that produced it.
+ *
+ * Regeneration owns only the generated fields. The first greeting is replaced, alternate greetings stay,
+ * and every other field keeps its value from `card`. Pass the latest stored card so changes made during generation survive.
+ */
+export function applyGeneratedFields(card: AiriCard, fields: GeneratedCharacterFields, summary: string): AiriCard {
+  const [, ...alternateGreetings] = card.greetings ?? []
+  return {
+    ...card,
+    description: fields.description,
+    personality: fields.personality,
+    scenario: fields.scenario,
+    greetings: [fields.greeting, ...alternateGreetings],
+    extensions: {
+      ...card.extensions,
+      airi: { ...card.extensions.airi, generation: { summary } },
+    },
   }
 }

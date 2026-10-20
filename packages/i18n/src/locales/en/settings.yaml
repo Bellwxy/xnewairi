@@ -503,6 +503,21 @@ pages:
           choices of the user.
     generation:
       fallback-description: 'Your name is {name}. {summary}'
+      tab: Regenerate
+      description: Describe the character in one sentence. AIRI then writes the description, personality, scenario, and first greeting again. Other settings do not change.
+      summary-label: One sentence
+      summary-placeholder: For example, a gentle senior who teases a little.
+      regenerate: Regenerate
+      generating: Generating…
+      preview-title: Compare and choose
+      preview-description: The card does not change until you replace it.
+      current: Current
+      generated: New
+      greeting: First greeting
+      apply: Replace
+      discard: Keep current
+      applied: Regenerated {name}.
+      failed: 'Could not regenerate the character. The card did not change. Error: {error}'
     presets_label: Presets
     personality_kept_over_limit: This imported personality is longer than {limit} characters. It stays as it is until you edit it.
     preset_preview:
